@@ -1,6 +1,10 @@
 # Vinetto
 
-A thumbnail file parser.  Based on the original Vinetto by Michel Roukine
+A thumbnail file parser.
+Based on the original Vinetto by Michel Roukine.
+This version should be compatible with Python 2 and 3.
+It should work on Linux, Mac, and Windows.
+Testing has currently been limited to Linux.
 
 Usage Overview:
 --------------
@@ -48,7 +52,7 @@ Exit Codes:
    2 - Argument parsing error
   10 - Input file errors
   11 - Output directory errors
-  12 - Input file Header Signature error (not d0cf11e0a1b11ae1 or 0e11fc0dd0cf11e0)
+  12 - Input file Header Signature error
   13 - Thumbnail output subdirectory error
   14 - Expecting JPEG EOI (End of Image)
   15 - Stream length doesn't match reported Header 1 length
