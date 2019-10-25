@@ -1,20 +1,15 @@
 # Vinetto
 
-A thumbnail file parser.
-Based on the original Vinetto by Michel Roukine.
-This version should be compatible with Python 2 and 3.
-It should work on Linux, Mac, and Windows.
-Testing has currently been limited to Linux.
+Vinetto is a thumbnail file (i.e., thumbs.db) parser that can read a variety of
+these files.  Based on the original Vinetto by Michel Roukine.
+
+This is a much needed update to the latest original Vinetto (version 0.7).
+
+This version should be compatible with Python 2 and 3.  It should work on
+Linux, Mac, and Windows.  Testing has currently been limited to Linux.
 
 Usage Overview:
 --------------
-
-  Vinetto is a thumbnail file (i.e., thumbs.db) parser that can
-  read a variety of these files.  This is a much needed update
-  to the latest original Vinetto (version 0.7).
-
-  This version is designed to be cross compatible between Python
-  2 and 3.
 
 ```
     usage: vinetto [-h] [--version] [-o DIR] [-H] [-U] [-q] [-s] thumbfile
