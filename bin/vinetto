@@ -62,26 +62,27 @@ def getargs():
     # Return arguments passed to vinetto on the command line.
 
     descstr = PROG + " - The Thumbnail File Parser"
-    epilogstr = (PROG + " " + __major__ + "." + __minor__ + "." + __micro__ + "\n" +
-                 "Based on the original Vinetto by " + __author__ + ".\n" +
+    epilogstr = ("--- " + PROG + " " + __major__ + "." + __minor__ + "." + __micro__ + " ---\n" +
+                 "Based on the original Vinetto by " + __author__ + "\n" +
                  "Updated by " + __maintainer__ + "\n" +
-                 PROG + " is open source software.\n" +
+                 PROG + " is open source software\n" +
                  "  See: " + __location__)
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description=descstr, epilog=epilogstr)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description=descstr, epilog=epilogstr)
     parser.add_argument("--version", action="version", version=epilogstr)
     parser.add_argument("-o", dest="outdir",
                         help="write thumbnails to DIR", metavar="DIR")
     parser.add_argument("-H", action="store_true", dest="htmlrep",
-                        help="write html report to DIR.  Requires option -o")
+                        help="write html report to DIR (requires option -o)")
     parser.add_argument("-U", action="store_true", dest="encoding",
                         help="use utf8 encodings")
     parser.add_argument("-q", action="store_true", dest="quiet",
                         help="quiet output")
     parser.add_argument("-s", action="store_true", dest="symlinks",
-                        help=("create symlink from the the image realname to the numbered name in DIR/" + THUMBS_SUBDIR + ". " +
-                              "NOTE: A Catalog containing the realname must exist for this option to produce results. " +
-                              "Requires option -o"))
+                        help=("create symlink from the the image realname to the numbered name\n" +
+                              "in DIR/" + THUMBS_SUBDIR + " " + "(requires option -o)\n" +
+                              "NOTE: A Catalog containing the realname must exist for this\n" +
+                              "      option to produce results"))
     parser.add_argument("thumbfile",
                         help="an input thumbnail file, like \"Thumb.db\"")
     pargs = parser.parse_args()

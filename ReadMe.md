@@ -23,16 +23,18 @@ Usage Overview:
       -h, --help  show this help message and exit
       --version   show program's version number and exit
       -o DIR      write thumbnails to DIR
-      -H          write html report to DIR, requires -o
+      -H          write html report to DIR (requires option -o)
       -U          use utf8 encodings
       -q          quiet output
-      -s          create symlink of the image realname to the numbered name in
-                  DIR/.thumbs, requires -o
+      -s          create symlink from the the image realname to the numbered name
+                  in DIR/.thumbs (requires option -o)
+                  NOTE: A Catalog containing the realname must exist for this
+                        option to produce results
 
-    Vinetto 0.8.0
-    Based on the original Vinetto by Michel Roukine.
+    --- Vinetto 0.8.0 ---
+    Based on the original Vinetto by Michel Roukine
     Updated by Keven L. Ates
-    Vinetto is open source software.
+    Vinetto is open source software
       See: https://github.com/AtesComp/Vinetto
 ```
 
