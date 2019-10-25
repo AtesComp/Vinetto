@@ -8,7 +8,7 @@ This is a much needed update to the latest original Vinetto (version 0.7).
 This version should be compatible with Python 2 and 3.  It should work on
 Linux, Mac, and Windows.  Testing has currently been limited to Linux.
 
-##Project Overview
+## Project Overview
 
 1. **Context** : The Windows systems (98, ME, 2000 and XP) can store thumbnails
 and metadata of the picture files contained in the directories of its FAT32 or
@@ -41,7 +41,7 @@ Thumbs.db files.  Vinetto will function according to three modes:
 4. **Miscellaneous** : Vinetto is intended to be integrated into forensics
 liveCD like FCCU GNU/Linux Forensic Boot CD.
 
-##Requirements
+## Requirements
 
 1. Python-2.3 or later.
 
@@ -49,7 +49,7 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 by the maintainer.  PIL is used to attempt correct reconstitution of Type 1
 thumbnails (see Limitations below).
 
-##Limitations
+## Limitations
 
 Windows(R)(TM) uses at least two format types to store thumbnails in its
 Thumbs.db files.  Vinetto categorizes these formats as Type 1 and Type 2:
@@ -67,7 +67,7 @@ modified to use common Python packages and methods not specific to the Linux
 OS.  Therefore, it should operate on BSD deriviatives, such as Darwin(R)(TM),
 and Windows(R)(TM) OSes as well. YMMV.
 
-##Usage Overview:
+## Usage Overview:
 
 ```
     usage: vinetto [-h] [--version] [-o DIR] [-H] [-U] [-q] [-s] thumbfile
@@ -96,7 +96,7 @@ and Windows(R)(TM) OSes as well. YMMV.
       See: https://github.com/AtesComp/Vinetto
 ```
 
-##Exit Codes
+## Exit Codes
 
 Vinetto reports a number of exit codes depending on its ability to perform
 certain tasks:
@@ -115,7 +115,7 @@ certain tasks:
   18 - Symlink create error
 ```
 
-##Installation:
+## Installation:
 
   To install from the source directory:
 
