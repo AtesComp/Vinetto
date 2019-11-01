@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Exit codes expanded to indicate specific error
+- Added checks for newer Thumbnail file structures
+- Control endian-ness of thumbnail data
 
 ### Changed
 
@@ -16,3 +18,9 @@ All notable changes to this project will be documented in this file.
 - Overhauled parameter parsing
 - Updated help
 - Overhauled symlink creation for HTML report to be OS agnostic
+- Updated versioning
+- Reordered required module loading
+- Loading and unloading specific modules only when needed (such as PIL Image)
+- Thumbnail information restructured for output
+- Many variables renamed for clarity
+- Updated unicode processing
