@@ -70,26 +70,32 @@ and Windows(R)(TM) OSes as well. YMMV.
 ## Usage Overview:
 
 ```
-    usage: vinetto [-h] [--version] [-o DIR] [-H] [-U] [-q] [-s] thumbfile
+    usage: vinetto [-h] [--version] [-o DIR] [-H] [-U] [-q] [-s] [-m {d,r}] infile
 
-    Vinetto - The Thumbnail File Parser
+    Vinetto.py - The Thumbnail File Parser
 
     positional arguments:
-      thumbfile   an input thumbnail file, like "Thumb.db"
+    infile                an input file, depending on mode, such as a
+                            thumbnail file ("Thumb.db" or similar) or a directory
 
     optional arguments:
-      -h, --help  show this help message and exit
-      --version   show program's version number and exit
-      -o DIR      write thumbnails to DIR
-      -H          write html report to DIR (requires option -o)
-      -U          use utf8 encodings
-      -q          quiet output
-      -s          create symlink from the the image realname to the numbered name
-                  in DIR/.thumbs (requires option -o)
-                  NOTE: A Catalog containing the realname must exist for this
-                        option to produce results
+    -h, --help            show this help message and exit
+    --version             show program's version number and exit
+    -o DIR, --outdir DIR  write thumbnails to DIR
+    -H, --htmlrep         write html report to DIR (requires option -o)
+    -U, --utf8            use utf8 encodings
+    -q, --quiet           quiet output
+    -s, --symlinks        create symlink from the the image realname to the numbered name
+                            in DIR/.thumbs (requires option -o)
+                            NOTE: A Catalog containing the realname must exist for this
+                                option to produce results
+    -m {d,r}, --mode {d,r}
+                            operating mode: "d" or "r"
+                            where "d" indicates directory processing
+                                    "r" indicates recursive directory processing from a
+                                        starting directory
 
-    --- Vinetto 0.8.0 ---
+    --- Vinetto 0.8.4 ---
     Based on the original Vinetto by Michel Roukine
     Updated by Keven L. Ates
     Vinetto is open source software
