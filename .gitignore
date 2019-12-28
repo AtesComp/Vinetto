@@ -1,0 +1,9 @@
+*.pyc
+*.pyo
+*.orig
+*.bak
+*.rej
+*~
+__pycache__/
+*.DS_Store
+
