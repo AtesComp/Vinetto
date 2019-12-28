@@ -10,11 +10,11 @@ def read(fname):
 
 setup(
   name='vinetto',
-  version='0.8.0',
+  version='0.8.5',
   include_package_data=True,
   packages=['vinetto'],
   package_dir={'vinetto': 'src/vinetto'},
-  package_data={'vinetto': ['data/*']},
+  package_data={'vinetto': ['data/*', 'lib/*']},
   entry_points={'console_scripts': ['vinetto=vinetto.vinetto:main']},
   description='Vinetto: The Thumbnail File Parser',
   long_description=read('ReadMe.md'),

@@ -27,7 +27,7 @@ This file is part of Vinetto.
 
 __major__ = "0"
 __minor__ = "3"
-__micro__ = "2"
+__micro__ = "3"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
@@ -129,7 +129,7 @@ def extractStats(strDirectory):
     global TN_STREAMS
 
     if (TN_STREAMS == {}):
-        return ""
+        return None
 
     # Return extraction statistics...
     dicStats = {"u": {1: 0, 2: 0}, "e": {1: 0, 2: 0} }
@@ -147,6 +147,8 @@ def extractStats(strDirectory):
     astrStats = []
     for strExtractType in dicStats:
         for iType in dicStats[strExtractType]:
+            if (dicStats["u"][iType] == 0 and dicStats["e"][iType] == 0):
+                continue
             strStat = ""
             if (strExtractType == "e"):
                 strStat += "  Extracted: "

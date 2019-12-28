@@ -27,12 +27,13 @@ This file is part of Vinetto.
 
 __major__ = "0"
 __minor__ = "4"
-__micro__ = "1"
+__micro__ = "2"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
 
 HtHeader = []
+HtType = []
 HtPicRow = []
 HtOrphans = []
 HtFooter = []
@@ -56,10 +57,10 @@ class Report:
         self.verstr = verstr
 
 
-class HtRep(Report):
+class HttpReport(Report):
     """ Html vinetto elementary mode report Class.  """
-    def __init__ (self, tDBfname, outputdir, charset, verstr):
-        """ Initialize a new HtRep instance.  """
+    def __init__(self, tDBtype, tDBfname, outputdir, charset, verstr):
+        """ Initialize a new HtttReport instance.  """
         Report.__init__(self, tDBfname, outputdir, verstr)
         self.rownumber = 0
         separatorID = 0
@@ -74,11 +75,17 @@ class HtRep(Report):
 
             if separatorID == 0:
                 HtHeader.append(strLine)
-            elif separatorID == 1:
+            elif separatorID == 1 and tDBtype == 1:
+                HtType.append(strLine)
+            elif separatorID == 2 and tDBtype == 2:
+                HtType.append(strLine)
+            elif separatorID == 3 and tDBtype == 3:
+                HtType.append(strLine)
+            elif separatorID == 4:
                 HtPicRow.append(strLine)
-            elif separatorID == 2:
+            elif separatorID == 5:
                 HtOrphans.append(strLine)
-            elif separatorID == 3:
+            elif separatorID == 6:
                 HtFooter.append(strLine)
 
         self.TNidList = []
@@ -86,15 +93,15 @@ class HtRep(Report):
         self.TNnameList = []
 
 
-    def SetFileSection (self, FileSize, md5):
+    def SetFileSection(self, FileSize, md5):
         """ Initialize data of the report file section.  """
         self.FileSize = FileSize
         self.md5 = md5
 
 
-    def SetRE (self, tDBREcolor, tDBREpdid, tDBREndid, tDBREsdid, tDBREcid, tDBREuserflags,
-                       tDBREctime, tDBREmtime, tDBREsid_firstSecDir, tDBREsid_sizeDir):
-        """ Initialize data of the report file section.  """
+    def SetType1(self, tDBREcolor, tDBREpdid, tDBREndid, tDBREsdid, tDBREcid, tDBREuserflags,
+                tDBREctime, tDBREmtime, tDBREsid_firstSecDir, tDBREsid_sizeDir):
+        # Initialize type 1 of report type section
         self.tDBREcolor = tDBREcolor
         self.tDBREpdid = tDBREpdid
         self.tDBREndid = tDBREndid
@@ -107,12 +114,30 @@ class HtRep(Report):
         self.tDBREsid_sizeDir = tDBREsid_sizeDir
 
 
+    def SetType2(self, tDB_fileType, tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail,
+                 tDB_cacheCount):
+        # Initialize type 2 of report type section
+        self.tDBREtype = tDB_fileType
+        self.tDBREformatVer = tDB_formatVer
+        self.tDBREcacheType = tDB_cacheType
+        self.tDBREcacheOff1st = tDB_cacheOff1st
+        self.tDBREcacheOff1stAvail = tDB_cacheOff1stAvail
+        self.tDBREcacheCount = tDB_cacheCount
+
+
+    def SetType3(self, tDB_fileType, tDB_formatVer, tDB_entryUsed, tDB_entryCount):
+        # Initialize type 3 of report type section
+        self.tDBREtype = tDB_fileType
+        self.tDBREformatVer = tDB_formatVer
+        self.tDBREentryUsed = tDB_entryUsed
+        self.tDBREentryCount = tDB_entryCount
+
 
     def headwrite(self):
         global NONE_BLOCK
 
         # Writes report header...
-        self.repfile = open(self.outputdir + "index.html", "w")
+        self.repfile = open(self.outputdir + self.tDBfname + ".html", "w")
         for strLine in HtHeader:
             strLine = strLine.replace("__DATEREPORT__",  "Report Date: " + getFormattedTimeUTC(time()))
             strLine = strLine.replace("__TDBDIRNAME__",  self.tDBdirname)
@@ -121,6 +146,8 @@ class HtRep(Report):
             strLine = strLine.replace("__FILESIZE__",    str(self.FileSize))
             strLine = strLine.replace("__MD5__",         self.md5 if not None else "Not Calculated")
 
+        for strLine in HtType:
+            # Type 1
             strLine = strLine.replace("__TDBRECOLOR__",  "%d (%s)" % (self.tDBREcolor, "Black" if self.tDBREcolor else "Red"))
             strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.tDBREpdid == NONE_BLOCK) else str(self.tDBREpdid)))
             strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.tDBREndid == NONE_BLOCK) else str(self.tDBREndid)))
@@ -132,11 +159,25 @@ class HtRep(Report):
             strLine = strLine.replace("__TDBRESID1SD__", str(self.tDBREsid_firstSecDir))
             strLine = strLine.replace("__TDBRESIDSZD__", str(self.tDBREsid_sizeDir))
 
+            # Type 2
+            strLine = strLine.replace("__TDBRETYPE__",             self.tDBREtype)
+            strLine = strLine.replace("__TDBREFORMATVER__",        self.tDBREformatVer)
+            strLine = strLine.replace("__TDBRECACHETYPE__",        str(self.tDBREcacheType))
+            strLine = strLine.replace("__TDBRECACHEOFF1ST__",      str(self.tDBREcacheOff1st))
+            strLine = strLine.replace("__TDBRECACHEOFF1STAVAIL__", str(self.tDBREcacheOff1stAvail))
+            strLine = strLine.replace("__TDBRECACHECOUNT__",       str(self.tDBREcacheCount))
+
+            # Type 3
+            #strLine = strLine.replace("__TDBRETYPE__",       self.tDBREtype) # ...from above
+            #strLine = strLine.replace("__TDBREFORMATVER__",  self.tDBREformatVer) # ...from above
+            strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.tDBREentryUsed))
+            strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.tDBREentryCount))
+
             self.repfile.write(strLine)
 
 
     def close(self, strStats):
-        # Terminate processing HtRep instance...
+        # Terminate processing HtttReport instance...
 
         for strLine in HtFooter:
             strLine = strLine.replace("__TYPEXTRACT__", strStats)
@@ -256,6 +297,10 @@ class HtRep(Report):
         self.printOrphanCatEnt(OrphanICat)
 
         strStats = ""
-        for strStat in astrStats:
-            strStats += strStat.replace(" ", "&nbsp;") + "<br />"
-        self.close(strStats[:-6])
+        if (astrStats != None):
+            for strStat in astrStats:
+                strStats += strStat.replace(" ", "&nbsp;") + "<br />"
+            self.close(strStats[:-6])
+        else:
+            strStats += "No Stats!".replace(" ", "&nbsp;")
+            self.close(strStats)

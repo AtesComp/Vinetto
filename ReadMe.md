@@ -22,21 +22,40 @@ NTFS filesystems.
    to the forensics investigator.
 
 2. **Intention** : Vinetto extracts thumbnails and associated metadata from
-Thumbs.db files.  Vinetto will function according to three modes:
-   1. *default* : Vinetto extracts thumbnails and metadata from specified
-   Thumbs.db files.  **This is the current operating mode.**
-      - **TODO:** It will attempt to cross check Thumb Ids with file names in a
-      specified Windows.edb file.
+Thumbs.db files.  Vinetto will function according to four modes:
+   1. *file* : Vinetto extracts thumbnails and metadata from specified
+   Thumbs.db files.  **This is the current default operating mode.**
       - **TODO:** It will also process Thumbcache_\*.db files.
+      - **TODO:** It will attempt to cross check Thumb Ids with file names in a
+      specified Windows.edb file. This process uses the python libraries from
+      libesedb to find and extract the relevant file information.
 
-   2. *directory* : **TODO:** Vinetto will check for consistency between the
-   specified directory's content and its related Thumbs.db file.  I.e., it will
-   report thumbnails that have a missing associated file in the directory.
-   It will also process any found Thumbcache_\*.db files.
+   2. *directory* : Vinetto processes any found \*.db files in the specified
+   BASE directory.
+      - **TODO:** It will check for consistency between the specified
+      directory's content and its related Thumbs.db file.  I.e., it will report
+      thumbnails that have a missing associated file in the directory.
+      - **TODO:** It will also process Thumbcache_\*.db files.
+      - **TODO:** As per default, it will attempt to cross check Thumb Ids with
+      file names in a specified Windows.edb file.
 
-   3. *recursive* : **TODO:** Vinetto will process from the specified starting
-   directory recursively down its directory tree.  It will processing any found
-   thumbnail files and their images.
+   3. *recursive* : Vinetto processes any found \*.db files from the specified
+   BASE directory recursively down its directory tree.
+      - **TODO:** It will check for consistency between a subdirectory's
+      content and its related Thumbs.db file.  I.e., it will report
+      thumbnails that have a missing associated file in its subdirectory.
+      - **TODO:** It will also process Thumbcache_\*.db files.
+      - **TODO:** As per default, it will attempt to cross check Thumb Ids with
+      file names in a specified Windows.edb file.
+
+   4. *automatic* : **TODO:** Vinetto will process the specified BASE
+   directory as a Windows Vista+ OS partition.
+      - **TODO:** It will processing thumbcache files from
+      BASE/Users/*/AppData/Local/Microsoft/Windows/Explorer/
+      - **TODO:** As per default, it will attempt to cross check Thumb Ids with
+      file names in
+      BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb
+      or in a specified Windows.edb file.
 
 3. **Purpose** : Vinetto will help \*nix-based forensics investigators to:
    1. easily preview thumbnails of deleted pictures on Windows systems,
@@ -53,6 +72,9 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 2. PIL or Pillow.  PIL (Python Imaging Library) 1.1.5 or later.  Pillow is used
 by the maintainer.  PIL is used to attempt correct reconstitution of Type 1
 thumbnails (see Limitations below).
+
+3. python-magic.  Magic is used to determine the image file type for
+thumcache_*.db entries.
 
 ## Limitations
 
@@ -75,43 +97,68 @@ and Windows(R)(TM) OSes as well. YMMV.
 ## Usage Overview:
 
 ```
-    usage: vinetto [-h] [-H] [-m {d,r}] [--md5] [--nomd5] [-o DIR] [-q] [-s] [-U]
-                   [--version]
-                   infile
+    usage: vinetto [-h] [-e EDBFILE] [-H] [-m {d,r}] [--md5] [--nomd5] [-o DIR]
+                [-q] [-s] [-U] [--version]
+                infile
 
     Vinetto.py - The Thumbnail File Parser
 
     positional arguments:
-    infile                 an input file, depending on mode, such as a
-                           thumbnail file ("Thumb.db" or similar) or a directory
+    infile                an input file, depending on mode, such as a
+                            thumbnail file ("Thumb.db" or similar) or a directory
 
     optional arguments:
-    -h, --help             show this help message and exit
-    -H, --htmlrep          write html report to DIR (requires option -o)
+    -h, --help            show this help message and exit
+    -e EDBFILE, --edb EDBFILE
+                            examine EDBFILE for original thumbnail filenames
+    -H, --htmlrep         write html report to DIR (requires option -o)
     -m {d,r}, --mode {d,r}
-                           operating mode: "d" or "r"
-                           where "d" indicates directory processing
-                                 "r" indicates recursive directory processing from a
-                                       starting directory
-    --md5                  force the MD5 hash value calculation for the file
-                           Normally, the MD5 is calculated when the file is less than
-                           0.5 GiB in size
-                           NOTE: --nomd5 overrides --md5
-    --nomd5                skip the MD5 hash value calculation for the file
-    -o DIR, --outdir DIR   write thumbnails to DIR
-    -q, --quiet            quiet output
-    -s, --symlinks         create symlink from the the image realname to the numbered name
-                           in DIR/.thumbs (requires option -o)
-                           NOTE: A Catalog containing the realname must exist for this
-                                 option to produce results
-    -U, --utf8             use utf8 encodings
-    --version              show program's version number and exit
+                            operating mode: "d" or "r"
+                            where "d" indicates directory processing
+                                    "r" indicates recursive directory processing from a
+                                        starting directory
+    --md5                 force the MD5 hash value calculation for an input file
+                            Normally, the MD5 is calculated when a file is less than
+                            0.5 GiB in size
+                            NOTE: --nomd5 overrides --md5
+    --nomd5               skip the MD5 hash value calculation for an input file
+    -o DIR, --outdir DIR  write thumbnails to DIR
+    -q, --quiet           quiet output
+    -s, --symlinks        create symlink from the the image realname to the numbered name
+                            in DIR/.thumbs (requires option -o)
+                            NOTE: A Catalog containing the realname must exist for this
+                                option to produce results OR a Windows.edb must be given
+                                (-e) to find and extract possible file names
+    -U, --utf8            use utf8 encodings
+    --version             show program's version number and exit
 
-    --- Vinetto.py 0.8.4 ---
+    Operating Mode Notes:
+      Using the mode switch (-m, --mode) causes the input to be treated differently
+      based on the mode selected
+      File      (f): DEFAULT
+        Use the input as a location to an individual thumbnail file to process
+      Directory (d):
+        Use the input as a directory containing individual thumbnail files where
+        each file is automatically iterated for processing
+      Recursive (r):
+        Use the input as a BASE directory from which it and subdirectories are
+        recursively searched for individual thumbnail files for processing
+      Automatic (a):
+        Use the input as a BASE directory of a partition to examine default
+        locations for relevant thumbnail files to process
+          Thumbcache Files:
+            BASE/Users/*/AppData/Local/Microsoft/Windows/Explorer
+              where '*' are user directories iterated automatically
+          Windows.edb File:
+            BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb
+        When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
+        location
+
+    --- Vinetto.py 0.8.5 ---
     Based on the original Vinetto by Michel Roukine
     Updated by Keven L. Ates
     Vinetto.py is open source software
-      See: https://github.com/AtesComp/Vinetto
+    See: https://github.com/AtesComp/Vinetto
 ```
 
 ## Exit Codes
@@ -131,6 +178,7 @@ certain tasks:
   16 - Stream length doesn't match reported Header 2 length
   17 - Header 2 not found
   18 - Symlink create error
+  19 - EDB Input file errors
 ```
 
 ## Installation:

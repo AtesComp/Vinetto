@@ -2,9 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Released]
+## [0.8.5] - 2019-12-27 (DEVELOPEMENT)
 
-## [0.8.4] - 2019-11-xx
+### Added
+
+- EDB file switch "-e, --edb" to provide an input EDB file (Windows.edb) to examine for original thumbnail filenames
+- Import python ESEDB library, version dependent (2.7 or 3.7)
+- Mode switch option "f" (file, default mode) to provide the default operating mode
+- Mode switch option "a" (automatic) processing to analize given directory as a Windows Vista+ partition for default locations of thumbcache_*.db and Windows.edb files
+- New HTML Report functions to process thumbcache_#.db files
+
+### Changed
+
+- HTML Report to include processing for thumbcache_#.db files
+- Utilities to include processing for thumbcache_#.db files
+- Streamlined processing stats
+
+## [0.8.4] - 2019-11-15 (DEVELOPEMENT)
 
 ### Added
 
@@ -29,7 +43,7 @@ All notable changes to this project will be documented in this file.
 - Reformatted header block to clarify and condense information
 - Reformatted HTML report to clarify and condense information
 
-## [0.8.0] - 2019-10-28
+## [0.8.0] - 2019-10-28 (RELEASED)
 
 ### Added
 
