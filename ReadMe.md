@@ -74,7 +74,7 @@ by the maintainer.  PIL is used to attempt correct reconstitution of Type 1
 thumbnails (see Limitations below).
 
 3. python-magic.  Magic is used to determine the image file type for
-thumcache_*.db entries.
+thumbcache_*.db entries.
 
 ## Limitations
 
