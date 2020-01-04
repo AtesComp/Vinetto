@@ -27,7 +27,7 @@ This file is part of Vinetto.
 
 __major__ = "0"
 __minor__ = "8"
-__micro__ = "5"
+__micro__ = "6"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
@@ -39,9 +39,7 @@ import errno
 import argparse
 from io import StringIO
 from struct import unpack
-from binascii import hexlify
-
-import magic
+from binascii import hexlify, unhexlify
 
 import vinetto.vinreport
 from vinetto.vinutils import LAST_BLOCK, NONE_BLOCK, \
@@ -49,12 +47,19 @@ from vinetto.vinutils import LAST_BLOCK, NONE_BLOCK, \
                              getStreamFileName, getRawFileName, \
                              isCatalogOutOfSequence, isStreamsOutOfSequence, \
                              addStreamIdToStreams, addFileNameToStreams, \
-                             extractStats, convertToPyTime, getFormattedTimeUTC
+                             extractStats, convertToPyTime, getFormattedTimeUTC, \
+                             cleanFileName
 from pkg_resources import resource_filename
 
 PROG = os.path.basename(__file__).capitalize()
 
 THUMBS_SUBDIR = ".thumbs"
+THUMBS_FILE_URLS = "urls.txt"
+
+THUMBS_SIG_OLE  = bytearray(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1") # Standard Sig for OLE2 Thumbs.db file
+THUMBS_SIG_OLEB = bytearray(b"\x0e\x11\xfc\x0d\xd0\xcf\x11\xe0") # Older Beta Sig for OLE2 Thumbs.db file
+THUMBS_SIG_CMMM = bytearray(b"CMMM") # Standard Sig for Thumbcache_*.db files
+THUMBS_SIG_IMMM = bytearray(b"IMMM") # Standard Sig for Thumbcache_*.db Index files
 
 THUMBS_TYPE_OLE  = 1
 THUMBS_TYPE_CMMM = 2
@@ -115,11 +120,21 @@ TC_CACHE_ALL = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1
 #    The Windows.edb stores the ThumbnailCacheID as part of its metadata for indexed files.
 #    Uses ESEDB library pyesedb to read the EDB file.
 #
-ESEDB_FILE = None
-ESEDB_TABLE = None
-ESEDB_ICOL_TCI = None
-ESEDB_ICOL_IPD = None
-ESEDB_ICOL_IU = None
+ESEDB_FILE     = None # Windows.edb or equivalent user specified file
+ESEDB_TABLE    = None # SystemIndex_0A or SystemIndex_PropertyStore
+ESEDB_ICOL_TCI = None # System_ThumbnailCacheId
+ESEDB_ICOL_IPD = None # System_ItemPathDisplay
+ESEDB_ICOL_IND = None # System_ItemNameDisplay
+ESEDB_ICOL_IN  = None # System_ItemName
+ESEDB_ICOL_IU  = None # System_ItemUrl
+ESEDB_ICOL_IHS = None # System_Image_HorizontalSize
+ESEDB_ICOL_IVS = None # System_Image_VerticalSize
+ESEDB_ICOL_ID  = None # System_Image_Dimensions
+ESEDB_ICOL_OFN = None # System_OriginalFileName
+ESEDB_ICOL_FN  = None # System_FileName
+ESEDB_ICOL_DM  = None # System_DateModified
+ESEDB_ICOL_DC  = None # System_DateCreated
+ESEDB_ICOL_DA  = None # System_DateAccessed
 
 ARGS = None
 EXIT_CODE = 0
@@ -129,9 +144,9 @@ IMAGE_TYPE_1_QUANTIZE = None
 IMAGE_TYPE_1_HUFFMAN  = None
 
 # Magic IDs for images...
-IMAGE_TYPE_BMP  = 0x424D                # BM
-IMAGE_TYPE_JPEG = 0xFFD8FFE0            # ....
-IMAGE_TYPE_PNG  = 0x89504E470D0A1A0A    # .PNG\n\r\sub\r
+IMAGE_TYPE_BMP  = (bytearray(b'\x42\x4D'), "bmp")                         # BM
+IMAGE_TYPE_JPEG = (bytearray(b'\xFF\xD8\xFF\xE0'), "jpg")                  # ....
+IMAGE_TYPE_PNG  = (bytearray(b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'), "png") # .PNG\n\r\sub\r
 
 HTTP_REPORT = None
 
@@ -299,20 +314,36 @@ def printDBHead(thumbType, sig, formatVer, cacheType, cacheOff1st, cacheOff1stAv
         print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
 
 
-def printDBCache(sig, size, iHash, strExt, idSize, padSize, dataSize, chksumD, chksumH, strID, strIPD, strIU):
-    print("     Signature: %s" % sig)
-    print("          Size: %d" % size)
-    print("          Hash: %d" % iHash)
-    if (strExt != None):
-        print("     Extention: %s" % strExt)
-    print("       ID Size: %d" % idSize)
-    print("      Pad Size: %d" % padSize)
-    print("     Data Size: %d" % dataSize)
-    print(" Data Checksum: %d" % chksumD)
-    print(" Head Checksum: %d" % chksumH)
+def printDBCache(iCounter, strSig, iSize, iHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, listESEDB):
+    print(" Entry Counter: %d" % iCounter)
+    print("     Signature: %s" % strSig)
+    print("          Size: %d" % iSize)
+    print("          Hash: %s" % format(iHash, 'x'))
+    print("     Extension: %s" % ("None" if (strExt == None) else strExt))
+    print("       ID Size: %d" % iIdSize)
+    print("      Pad Size: %d" % iPadSize)
+    print("     Data Size: %d" % iDataSize)
+    print("  Image  Width: %d" % iWidth)
+    print("  Image Height: %d" % iHeight)
+    print(" Data Checksum: %d" % iChkSumD)
+    print(" Head Checksum: %d" % iChkSumH)
     print("            ID: %s" % strID)
-    print("ESEBD ItemPath: %s" % ("None" if (strIPD == None) else strIPD))
-    print("ESEBD  ItemUrl: %s" % ("None" if (strIU == None) else strIU))
+    if (ESEDB_FILE != None and listESEDB != None):
+        print(" ESEBD Enhance:")
+        print("        ItemPath: %s" % ("None" if (listESEDB(0)  == None) else listESEDB(0)))
+        print(" ItemNameDisplay: %s" % ("None" if (listESEDB(1)  == None) else listESEDB(1)))
+        print("        ItemName: %s" % ("None" if (listESEDB(2)  == None) else listESEDB(2)))
+        print("         ItemUrl: %s" % ("None" if (listESEDB(3)  == None) else listESEDB(3)))
+        print("   ImageHorzSize: %d" % ("None" if (listESEDB(4)  == None) else listESEDB(4)))
+        print("   ImageVertSize: %d" % ("None" if (listESEDB(5)  == None) else listESEDB(5)))
+        print("       ImageDims: %s" % ("None" if (listESEDB(6)  == None) else listESEDB(6)))
+        print("    OrigFileName: %s" % ("None" if (listESEDB(7)  == None) else listESEDB(7)))
+        print("        FileName: %s" % ("None" if (listESEDB(8)  == None) else listESEDB(8)))
+        print("    DateModified: %s" % ("None" if (listESEDB(9)  == None) else listESEDB(9)))
+        print("     DateCreated: %s" % ("None" if (listESEDB(10) == None) else listESEDB(10)))
+        print("    DateAccessed: %s" % ("None" if (listESEDB(11) == None) else listESEDB(11)))
+    else:
+        print(" ESEBD Enhance: None")
 
     return
 
@@ -320,7 +351,7 @@ def printDBCache(sig, size, iHash, strExt, idSize, padSize, dataSize, chksumD, c
 def setupSymLink(bSymTest):
     global ARGS
 
-    if (bSymTest and ARGS.symlinks):
+    if (bSymTest and ARGS.symlinks): # ...implies ARGS.outdir
         if not os.path.exists(ARGS.outdir + THUMBS_SUBDIR):
             try:
                 os.mkdir(ARGS.outdir + THUMBS_SUBDIR)
@@ -350,7 +381,7 @@ def getFileName(iStreamID, strRawName, bSymTest, iType):
     global ARGS
 
     strFileName = ""
-    if (bSymTest and ARGS.symlinks):
+    if (bSymTest and ARGS.symlinks): # ...implies ARGS.outdir
             strFileName = THUMBS_SUBDIR + "/"
     if (iStreamID >= 0):
         strFileName += getStreamFileName(iStreamID, iType)
@@ -372,50 +403,148 @@ def prepareEDB():
 
     pyesedb_ver = pyesedb.get_version()
     sys.stderr.write(" Info: Imported pyesedb version %s\n" % pyesedb_ver)
-    help(pyesedb)
-    help(pyesedb.file)
 
     ESEDB_FILE = pyesedb.file()
 
+    # Open ESEBD file...
+    strErrType = " DBG: "
     ESEDB_FILE.open(ARGS.edbfile)
-    ESEDB_TABLE = ESEDB_FILE.get_table_by_name("SystemIndex_0A")
+    sys.stderr.write(strErrType + "Opened ESEDB file %s\n" % ARGS.edbfile)
+
+#    # Get Tables...
+#    iTblCnt = ESEDB_FILE.get_number_of_tables()
+#    sys.stderr.write(" DBG: Got %d tables\n" % iTblCnt)
+#    for iTbl in range(iTblCnt):
+#        table = ESEDB_FILE.get_table(iTbl)
+#        if (table == None):
+#            sys.stderr.write(" DBG:   Table %d is None\n" % iTbl)
+#            continue
+#        strTblName = table.get_name()
+#        sys.stderr.write(" DBG:   Table %d Name %s\n" % (iTbl, strTblName))
+
+    strSysIndex = "SystemIndex_"
+    strTableName = "PropertyStore"
+    ESEDB_TABLE = ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
+    if (ESEDB_TABLE == None): # ...try older...
+        strTableName = "0A"
+        ESEDB_TABLE = ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
+    sys.stderr.write(" Info: Opened ESEDB Table %s%s for enhanced processing\n" % (strSysIndex, strTableName))
 
     iColCnt = ESEDB_TABLE.get_number_of_columns()
+    sys.stderr.write(" DBG:     Got %d columns\n" % iColCnt)
+    iColCntFound = 0
     for iCol in range(iColCnt):
         column = ESEDB_TABLE.get_column(iCol)
         strColName = column.get_name()
-        if (strColName == "System_ThumbnailCacheId"):
+        if (strColName.endswith("System_ThumbnailCacheId")):
             ESEDB_ICOL_TCI = iCol
-        if (strColName == "System_ItemPathDisplay"):
+            iColCntFound += 1
+        if (strColName.endswith("System_ItemPathDisplay")):
             ESEDB_ICOL_IPD = iCol
-        if (strColName == "System_ItemUrl"):
+            iColCntFound += 1
+        if (strColName.endswith("System_ItemNameDisplay")):
+            ESEDB_ICOL_IND = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_ItemName")):
+            ESEDB_ICOL_IN = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_ItemUrl")):
             ESEDB_ICOL_IU = iCol
-        if (ESEDB_ICOL_TCI != None and ESEDB_ICOL_IPD != None and ESEDB_ICOL_IU != None):
+            iColCntFound += 1
+        if (strColName.endswith("System_Image_HorizontalSize")):
+            ESEDB_ICOL_IHS = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_Image_VerticalSize")):
+            ESEDB_ICOL_IVS = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_Image_Dimensions")):
+            ESEDB_ICOL_ID = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_OriginalFileName")):
+            ESEDB_ICOL_OFN = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_FileName")):
+            ESEDB_ICOL_FN = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_DateModified")):
+            ESEDB_ICOL_DM = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_DateCreated")):
+            ESEDB_ICOL_DC = iCol
+            iColCntFound += 1
+        if (strColName.endswith("System_DateAccessed")):
+            ESEDB_ICOL_DA = iCol
+            iColCntFound += 1
+        if (iColCntFound == 13): # Total Columns searched
             break
-
-    EXIT_CODE = 19 # TEMP testing pyesedb import
+    sys.stderr.write(" DBG:     Got interested column indicies: %d\n" % iColCntFound)
 
 
 def searchEDB(strTCI):
     global EXIT_CODE
     global ESEDB_FILE, ESEDB_TABLE
 
-    if (ESEDB_ICOL_TCI == None):
-        return (None, None)
+    if (strTCI == None or ESEDB_ICOL_TCI == None):
+        return None
+
+    strConvertTCI = strTCI
+    if (len(strTCI)%2 == 1):
+        strConvertTCI = "0" + strTCI
+    try:
+        bstrTCI = unhexlify(strConvertTCI)
+    except:
+        return None
 
     iRecCnt = ESEDB_TABLE.get_number_of_records()
     strRecIPD = None
     strRecIU = None
+    bFound = False
     for iRec in range(iRecCnt):
-        record = ESEDB_TABLE.get_record()
-        strRecTCI = get_value_data_as_string(ESEDB_ICOL_TCI)
-        if (strTCI == strRecTCI):
-            if (ESEDB_ICOL_IPD != None):
-                strRecIPD = get_value_data_as_string(ESEDB_ICOL_IPD)
-            if (ESEDB_ICOL_IU != None):
-                strRecIU = get_value_data_as_string(ESEDB_ICOL_IU)
+        record = ESEDB_TABLE.get_record(iRec)
+        bstrRecTCI = record.get_value_data(ESEDB_ICOL_TCI)
+        #if (bstrRecTCI != None):
+        #    print(str(hexlify(bstrTCI)) + " <> " + str(hexlify(bstrRecTCI)))
+        #else:
+        #    print(str(hexlify(bstrTCI)) + " <> " + "None")
+        if (bstrRecTCI == None):
+            continue
+        if (bstrTCI == bstrRecTCI):
+            bFound = True
             break
-    return (strRecIPD, strRecIU)
+
+    if (not bFound):
+        return None
+
+    strRecTCI = str( hexlify( bstrRecTCI ))[2:-1]
+
+    if (ESEDB_ICOL_IPD != None):
+        strRecIPD = get_value_data(ESEDB_ICOL_IPD).decode()
+    if (ESEDB_ICOL_IND != None):
+        strRecIND = get_value_data_as_string(ESEDB_ICOL_IND)
+    if (ESEDB_ICOL_IN != None):
+        strRecIN = get_value_data_as_string(ESEDB_ICOL_IN)
+    if (ESEDB_ICOL_IU != None):
+        strRecIU = get_value_data_as_string(ESEDB_ICOL_IU)
+    if (ESEDB_ICOL_IHS != None):
+        iRecIHS = get_value_data_as_integer(ESEDB_ICOL_IHS)
+    if (ESEDB_ICOL_IVS != None):
+        iRecIVS = get_value_data_as_integer(ESEDB_ICOL_IVS)
+    if (ESEDB_ICOL_ID != None):
+        strRecID = get_value_data_as_string(ESEDB_ICOL_ID)
+    if (ESEDB_ICOL_OFN != None):
+        strRecOFN = get_value_data_as_string(ESEDB_ICOL_OFN)
+    if (ESEDB_ICOL_FN != None):
+        strRecFN = get_value_data_as_string(ESEDB_ICOL_FN)
+    if (ESEDB_ICOL_DM != None):
+        strRecDM = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DM) ) )
+    if (ESEDB_ICOL_DC != None):
+        strRecDC = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DC) ) )
+    if (ESEDB_ICOL_DA != None):
+        strRecDA = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DA) ) )
+
+    listRet = (strRecIPD, strRecIND, strRecIN, strRecIU, iRecIHS, iRecIVS,
+               strRecID, strRecOFN, strRecFN, strRecDM, strRecDC, strRecDA)
+    return listRet
 
 
 def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
@@ -605,7 +734,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         strCatEntryId        = "%d" % (iCatEntryID)
                         strCatEntryTimestamp = getFormattedTimeUTC( convertToPyTime(iCatEntryTimestamp) )
                         strCatEntryName      = decodeBytes(iCatEntryName)
-                        if (ARGS.outdir != None and ARGS.symlinks):
+                        if (ARGS.symlinks): # ...implies ARGS.outdir
                             #os.system( "ln -fs " + ARGS.outdir + THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg " + "\"" +
                             #            ARGS.outdir + strCatEntryName + "\"" )
                             symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg",
@@ -639,17 +768,27 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
                     if (len(strRawName) >= 4):
                         # ESEDB Search...
-                        (strIPD, strIU) = searchEDB(strRawName)
-                        if (not ARGS.quiet):
-                            print("ESEBD ItemPath: %s" % ("None" if (strIPD == None) else strIPD))
-                            print("ESEBD  ItemUrl: %s" % ("None" if (strIU == None) else strIU))
-                        if (ARGS.symlinks):
+                        listESEDB = searchEDB(strRawName[strRawName.find("_")+1:])
+                        if (not ARGS.quiet and listESEDB != None):
+                            print("ESEBD ItemPathDisplay: %s" % ("None" if (listESEDB(0)  == None) else listESEDB(0)))
+                            print("ESEBD ItemNameDisplay: %s" % ("None" if (listESEDB(1)  == None) else listESEDB(1)))
+                            print("ESEBD        ItemName: %s" % ("None" if (listESEDB(2)  == None) else listESEDB(2)))
+                            print("ESEBD         ItemUrl: %s" % ("None" if (listESEDB(3)  == None) else listESEDB(3)))
+                            print("ESEBD   ImageHorzSize: %s" % ("None" if (listESEDB(4)  == None) else listESEDB(4)))
+                            print("ESEBD   ImageVertSize: %s" % ("None" if (listESEDB(5)  == None) else listESEDB(5)))
+                            print("ESEBD       ImageDims: %s" % ("None" if (listESEDB(6)  == None) else listESEDB(6)))
+                            print("ESEBD    OrigFileName: %s" % ("None" if (listESEDB(7)  == None) else listESEDB(7)))
+                            print("ESEBD        FileName: %s" % ("None" if (listESEDB(8)  == None) else listESEDB(8)))
+                            print("ESEBD    DateModified: %s" % ("None" if (listESEDB(9)  == None) else listESEDB(9)))
+                            print("ESEBD     DateCreated: %s" % ("None" if (listESEDB(10) == None) else listESEDB(10)))
+                            print("ESEBD    DateAccessed: %s" % ("None" if (listESEDB(11) == None) else listESEDB(11)))
+                        if (ARGS.symlinks): # ...implies ARGS.outdir
                             if (strIPD != None):
                                 symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg",
-                                              ARGS.outdir + strIPD)
+                                              ARGS.outdir + listESEDB(0))
                             if (strIU != None):
-                                fileURL = open(ARGS.outdir + "urls.txt", "a+")
-                                fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg" + " => " + strIU + "\n")
+                                fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
+                                fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg" + " => " + listESEDB(3) + "\n")
                                 fileURL.close()
 
 
@@ -709,7 +848,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     printBlock(strRawName, pps_type, pps_color, pps_PDID, pps_NDID, pps_SDID, pps_CID,
                                pps_userflags, strTSCreate, strTSModify, pps_SID_firstSecDir,
                                pps_SID_sizeDir)
-                if (ARGS.htmlrep):
+                if (ARGS.htmlrep): # ...implies ARGS.outdir
                     HTTP_REPORT.SetType1(pps_color, pps_PDID, pps_NDID, pps_SDID, pps_CID,
                                pps_userflags, strTSCreate, strTSModify, pps_SID_firstSecDir,
                                pps_SID_sizeDir)
@@ -734,9 +873,9 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                 print("   " + strStat)
         else:
             print("   No Stats!")
-    if (ARGS.htmlrep):
+    if (ARGS.htmlrep): # ...implies ARGS.outdir
         strSubDir = "."
-        if (ARGS.symlinks):
+        if (ARGS.symlinks): # ...implies ARGS.outdir
           strSubDir = THUMBS_SUBDIR
         HTTP_REPORT.flush(astrStats, strSubDir)
 
@@ -752,9 +891,9 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
 
 def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
-    global ARGS, TC_FORMAT_TYPE, HTTP_REPORT
+    global ARGS, THUMBS_SIG_CMMM, TC_FORMAT_TYPE, HTTP_REPORT
 
-    # tDB_endian = "<" ALWAYS
+    # tDB_endian = "<" ALWAYS Little???
 
     if (thumbsDBsize < 24):
         print(" Warning: %s too small to process header\n" % infile)
@@ -764,94 +903,130 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
     thumbsDB.seek(0x04)
     tDB_formatVer        = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheType        = unpack("<L", thumbsDB.read(4))[0]
-    if (tDB_formatVer > TC_FORMAT_TYPE("Windows 8")):
+    if (tDB_formatVer > TC_FORMAT_TYPE.get("Windows 8")):
         thumbsDB.read(4) # Skip an integer size
     tDB_cacheOff1st      = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheOff1stAvail = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheCount       = None # Cache Count not available above Windows 8 v2
-    if (tDB_formatVer < TC_FORMAT_TYPE("Windows 8 v3")):
+    if (tDB_formatVer < TC_FORMAT_TYPE.get("Windows 8 v3")):
         tDB_cacheCount   = unpack("<L", thumbsDB.read(4))[0]
 
-    strFileType = "CMMM"
     if (not ARGS.quiet):
         print(" Header\n --------------------")
-        printDBHead(THUMBS_TYPE_CMMM, strFileType, tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
+        printDBHead(THUMBS_TYPE_CMMM, THUMBS_SIG_CMMM.decode(), tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
         print(STR_SEP)
-    if (ARGS.htmlrep):
-        HTTP_REPORT.SetType2(strFileType, tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
+    if (ARGS.htmlrep): # ...implies ARGS.outdir
+        HTTP_REPORT.SetType2(THUMBS_SIG_CMMM.decode(), tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
 
     # Cache...
     iOffset = tDB_cacheOff1st
     iCacheCounter = 1
     while (True):
         if (thumbsDBsize < (iOffset + 48)):
-            print(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
-            return
+            print(" Warning: Remaining cache entry %d too small\n" % iCacheCounter)
+            break
 
         thumbsDB.seek(iOffset)
-        tDB_sig      = thumbsDB.read(4)
-        tDB_size     = unpack("<L",  thumbsDB.read(4))[0]
-        tDB_hash     = unpack("<Q",  thumbsDB.read(8))[0]
+        tDB_sig = thumbsDB.read(4)
+        if (tDB_sig != THUMBS_SIG_CMMM):
+            break
+        tDB_size = unpack("<L", thumbsDB.read(4))[0]
+        tDB_hash = unpack("<Q", thumbsDB.read(8))[0]
         iOffset += 16
 
         tDB_ext = None # File Extension not available above Windows Vista
-        if (tDB_formatVer == TC_FORMAT_TYPE("Windows Vista")):
-            tDB_ext = thumbsDB.read(8)
+        if (tDB_formatVer == TC_FORMAT_TYPE.get("Windows Vista")):
+            tDB_ext = thumbsDB.read(8) # 2 bytes * 4 wchar_t characters
             iOffset += 8
 
         tDB_idSize   = unpack("<L",  thumbsDB.read(4))[0]
         tDB_padSize  = unpack("<L",  thumbsDB.read(4))[0]
         tDB_dataSize = unpack("<L",  thumbsDB.read(4))[0]
+        iOffset += 12
+
+        tDB_width  = None # Image Width  not available below Windows 8
+        tDB_height = None # Image Height not available below Windows 8
+        if (tDB_formatVer > TC_FORMAT_TYPE.get("Windows 7")):
+            tDB_width  = unpack("<L",  thumbsDB.read(4))[0]
+            tDB_height = unpack("<L",  thumbsDB.read(4))[0]
+            iOffset += 8
+
         reserved     = unpack("<L",  thumbsDB.read(4))[0]
         tDB_chksumD  = unpack("<Q",  thumbsDB.read(8))[0]
         tDB_chksumH  = unpack("<Q",  thumbsDB.read(8))[0]
-        tDB_id       = thumbsDB.read(tDB_idSize)
+        iOffset += 20
+
+        tDB_id = None
+        if (tDB_idSize > 0):
+            tDB_id   = thumbsDB.read(tDB_idSize)
+        tDB_pad = None
         if (tDB_padSize > 0):
-            tDB_pad = thumbsDB.read(tDB_padSize)
-        tDB_data     = thumbsDB.read(tDB_dataSize)
+            tDB_pad  = thumbsDB.read(tDB_padSize)
+        tDB_data = None
+        if (tDB_dataSize > 0):
+            tDB_data = thumbsDB.read(tDB_dataSize)
 
-        iOffset += (32 + tDB_idSize + tDB_padSize + tDB_dataSize)
+        iOffset += (tDB_idSize + tDB_padSize + tDB_dataSize)
 
-        # TODO: Check above structure for versions >= Windows 8 and above
+        strID = None
+        #print(tDB_id)
+        if (tDB_id != None):
+            strID  = decodeBytes(tDB_id)
+        else:
+            continue # ...probably empty last entry
 
-        strID  = decodeBytes(tDB_id)
+
         strExt = None
+        # Try the given Vista ext...
         if (tDB_ext != None):
             strExt = decodeBytes(tDB_ext)
+        if (tDB_dataSize > 0):
+            # Detect data type ext by magic bytes...
+            if (IMAGE_TYPE_BMP[0] == tDB_data[0:len(IMAGE_TYPE_BMP[0])]):
+                strExt = IMAGE_TYPE_BMP[1]
+            elif (IMAGE_TYPE_JPEG[0] == tDB_data[0:len(IMAGE_TYPE_JPEG[0])]):
+                strExt = IMAGE_TYPE_JPEG[1]
+            elif (IMAGE_TYPE_PNG[0] == tDB_data[0:len(IMAGE_TYPE_PNG[0])]):
+                strExt = IMAGE_TYPE_PNG[1]
+            # If there still is no ext, use a neutral default ".img"...
+            if (strExt == None):
+                strExt = "img"
+        # Otherwise,
+        #    No Data, no Ext!
 
         # ESEDB Search...
-        (strIPD, strIU) = searchEDB(strID)
+        listESEDB = searchEDB(strID)
 
         if (not ARGS.quiet):
             print(" Cache Entry\n --------------------")
-            printDBCache(tDB_sig, tDB_size, tDB_hash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
-                         tDB_chksumD, tDB_chksumH, strID, strIPD, strIU)
+            printDBCache(iCacheCounter, tDB_sig.decode(), tDB_size, tDB_hash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
+                         tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, strID, listESEDB)
 
-        if (strIPD != None):
-            setupSymLink(True)
-            if (EXIT_CODE > 0):
-                return
-            if (ARGS.symlinks):
-                if (strIPD != None):
-                    symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strID + ".jpg",
-                                  ARGS.outdir + strIPD)
-                if (strIU != None):
-                    fileURL = open(ARGS.outdir + "urls.txt", "a+")
-                    fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strID + ".jpg" + " => " + strIU + "\n")
-                    fileURL.close()
+        strCleanID = cleanFileName(strID)
 
-        #   Write data to filename...
-        if (ARGS.outdir != None):
-            strFileName = getFileName(-1, strID, True, 2)
-            if (strExt == None):
-                # Detect data type ext by magic bytes...
-                strFileType = magic.from_buffer(tDB_data, mime=True)
-                strExt = strFileType.split("image/", 1)[-1] if ("image/" in strFileType) else "image"
-            fileImg = open(ARGS.outdir + strFileName + "." + strExt, "wb")
-            fileImg.write(tDB_data)
-            fileImg.close()
-        else: # Not extracting...
-            addFileNameToStreams(strID, 2, "")
+        if (tDB_dataSize > 0):
+            # Setup symbolic link to filename...
+            if (listESEDB != None and listESEDB(0) != None):
+                setupSymLink(True)
+                if (EXIT_CODE > 0):
+                    return
+                if (ARGS.symlinks): # ...implies ARGS.outdir
+                    if (listESEDB(0) != None):
+                        symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt,
+                                      ARGS.outdir + listESEDB(0))
+                    if (listESEDB(3) != None):
+                        fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
+                        fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt + " => " + listESEDB(3) + "\n")
+                        fileURL.close()
+
+            # Write data to filename...
+            if (ARGS.outdir != None):
+                strFileName = getFileName(-1, strCleanID, True, 2)
+                fileImg = open(ARGS.outdir + strFileName + "." + strExt, "wb")
+                fileImg.write(tDB_data)
+                fileImg.close()
+            else: # Not extracting...
+                addFileNameToStreams(strID, 2, "")
 
         # End of Loop
         iCacheCounter += 1
@@ -871,15 +1046,15 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
                 print("   " + strStat)
         else:
             print("   No Stats!")
-    if (ARGS.htmlrep):
+    if (ARGS.htmlrep): # ...implies ARGS.outdir
         strSubDir = "."
-        if (ARGS.symlinks):
+        if (ARGS.symlinks): # ...implies ARGS.outdir
           strSubDir = THUMBS_SUBDIR
         HTTP_REPORT.flush(astrStats, strSubDir)
 
 
 def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
-    global ARGS, TC_FORMAT_TYPE
+    global ARGS, TC_FORMAT_TYPE, THUMBS_SIG_IMMM
 
     # tDB_endian = "<" ALWAYS
 
@@ -894,13 +1069,12 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
     tDB_entryCount = unpack("<l", thumbsDB[16:20])[0]
     reserved       = unpack("<l", thumbsDB[20:24])[0]
 
-    strFileType = "IMMM"
     if (not ARGS.quiet):
         print(" Header\n --------------------")
-        printDBHead(THUMBS_TYPE_IMMM, strFileType, tDB_formatVer, None, tDB_entryUsed, None, tDB_entryCount)
+        printDBHead(THUMBS_TYPE_IMMM, THUMBS_SIG_IMMM.decode(), tDB_formatVer, None, tDB_entryUsed, None, tDB_entryCount)
         print(STR_SEP)
     if (ARGS.htmlrep):
-        HTTP_REPORT.SetType3(strFileType, tDB_formatVer, tDB_entryUsed, tDB_entryCount)
+        HTTP_REPORT.SetType3(THUMBS_SIG_IMMM.decode(), tDB_formatVer, tDB_entryUsed, tDB_entryCount)
 
     # Cache...
     iOffset = 24
@@ -913,7 +1087,7 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
         tDB_hash = unpack("<Q", thumbsDB[iOffset +  0: iOffset + 8])[0]
 
         iOffFlags = iOffset + 8
-        if (tDB_formatVer == TC_FORMAT_TYPE("Windows Vista")):
+        if (tDB_formatVer == TC_FORMAT_TYPE.get("Windows Vista")):
             tDB_filetime = unpack("<Q", thumbsDB[iOffFlags: iOffFlags + 8])[0]
             iOffFlags += 8
 
@@ -938,9 +1112,9 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
                 print("   " + strStat)
         else:
             print("   No Stats!")
-    if (ARGS.htmlrep):
+    if (ARGS.htmlrep): # ...implies ARGS.outdir
         strSubDir = "."
-        if (ARGS.symlinks):
+        if (ARGS.symlinks): # ...implies ARGS.outdir
           strSubDir = THUMBS_SUBDIR
         HTTP_REPORT.flush(astrStats, strSubDir)
 
@@ -948,6 +1122,7 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
 def processThumbFile(infile, bProcessError=True):
     global ARGS, EXIT_CODE
     global IMAGE_TYPE_1_HEADER, IMAGE_TYPE_1_QUANTIZE, IMAGE_TYPE_1_HUFFMAN
+    global THUMBS_SIG_OLE, THUMBS_SIG_OLEB, THUMBS_SIG_CMMM, THUMBS_SIG_IMMM
     global HTTP_REPORT
 
 
@@ -998,20 +1173,15 @@ def processThumbFile(infile, bProcessError=True):
     # -----------------------------------------------------------------------------
     # Analyzing header block...
 
-    sigOLE =      bytearray(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1") # Standard Sig for OLE2 Thumbs.db file
-    sigOLE_Beta = bytearray(b"\x0e\x11\xfc\x0d\xd0\xcf\x11\xe0") # Older Beta Sig for OLE2 Thumbs.db file
-    sigCMMM =     bytearray(b"CMMM") # Standard Sig for Thumbcache_*.db files
-    sigIMMM =     bytearray(b"IMMM") # Standard Sig for Thumbcache_*.db Index files
-
     thumbsDB.seek(0)
     thumbsDBdata = thumbsDB.read(0x08)
-    if   (thumbsDBdata[0x00:0x08] == sigOLE):
+    if   (thumbsDBdata[0x00:0x08] == THUMBS_SIG_OLE):
         thumbsDBtype = THUMBS_TYPE_OLE
-    elif (thumbsDBdata[0x00:0x08] == sigOLE_Beta):
+    elif (thumbsDBdata[0x00:0x08] == THUMBS_SIG_OLEB):
         thumbsDBtype = THUMBS_TYPE_OLE
-    elif (thumbsDBdata[0x00:0x04] == sigCMMM):
+    elif (thumbsDBdata[0x00:0x04] == THUMBS_SIG_CMMM):
         thumbsDBtype = THUMBS_TYPE_CMMM
-    elif (thumbsDBdata[0x00:0x04] == sigIMMM):
+    elif (thumbsDBdata[0x00:0x04] == THUMBS_SIG_IMMM):
         thumbsDBtype = THUMBS_TYPE_IMMM
     else:
         if (bProcessError):
@@ -1020,7 +1190,7 @@ def processThumbFile(infile, bProcessError=True):
         return
 
     # Initialize optional HTML report...
-    if (ARGS.htmlrep):
+    if (ARGS.htmlrep): # ...implies ARGS.outdir
         HTTP_REPORT = vinetto.vinreport.HttpReport(thumbsDBtype, infile, ARGS.outdir, getEncoding(),
                                 (__major__ + "." + __minor__ + "." + __micro__))
         HTTP_REPORT.SetFileSection(thumbsDBsize, thumbsDBmd5)
@@ -1153,36 +1323,41 @@ def main():
         if not ARGS.outdir.endswith('/'):
             ARGS.outdir += "/"
 
+        # Remove existing URL file...
+        if os.path.exists(ARGS.outdir + THUMBS_FILE_URLS):
+            os.remove(ARGS.outdir + THUMBS_FILE_URLS)
+
     # Correct MD5 Force parameter...
     if (ARGS.md5force) and (ARGS.md5never):
         ARGS.md5force = False
 
     # Test EDB file parameter...
-    b_EDBOutError = True
-    b_EDBFileGood = True
+    bEDBOutError = True
+    bEDBFileGood = False
     strErrType = " Error: "
     if (ARGS.mode == "a" and ARGS.edbfile == None):
+        # WinXP -> \Documents and Settings\All Users\Application Data\Microsoft\Search\Data\Applications\Windows\
         ARGS.edbfile = os.path.join(ARGS.infile, "ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb")
-        b_EDBOutError = False
+        bEDBOutError = False
         strErrType = " Warning: "
     if (ARGS.edbfile != None):
         # Testing EDBFILE parameter...
         if not os.path.exists(ARGS.edbfile): # ...NOT exists?
-            sys.stderr.write("%s does not exist\n" % (strErrType + ARGS.edbfile))
-            if b_EDBOutError:
+            sys.stderr.write("%s%s does not exist\n" % (strErrType, ARGS.edbfile))
+            if bEDBOutError:
                 sys.exit(19)
-            b_EDBFileGood = False
         elif not os.path.isfile(ARGS.edbfile): # ...NOT a file?
-            sys.stderr.write("%s is not a file\n" % (strErrType + ARGS.edbfile))
-            if b_EDBOutError:
+            sys.stderr.write("%s%s is not a file\n" % (strErrType, ARGS.edbfile))
+            if bEDBOutError:
                 sys.exit(19)
-            b_EDBFileGood = False
         elif not os.access(ARGS.edbfile, os.R_OK): # ...NOT readable?
-            sys.stderr.write("%s not readable\n" % (strErrType + ARGS.edbfile))
-            if b_EDBOutError:
+            sys.stderr.write("%s%s not readable\n" % (strErrType, ARGS.edbfile))
+            if bEDBOutError:
                 sys.exit(19)
-            b_EDBFileGood = False
-        if b_EDBFileGood:
+        else:
+            bEDBFileGood = True
+
+        if bEDBFileGood:
             prepareEDB()
         else:
             sys.stderr.write(strErrType + "Skipping any ESE DB file processing on thumbnail files")

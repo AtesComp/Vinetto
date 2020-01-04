@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
   name='vinetto',
-  version='0.8.5',
+  version='0.8.6',
   include_package_data=True,
   packages=['vinetto'],
   package_dir={'vinetto': 'src/vinetto'},

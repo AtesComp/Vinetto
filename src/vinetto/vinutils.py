@@ -27,12 +27,19 @@ This file is part of Vinetto.
 
 __major__ = "0"
 __minor__ = "3"
-__micro__ = "3"
+__micro__ = "4"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
 
 from time import strftime, gmtime
+try:
+    # Python < 3
+    from string import maketrans
+    bMAKE_TRANS_OLD = True
+except:
+    # Python >= 3
+    bMAKE_TRANS_OLD = False
 
 TN_CATALOG = {}
 bCATALOG_INDEX_OUT_OF_SEQ = False
@@ -154,7 +161,7 @@ def extractStats(strDirectory):
                 strStat += "  Extracted: "
             else:
                 strStat += "Unextracted: "
-            strStat += str(dicStats[strExtractType][iType]) + " thumbnails of Type " + str(iType)
+            strStat += ("%4d" % dicStats[strExtractType][iType]) + " thumbnails of Type " + str(iType)
             if (strExtractType == "e"):
                 strStat += strExtSuffix
             astrStats.append(strStat)
@@ -230,3 +237,13 @@ def convertToPyTime(iFileTime_Win32):
 def getFormattedTimeUTC(iTime):
     strTime = strftime("%Y-%m-%dT%H:%M:%S Z", gmtime(iTime))
     return strTime
+
+def cleanFileName(strFileName):
+    strInTab = "\\/:*?\"<>|"
+    strOutTab = "_________"
+    if (bMAKE_TRANS_OLD):
+        dictTransTab = maketrans(strInTab, strOutTab)
+    else:
+        dictTransTab = str.maketrans(strInTab, strOutTab)
+
+    return strFileName.translate(dictTransTab)

@@ -3,7 +3,7 @@
 Vinetto is a thumbnail file (i.e., thumbs.db) parser that can read a variety of
 these files.  Based on the original Vinetto by Michel Roukine.
 
-This is a much needed update to the latest original Vinetto (version 0.7).
+This is a much needed update to the last original Vinetto (version 0.7).
 
 This version should be compatible with Python 2 and 3.  It should work on
 Linux, Mac, and Windows.  Testing has currently been limited to Linux.
@@ -72,9 +72,6 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 2. PIL or Pillow.  PIL (Python Imaging Library) 1.1.5 or later.  Pillow is used
 by the maintainer.  PIL is used to attempt correct reconstitution of Type 1
 thumbnails (see Limitations below).
-
-3. python-magic.  Magic is used to determine the image file type for
-thumbcache_*.db entries.
 
 ## Limitations
 
@@ -154,7 +151,7 @@ and Windows(R)(TM) OSes as well. YMMV.
         When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
         location
 
-    --- Vinetto.py 0.8.5 ---
+    --- Vinetto.py 0.8.6 ---
     Based on the original Vinetto by Michel Roukine
     Updated by Keven L. Ates
     Vinetto.py is open source software

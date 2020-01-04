@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.6] - 2020-01-03 (DEVELOPEMENT)
+
+### Changed
+
+- Removed dependency on "python-magic"
+- Prliminary working process for thumbcache_#.db files
+- Prliminary Working process for ESEDB enhancement
+
 ## [0.8.5] - 2019-12-27 (DEVELOPEMENT)
 
 ### Added
