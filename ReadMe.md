@@ -22,9 +22,10 @@ NTFS filesystems.
    to the forensics investigator.
 
 2. **Intention** : Vinetto extracts thumbnails and associated metadata from
-Thumbs.db files.  Vinetto will function according to four modes:
-   1. *file* : Vinetto extracts thumbnails and metadata from specified
-   Thumbs.db files.  **This is the current default operating mode.**
+thumb image cache files.  Vinetto will function according to four modes:
+   1. *file* : Vinetto extracts thumbnail images and metadata from specified
+   cache files.  **This is the current default operating mode.**
+      - Local directory Thumbs.db are processes.
       - **TODO:** It will also process Thumbcache_\*.db files.
       - **TODO:** It will attempt to cross check Thumb Ids with file names in a
       specified Windows.edb file. This process uses the python libraries from
@@ -76,15 +77,24 @@ thumbnails (see Limitations below).
 ## Limitations
 
 Windows(R)(TM) uses at least two format types to store thumbnails in its
-Thumbs.db files.  Vinetto categorizes these formats as Type 1 and Type 2:
+***Thumbs.db*** files.  Vinetto categorizes these formats as Type 1 and Type 2:
 
-1. Type 1 seems to be a family of jpeg-alike formats with special headers,
-huffman, and quantization tables.  As such, ***Vinetto may not reconstitute
-some Type 1 thumbnails correctly.***  PIL Image is used to attempt proper
-reconstitute, but may fail in certain circumstances.
+1. Type 1 is an older format that seems to consist of jpeg-like images with
+special header, huffman, and quantization data.  As such,
+***Vinetto may not reconstitute some Type 1 thumbnails correctly.***
+The PIL Image library is used to attempt proper reconstitution, but may fail
+in certain circumstances.
 
-2. Type 2 is compliant to the JPEG format.  Vinetto writes this type to file
-directly.
+2. Type 2 is a newer format and is fully compliant with the JPEG format.
+Vinetto writes this type to file directly.  Additionally, the newer
+***thumbcache*** files embed fully compliant JPEG, PNG, and BMP formats
+which Vinetto also writes directly.
+
+3. The Windows.edb and other ESEDB files can become corrupt.  If there are
+problems with Vinetto reading the file, it may need to be fixed.  To fix this
+issue, use the Windows built-in command ***esentutil***  with the ***/p*** option
+and point it at the ESEDB file you want to fix.  It may need to be run several
+time to fix the file.
 
 Vinetto has been tested on a modern Linux distribution.  The code has been
 modified to use common Python packages and methods not specific to the Linux

@@ -2,13 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.7] - 2020-01-07 (DEVELOPEMENT)
+
+### Changed
+
+- Create symlinks directory early and once
+- Thumbcache IDs can be in both Thumbs.db and Thumbcache_#.db files
+- Symlink directory not dependent on Stream ID or Thumbcache ID
+- Symlink can be created on both Stream ID and Thumbcache ID
+- Http Report changes for thumbcache_#.db files
+- Consolidated version information for common use by setup.py and program
+- Mapped catalog entry for Thumb Cache ID found in ESEDB
+
 ## [0.8.6] - 2020-01-03 (DEVELOPEMENT)
 
 ### Changed
 
 - Removed dependency on "python-magic"
-- Prliminary working process for thumbcache_#.db files
-- Prliminary Working process for ESEDB enhancement
+- Preliminary working process for thumbcache_#.db files
+- Preliminary working process for ESEDB enhancement
+- Minor corrections to the symlink process.
 
 ## [0.8.5] - 2019-12-27 (DEVELOPEMENT)
 

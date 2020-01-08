@@ -25,13 +25,6 @@ This file is part of Vinetto.
 -----------------------------------------------------------------------------
 """
 
-__major__ = "0"
-__minor__ = "8"
-__micro__ = "6"
-__maintainer__ = "Keven L. Ates"
-__author__ = "Michel Roukine"
-__location__ = "https://github.com/AtesComp/Vinetto"
-
 import sys
 import os
 import fnmatch
@@ -41,7 +34,11 @@ from io import StringIO
 from struct import unpack
 from binascii import hexlify, unhexlify
 
+from vinetto.version import __major__, __minor__, __micro__, __maintainer__, __author__, __location__
+
 import vinetto.vinreport
+from vinetto.vinreport import THUMBS_TYPE_OLE, THUMBS_TYPE_CMMM, THUMBS_TYPE_IMMM, FILE_TYPES
+
 from vinetto.vinutils import LAST_BLOCK, NONE_BLOCK, \
                              addCatalogEntry, countCatalogEntry, countThumbnails, \
                              getStreamFileName, getRawFileName, \
@@ -49,7 +46,9 @@ from vinetto.vinutils import LAST_BLOCK, NONE_BLOCK, \
                              addStreamIdToStreams, addFileNameToStreams, \
                              extractStats, convertToPyTime, getFormattedTimeUTC, \
                              cleanFileName
+
 from pkg_resources import resource_filename
+
 
 PROG = os.path.basename(__file__).capitalize()
 
@@ -60,10 +59,6 @@ THUMBS_SIG_OLE  = bytearray(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1") # Standard Sig 
 THUMBS_SIG_OLEB = bytearray(b"\x0e\x11\xfc\x0d\xd0\xcf\x11\xe0") # Older Beta Sig for OLE2 Thumbs.db file
 THUMBS_SIG_CMMM = bytearray(b"CMMM") # Standard Sig for Thumbcache_*.db files
 THUMBS_SIG_IMMM = bytearray(b"IMMM") # Standard Sig for Thumbcache_*.db Index files
-
-THUMBS_TYPE_OLE  = 1
-THUMBS_TYPE_CMMM = 2
-THUMBS_TYPE_IMMM = 3
 
 #
 # pps_type:
@@ -136,6 +131,9 @@ ESEDB_ICOL_DM  = None # System_DateModified
 ESEDB_ICOL_DC  = None # System_DateCreated
 ESEDB_ICOL_DA  = None # System_DateAccessed
 
+ESEDB_IDX = {"TCI":  0, "IPD":  1, "IND":  2, "IN" :  3, "IU" :  4, "IHS":  5, "IVS":  6,
+             "ID" :  7, "OFN":  8, "FN" :  9, "DM" : 10, "DC" : 11, "DA" : 12 }
+
 ARGS = None
 EXIT_CODE = 0
 
@@ -151,6 +149,7 @@ IMAGE_TYPE_PNG  = (bytearray(b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'), "png") # .PNG
 HTTP_REPORT = None
 
 STR_SEP = " ------------------------------------------------------"
+
 
 def getArgs():
     # Return arguments passed to vinetto on the command line.
@@ -289,32 +288,28 @@ def printBlock(strName, pps_type, pps_color, pps_PDID, pps_NDID, pps_SDID, pps_C
     return
 
 
-def printDBHead(thumbType, sig, formatVer, cacheType, cacheOff1st, cacheOff1stAvail, cacheCount):
-    print("     Signature: %s" % sig)
+def printDBHead(thumbType, formatVer, strFormatType, cacheType, strCacheType, cacheOff1st, cacheOff1stAvail, cacheCount):
+    global THUMBS_TYPE_CMMM, THUMBS_TYPE_IMMM, FILE_TYPES
+
+    print("     Signature: %s" % FILE_TYPES[thumbType])
     if (thumbType == THUMBS_TYPE_CMMM):
-        try:
-            print("        Format: %d (%s)" % (formatVer, list(TC_FORMAT_TYPE.keys())[list(TC_FORMAT_TYPE.values()).index(formatVer)]))
-        except ValueError:
-            print("        Format: %d (%s)" % (formatVer, "Unknown Format"))
-        try:
-            print("          Type: %d (%s)" % (cacheType, "thumbcache_" + TC_CACHE_TYPE[TC_FORMAT_TO_CACHE[formatVer]][cacheType] + ".db"))
-        except (KeyError, IndexError):
-            print("          Type: %d (%s)" % (cacheType, "Unknown Type"))
+        print("        Format: %d (%s)" % (formatVer, strFormatType))
+        print("          Type: %d (%s)" % (cacheType, strCacheType))
         print("    Cache Info:")
         print("          Offset: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
         print("   1st Available: %s" % ("None" if (cacheOff1stAvail == None) else ("%d" % cacheOff1stAvail)))
         print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
     elif (thumbType == THUMBS_TYPE_IMMM):
-        try:
-            print("        Format: %d (%s)" % (formatVer, list(TC_FORMAT_TYPE.keys())[list(TC_FORMAT_TYPE.values()).index(formatVer)]))
-        except ValueError:
-            print("        Format: %d (%s)" % (formatVer, "Unknown Format"))
+        print("        Format: %d (%s)" % (formatVer, strFormatType))
         print("    Entry Info:")
         print("            Used: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
         print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
+    return
 
 
 def printDBCache(iCounter, strSig, iSize, iHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, listESEDB):
+    global ESEDB_FILE
+
     print(" Entry Counter: %d" % iCounter)
     print("     Signature: %s" % strSig)
     print("          Size: %d" % iSize)
@@ -329,29 +324,35 @@ def printDBCache(iCounter, strSig, iSize, iHash, strExt, iIdSize, iPadSize, iDat
     print(" Head Checksum: %d" % iChkSumH)
     print("            ID: %s" % strID)
     if (ESEDB_FILE != None and listESEDB != None):
-        print(" ESEBD Enhance:")
-        print("        ItemPath: %s" % ("None" if (listESEDB(0)  == None) else listESEDB(0)))
-        print(" ItemNameDisplay: %s" % ("None" if (listESEDB(1)  == None) else listESEDB(1)))
-        print("        ItemName: %s" % ("None" if (listESEDB(2)  == None) else listESEDB(2)))
-        print("         ItemUrl: %s" % ("None" if (listESEDB(3)  == None) else listESEDB(3)))
-        print("   ImageHorzSize: %d" % ("None" if (listESEDB(4)  == None) else listESEDB(4)))
-        print("   ImageVertSize: %d" % ("None" if (listESEDB(5)  == None) else listESEDB(5)))
-        print("       ImageDims: %s" % ("None" if (listESEDB(6)  == None) else listESEDB(6)))
-        print("    OrigFileName: %s" % ("None" if (listESEDB(7)  == None) else listESEDB(7)))
-        print("        FileName: %s" % ("None" if (listESEDB(8)  == None) else listESEDB(8)))
-        print("    DateModified: %s" % ("None" if (listESEDB(9)  == None) else listESEDB(9)))
-        print("     DateCreated: %s" % ("None" if (listESEDB(10) == None) else listESEDB(10)))
-        print("    DateAccessed: %s" % ("None" if (listESEDB(11) == None) else listESEDB(11)))
+        printESEDBInfo(listESEDB)
     else:
         print(" ESEBD Enhance: None")
-
     return
 
 
-def setupSymLink(bSymTest):
+def printESEDBInfo(listESEDB):
+    global ESEDB_IDX
+
+    print(" ESEBD Enhance:")
+    print("    ThumbCacheID: %s" % ("None" if (listESEDB(ESEDB_IDX("TCI")) == None) else listESEDB(ESEDB_IDX("TCI"))))
+    print("        ItemPath: %s" % ("None" if (listESEDB(ESEDB_IDX("IPD")) == None) else listESEDB(ESEDB_IDX("IPD"))))
+    print(" ItemNameDisplay: %s" % ("None" if (listESEDB(ESEDB_IDX("IND")) == None) else listESEDB(ESEDB_IDX("IND"))))
+    print("        ItemName: %s" % ("None" if (listESEDB(ESEDB_IDX("IN" )) == None) else listESEDB(ESEDB_IDX("IN" ))))
+    print("         ItemUrl: %s" % ("None" if (listESEDB(ESEDB_IDX("IU" )) == None) else listESEDB(ESEDB_IDX("IU" ))))
+    print("   ImageHorzSize: %d" % ("None" if (listESEDB(ESEDB_IDX("IHS")) == None) else listESEDB(ESEDB_IDX("IHS"))))
+    print("   ImageVertSize: %d" % ("None" if (listESEDB(ESEDB_IDX("IVS")) == None) else listESEDB(ESEDB_IDX("IVS"))))
+    print("       ImageDims: %s" % ("None" if (listESEDB(ESEDB_IDX("ID" )) == None) else listESEDB(ESEDB_IDX("ID" ))))
+    print("    OrigFileName: %s" % ("None" if (listESEDB(ESEDB_IDX("OFN")) == None) else listESEDB(ESEDB_IDX("OFN"))))
+    print("        FileName: %s" % ("None" if (listESEDB(ESEDB_IDX("FN" )) == None) else listESEDB(ESEDB_IDX("FN" ))))
+    print("    DateModified: %s" % ("None" if (listESEDB(ESEDB_IDX("DM" )) == None) else listESEDB(ESEDB_IDX("DM" ))))
+    print("     DateCreated: %s" % ("None" if (listESEDB(ESEDB_IDX("DC" )) == None) else listESEDB(ESEDB_IDX("DC" ))))
+    print("    DateAccessed: %s" % ("None" if (listESEDB(ESEDB_IDX("DA" )) == None) else listESEDB(ESEDB_IDX("DA" ))))
+    return
+
+def setupSymLink():
     global ARGS
 
-    if (bSymTest and ARGS.symlinks): # ...implies ARGS.outdir
+    if (ARGS.symlinks): # ...implies ARGS.outdir
         if not os.path.exists(ARGS.outdir + THUMBS_SUBDIR):
             try:
                 os.mkdir(ARGS.outdir + THUMBS_SUBDIR)
@@ -359,6 +360,7 @@ def setupSymLink(bSymTest):
                 sys.stderr.write(" Error: Cannot create %s\n" % ARGS.outdir + THUMBS_SUBDIR)
                 EXIT_CODE = 13
                 return
+    return
 
 
 def symlink_force(target, link_name):
@@ -377,11 +379,11 @@ def symlink_force(target, link_name):
     return
 
 
-def getFileName(iStreamID, strRawName, bSymTest, iType):
+def getFileName(iStreamID, strRawName, bHasSymName, iType):
     global ARGS
 
     strFileName = ""
-    if (bSymTest and ARGS.symlinks): # ...implies ARGS.outdir
+    if (bHasSymName and ARGS.symlinks): # ...implies ARGS.outdir
             strFileName = THUMBS_SUBDIR + "/"
     if (iStreamID >= 0):
         strFileName += getStreamFileName(iStreamID, iType)
@@ -478,6 +480,7 @@ def prepareEDB():
         if (iColCntFound == 13): # Total Columns searched
             break
     sys.stderr.write(" DBG:     Got interested column indicies: %d\n" % iColCntFound)
+    return
 
 
 def searchEDB(strTCI):
@@ -493,6 +496,7 @@ def searchEDB(strTCI):
     try:
         bstrTCI = unhexlify(strConvertTCI)
     except:
+        sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare" % strConvertTCI)
         return None
 
     iRecCnt = ESEDB_TABLE.get_number_of_records()
@@ -542,16 +546,14 @@ def searchEDB(strTCI):
     if (ESEDB_ICOL_DA != None):
         strRecDA = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DA) ) )
 
-    listRet = (strRecIPD, strRecIND, strRecIN, strRecIU, iRecIHS, iRecIVS,
+    listRet = (strRecTCI, strRecIPD, strRecIND, strRecIN, strRecIU, iRecIHS, iRecIVS,
                strRecID, strRecOFN, strRecFN, strRecDM, strRecDC, strRecDA)
     return listRet
 
 
 def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
-    global ARGS, EXIT_CODE
+    global ARGS, EXIT_CODE, LAST_BLOCK, ESEDB_IDX, HTTP_REPORT
     global IMAGE_TYPE_1_HEADER, IMAGE_TYPE_1_QUANTIZE, IMAGE_TYPE_1_HUFFMAN
-    global LAST_BLOCK
-    global HTTP_REPORT
 
     if (thumbsDBsize % 512 ) != 0:
         sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, thumbsDBsize))
@@ -644,7 +646,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
                 #strStreamId  = "%04d" % iStreamCounter
                 strStreamId = strRawName[::-1] # ...reverse the raw name
-                bStreamId = False
+                bHasSymName = False
                 iStreamID = -1
                 if (len(strStreamId) < 4):
                     try:
@@ -653,9 +655,8 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         iStreamID = -1
                 if (iStreamID >= 0):
                     #strStreamId = "%04d" % iStreamID
-                    bStreamId = True
+                    bHasSymName = True
 
-                setupSymLink(bStreamId)
                 if (EXIT_CODE > 0):
                     return
 
@@ -735,8 +736,6 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         strCatEntryTimestamp = getFormattedTimeUTC( convertToPyTime(iCatEntryTimestamp) )
                         strCatEntryName      = decodeBytes(iCatEntryName)
                         if (ARGS.symlinks): # ...implies ARGS.outdir
-                            #os.system( "ln -fs " + ARGS.outdir + THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg " + "\"" +
-                            #            ARGS.outdir + strCatEntryName + "\"" )
                             symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg",
                                           ARGS.outdir + strCatEntryName)
                             if (EXIT_CODE > 0):
@@ -769,39 +768,32 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     if (len(strRawName) >= 4):
                         # ESEDB Search...
                         listESEDB = searchEDB(strRawName[strRawName.find("_")+1:])
-                        if (not ARGS.quiet and listESEDB != None):
-                            print("ESEBD ItemPathDisplay: %s" % ("None" if (listESEDB(0)  == None) else listESEDB(0)))
-                            print("ESEBD ItemNameDisplay: %s" % ("None" if (listESEDB(1)  == None) else listESEDB(1)))
-                            print("ESEBD        ItemName: %s" % ("None" if (listESEDB(2)  == None) else listESEDB(2)))
-                            print("ESEBD         ItemUrl: %s" % ("None" if (listESEDB(3)  == None) else listESEDB(3)))
-                            print("ESEBD   ImageHorzSize: %s" % ("None" if (listESEDB(4)  == None) else listESEDB(4)))
-                            print("ESEBD   ImageVertSize: %s" % ("None" if (listESEDB(5)  == None) else listESEDB(5)))
-                            print("ESEBD       ImageDims: %s" % ("None" if (listESEDB(6)  == None) else listESEDB(6)))
-                            print("ESEBD    OrigFileName: %s" % ("None" if (listESEDB(7)  == None) else listESEDB(7)))
-                            print("ESEBD        FileName: %s" % ("None" if (listESEDB(8)  == None) else listESEDB(8)))
-                            print("ESEBD    DateModified: %s" % ("None" if (listESEDB(9)  == None) else listESEDB(9)))
-                            print("ESEBD     DateCreated: %s" % ("None" if (listESEDB(10) == None) else listESEDB(10)))
-                            print("ESEBD    DateAccessed: %s" % ("None" if (listESEDB(11) == None) else listESEDB(11)))
-                        if (ARGS.symlinks): # ...implies ARGS.outdir
-                            if (strIPD != None):
-                                symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg",
-                                              ARGS.outdir + listESEDB(0))
-                            if (strIU != None):
-                                fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
-                                fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg" + " => " + listESEDB(3) + "\n")
-                                fileURL.close()
-
+                        if (listESEDB != None):
+                            if (not ARGS.quiet):
+                                printESEDBInfo(listESEDB)
+                            if (ARGS.symlinks): # ...implies ARGS.outdir
+                                if (listESEDB(ESEDB_IDX("IU")) != None):
+                                    strURL = listESEDB(ESEDB_IDX("IU"))
+                                    strFileName = strURL.split("/")[-1].split("?")[0]
+                                    symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg",
+                                                  ARGS.outdir + strFileName)
+                                    if (EXIT_CODE > 0):
+                                        return
+                                    fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
+                                    fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg" +
+                                                  " => " + strFileName + "\n")
+                                    fileURL.close()
 
                     # --------------------------- Header 2 ------------------------
                     # Type 2 Thumbnail Image? (full jpeg)
                     if (sr[headOffset: headOffset + 4] == bytearray(b"\xff\xd8\xff\xe0")):
                         if (ARGS.outdir != None):
-                            strFileName = getFileName(iStreamID, strRawName, bStreamId, 2)
+                            strFileName = getFileName(iStreamID, strRawName, bHasSymName, 2)
                             fileImg = open(ARGS.outdir + strFileName + ".jpg", "wb")
                             fileImg.write(sr[headOffset:])
                             fileImg.close()
                         else: # Not extracting...
-                            if (bStreamId):
+                            if (bHasSymName):
                                 addStreamIdToStreams(iStreamID, 2, "")
                             else:
                                 addFileNameToStreams(strRawName, 2, "")
@@ -815,7 +807,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                             return
 
                         if (ARGS.outdir != None and PIL_FOUND):
-                            strFileName = getFileName(iStreamID, strRawName, bStreamId, 1)
+                            strFileName = getFileName(iStreamID, strRawName, bHasSymName, 1)
                             # Type 1 Thumbnail Image processing ...
                             type1sr = ( IMAGE_TYPE_1_HEADER[:0x14] +
                                         IMAGE_TYPE_1_QUANTIZE +
@@ -829,7 +821,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                             image = image.transpose(Image.FLIP_TOP_BOTTOM)
                             image.save(ARGS.outdir + strFileName + ".jpg", "JPEG", quality=100)
                         else: # Cannot extract (PIL not found) or not extracting...
-                            if (bStreamId):
+                            if (bHasSymName):
                                 addStreamIdToStreams(iStreamID, 1, "")
                             else:
                                 addFileNameToStreams(strRawName, 1, "")
@@ -849,7 +841,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                                pps_userflags, strTSCreate, strTSModify, pps_SID_firstSecDir,
                                pps_SID_sizeDir)
                 if (ARGS.htmlrep): # ...implies ARGS.outdir
-                    HTTP_REPORT.SetType1(pps_color, pps_PDID, pps_NDID, pps_SDID, pps_CID,
+                    HTTP_REPORT.setType1(pps_color, pps_PDID, pps_NDID, pps_SDID, pps_CID,
                                pps_userflags, strTSCreate, strTSModify, pps_SID_firstSecDir,
                                pps_SID_sizeDir)
                 if (not ARGS.quiet):
@@ -891,12 +883,12 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
 
 def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
-    global ARGS, THUMBS_SIG_CMMM, TC_FORMAT_TYPE, HTTP_REPORT
+    global ARGS, THUMBS_SIG_CMMM, THUMBS_TYPE_CMMM, TC_FORMAT_TYPE, ESEDB_IDX, HTTP_REPORT
 
     # tDB_endian = "<" ALWAYS Little???
 
     if (thumbsDBsize < 24):
-        print(" Warning: %s too small to process header\n" % infile)
+        sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
     # Header...
@@ -911,19 +903,29 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
     if (tDB_formatVer < TC_FORMAT_TYPE.get("Windows 8 v3")):
         tDB_cacheCount   = unpack("<L", thumbsDB.read(4))[0]
 
+    try:
+        strFormatType = list(TC_FORMAT_TYPE.keys())[list(TC_FORMAT_TYPE.values()).index(tDB_formatVer)]
+    except ValueError:
+        strFormatType = "Unknown Format"
+    try:
+        strCacheType = "thumbcache_" + TC_CACHE_TYPE[TC_FORMAT_TO_CACHE[tDB_formatVer]][tDB_cacheType] + ".db"
+    except (KeyError, IndexError):
+        strCacheType = "Unknown Type"
+
     if (not ARGS.quiet):
         print(" Header\n --------------------")
-        printDBHead(THUMBS_TYPE_CMMM, THUMBS_SIG_CMMM.decode(), tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
+        printDBHead(THUMBS_TYPE_CMMM, tDB_formatVer, strFormatType, tDB_cacheType, strCacheType,
+                    tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
         print(STR_SEP)
     if (ARGS.htmlrep): # ...implies ARGS.outdir
-        HTTP_REPORT.SetType2(THUMBS_SIG_CMMM.decode(), tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
+        HTTP_REPORT.setType2(strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
 
     # Cache...
     iOffset = tDB_cacheOff1st
     iCacheCounter = 1
     while (True):
         if (thumbsDBsize < (iOffset + 48)):
-            print(" Warning: Remaining cache entry %d too small\n" % iCacheCounter)
+            sys.stderr.write(" Warning: Remaining cache entry %d too small\n" % iCacheCounter)
             break
 
         thumbsDB.seek(iOffset)
@@ -1003,25 +1005,32 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
                          tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, strID, listESEDB)
 
         strCleanID = cleanFileName(strID)
+        bHasSymName = False
 
         if (tDB_dataSize > 0):
             # Setup symbolic link to filename...
-            if (listESEDB != None and listESEDB(0) != None):
-                setupSymLink(True)
-                if (EXIT_CODE > 0):
-                    return
-                if (ARGS.symlinks): # ...implies ARGS.outdir
-                    if (listESEDB(0) != None):
+            if (listESEDB != None and listESEDB(ESEDB_IDX("TCI")) != None):
+                strFileName = None
+                if (listESEDB(ESEDB_IDX("IU")) != None):
+                    strURL = listESEDB(ESEDB_IDX("IU"))
+                    strFileName = strURL.split("/")[-1].split("?")[0]
+                if (strFileName != None and ARGS.symlinks): # ...implies ARGS.outdir
+                        bHasSymName = True
                         symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt,
-                                      ARGS.outdir + listESEDB(0))
-                    if (listESEDB(3) != None):
+                                      ARGS.outdir + strFileName)
+                        if (EXIT_CODE > 0):
+                                return
                         fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
-                        fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt + " => " + listESEDB(3) + "\n")
+                        fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt +
+                                      " => " + strFileName + "\n")
                         fileURL.close()
+
+                # Add a "catalog" entry if Cache ID match in ESEDB...
+                addCatalogEntry(1, listESEDB(ESEDB_IDX("DM")), strFileName)
 
             # Write data to filename...
             if (ARGS.outdir != None):
-                strFileName = getFileName(-1, strCleanID, True, 2)
+                strFileName = getFileName(-1, strCleanID, bHasSymName, 2)
                 fileImg = open(ARGS.outdir + strFileName + "." + strExt, "wb")
                 fileImg.write(tDB_data)
                 fileImg.close()
@@ -1069,12 +1078,18 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
     tDB_entryCount = unpack("<l", thumbsDB[16:20])[0]
     reserved       = unpack("<l", thumbsDB[20:24])[0]
 
+    try:
+        strFormatType = list(TC_FORMAT_TYPE.keys())[list(TC_FORMAT_TYPE.values()).index(tDB_formatVer)]
+    except ValueError:
+        strFormatType = "Unknown Format"
+
     if (not ARGS.quiet):
         print(" Header\n --------------------")
-        printDBHead(THUMBS_TYPE_IMMM, THUMBS_SIG_IMMM.decode(), tDB_formatVer, None, tDB_entryUsed, None, tDB_entryCount)
+        printDBHead(THUMBS_TYPE_IMMM, tDB_formatVer, strFormatType, None, None,
+                    tDB_entryUsed, None, tDB_entryCount)
         print(STR_SEP)
     if (ARGS.htmlrep):
-        HTTP_REPORT.SetType3(THUMBS_SIG_IMMM.decode(), tDB_formatVer, tDB_entryUsed, tDB_entryCount)
+        HTTP_REPORT.setType3(strFormatType, tDB_entryUsed, tDB_entryCount)
 
     # Cache...
     iOffset = 24
@@ -1123,7 +1138,8 @@ def processThumbFile(infile, bProcessError=True):
     global ARGS, EXIT_CODE
     global IMAGE_TYPE_1_HEADER, IMAGE_TYPE_1_QUANTIZE, IMAGE_TYPE_1_HUFFMAN
     global THUMBS_SIG_OLE, THUMBS_SIG_OLEB, THUMBS_SIG_CMMM, THUMBS_SIG_IMMM
-    global HTTP_REPORT
+    global THUMBS_TYPE_OLE, THUMBS_TYPE_CMMM, THUMBS_TYPE_IMMM
+    global HTTP_REPORT, __major__, __minor__, __micro__
 
 
     # Open given Thumbnail file...
@@ -1191,9 +1207,9 @@ def processThumbFile(infile, bProcessError=True):
 
     # Initialize optional HTML report...
     if (ARGS.htmlrep): # ...implies ARGS.outdir
-        HTTP_REPORT = vinetto.vinreport.HttpReport(thumbsDBtype, infile, ARGS.outdir, getEncoding(),
-                                (__major__ + "." + __minor__ + "." + __micro__))
-        HTTP_REPORT.SetFileSection(thumbsDBsize, thumbsDBmd5)
+        HTTP_REPORT = vinetto.vinreport.HttpReport(getEncoding(), infile, ARGS.outdir,
+                                (__major__ + "." + __minor__ + "." + __micro__),
+                                thumbsDBtype, thumbsDBsize, thumbsDBmd5)
 
     if (thumbsDBtype == THUMBS_TYPE_OLE):
         processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize)
@@ -1277,7 +1293,7 @@ def processFileSystem():
 # ================================================================================
 
 def main():
-    global ARGS
+    global ARGS, EXIT_CODE
     ARGS = getArgs()
 
     if (ARGS.mode == None):
@@ -1363,6 +1379,9 @@ def main():
             sys.stderr.write(strErrType + "Skipping any ESE DB file processing on thumbnail files")
 
     if (EXIT_CODE == 0):
+        setupSymLink()
+
+    if (EXIT_CODE == 0):
         if (ARGS.mode == "f"): # Traditional Mode
             processThumbFile(ARGS.infile)
         elif (ARGS.mode == "d"): # Directory Mode
@@ -1373,7 +1392,7 @@ def main():
             processFileSystem()
         else: # Unknown Mode
             sys.stderr.write(" Error: Unknown mode (%s) to process " + ARGS.infile + "\n" % ARGS.mode)
-            sys.exit(10)
+            EXIT_CODE = 10
 
     if (ESEDB_FILE != None):
         ESEDB_FILE.close()

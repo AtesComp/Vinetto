@@ -32,12 +32,6 @@ __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
 
-HtHeader = []
-HtType = []
-HtPicRow = []
-HtOrphans = []
-HtFooter = []
-IMGTAG = "<IMG SRC=\"__TNFNAME__.jpg\" ALT=\"__TNNAME__\">"
 
 from time import time
 from os.path import dirname, basename, abspath, getmtime
@@ -46,62 +40,75 @@ from vinetto.vinutils import TN_CATALOG, TN_STREAMS, NONE_BLOCK, \
                              getCatalogEntry, getFormattedTimeUTC
 from pkg_resources import resource_filename
 
+
+THUMBS_TYPE_OLE  = 0
+THUMBS_TYPE_CMMM = 1
+THUMBS_TYPE_IMMM = 2
+
+FILE_TYPES = ["OLE (Thumb.db)", "CMMM (Thumbcache_*.db)", "IMMM (Thumbcache_*.db)"]
+
+HTTP_HEADER  = []
+HTTP_TYPE    = []
+HTTP_PIC_ROW = []
+HTTP_ORPHANS = []
+HTTP_FOOTER  = []
+
+IMGTAG = "<IMG SRC=\"__TNFNAME__.jpg\" ALT=\"__TNNAME__\">"
+
+
 class Report:
     """ Vinetto report SuperClass.  """
-    def __init__ (self, target, outputdir, verstr):
+    def __init__(self, target, outputdir, verstr, fileType, fileSize, md5):
         """ Initialize a new Report instance.  """
-        self.tDBfname = basename(target)
+        self.tDBfname   = basename(target)
         self.tDBdirname = abspath(dirname(target))
-        self.tDBmtime = getmtime(target)
-        self.outputdir = outputdir
-        self.verstr = verstr
+        self.tDBmtime   = getmtime(target)
+        self.outputdir  = outputdir
+        self.verstr     = verstr
+        self.fileType   = fileType
+        self.fileSize   = fileSize
+        self.md5        = md5
 
 
 class HttpReport(Report):
     """ Html vinetto elementary mode report Class.  """
-    def __init__(self, tDBtype, tDBfname, outputdir, charset, verstr):
+    def __init__(self, charset, tDBfname, outputdir, verstr, fileType, fileSize, md5):
         """ Initialize a new HtttReport instance.  """
-        Report.__init__(self, tDBfname, outputdir, verstr)
+        Report.__init__(self, tDBfname, outputdir, verstr, fileType, fileSize, md5)
         self.rownumber = 0
         separatorID = 0
 
+        # Load HTTP sections...
         for strLine in open(resource_filename('vinetto', 'data/HtRepTemplate.html'), "r").readlines():
-
             if strLine.find("__CHARSET__") > 0:
                 strLine = strLine.replace("__CHARSET__", charset)
             if strLine.find("__ITS__") >= 0:
                 separatorID += 1
                 continue
 
-            if separatorID == 0:
-                HtHeader.append(strLine)
-            elif separatorID == 1 and tDBtype == 1:
-                HtType.append(strLine)
-            elif separatorID == 2 and tDBtype == 2:
-                HtType.append(strLine)
-            elif separatorID == 3 and tDBtype == 3:
-                HtType.append(strLine)
-            elif separatorID == 4:
-                HtPicRow.append(strLine)
-            elif separatorID == 5:
-                HtOrphans.append(strLine)
-            elif separatorID == 6:
-                HtFooter.append(strLine)
+            if (separatorID == 0):
+                HTTP_HEADER.append(strLine)
+            elif (separatorID == 1 and self.fileType == THUMBS_TYPE_OLE):
+                HTTP_TYPE.append(strLine)
+            elif (separatorID == 2 and self.fileType == THUMBS_TYPE_CMMM):
+                HTTP_TYPE.append(strLine)
+            elif (separatorID == 3 and self.fileType == THUMBS_TYPE_IMMM):
+                HTTP_TYPE.append(strLine)
+            elif (separatorID == 4):
+                HTTP_PIC_ROW.append(strLine)
+            elif (separatorID == 5):
+                HTTP_ORPHANS.append(strLine)
+            elif (separatorID == 6):
+                HTTP_FOOTER.append(strLine)
 
-        self.TNidList = []
-        self.TNtsList = []
+        self.TNidList   = []
+        self.TNtsList   = []
         self.TNnameList = []
 
 
-    def SetFileSection(self, FileSize, md5):
-        """ Initialize data of the report file section.  """
-        self.FileSize = FileSize
-        self.md5 = md5
-
-
-    def SetType1(self, tDBREcolor, tDBREpdid, tDBREndid, tDBREsdid, tDBREcid, tDBREuserflags,
+    def setType1(self, tDBREcolor, tDBREpdid, tDBREndid, tDBREsdid, tDBREcid, tDBREuserflags,
                 tDBREctime, tDBREmtime, tDBREsid_firstSecDir, tDBREsid_sizeDir):
-        # Initialize type 1 of report type section
+        # Initialize Type 1 report (OLE, Thumbs.db) for report type section
         self.tDBREcolor = tDBREcolor
         self.tDBREpdid = tDBREpdid
         self.tDBREndid = tDBREndid
@@ -114,93 +121,101 @@ class HttpReport(Report):
         self.tDBREsid_sizeDir = tDBREsid_sizeDir
 
 
-    def SetType2(self, tDB_fileType, tDB_formatVer, tDB_cacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail,
+    def setType2(self, strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail,
                  tDB_cacheCount):
-        # Initialize type 2 of report type section
-        self.tDBREtype = tDB_fileType
-        self.tDBREformatVer = tDB_formatVer
-        self.tDBREcacheType = tDB_cacheType
+        # Initialize Type 2 report (CMMM, Thumbcache_*) for report type section
+        self.tDBREformatType = strFormatType
+        self.tDBREcacheType = strCacheType
         self.tDBREcacheOff1st = tDB_cacheOff1st
         self.tDBREcacheOff1stAvail = tDB_cacheOff1stAvail
         self.tDBREcacheCount = tDB_cacheCount
 
 
-    def SetType3(self, tDB_fileType, tDB_formatVer, tDB_entryUsed, tDB_entryCount):
-        # Initialize type 3 of report type section
-        self.tDBREtype = tDB_fileType
-        self.tDBREformatVer = tDB_formatVer
+    def setType3(self, strFormatType, tDB_entryUsed, tDB_entryCount):
+        # Initialize Type 3 report (IMMM, Thumbcache_*) for report type section
+        self.tDBREformatType = strFormatType
         self.tDBREentryUsed = tDB_entryUsed
         self.tDBREentryCount = tDB_entryCount
 
 
     def headwrite(self):
-        global NONE_BLOCK
+        global NONE_BLOCK, FILE_TYPES
 
-        # Writes report header...
+        # Write report header...
         self.repfile = open(self.outputdir + self.tDBfname + ".html", "w")
-        for strLine in HtHeader:
+        for strLine in HTTP_HEADER:
             strLine = strLine.replace("__DATEREPORT__",  "Report Date: " + getFormattedTimeUTC(time()))
             strLine = strLine.replace("__TDBDIRNAME__",  self.tDBdirname)
             strLine = strLine.replace("__TDBFNAME__",    self.tDBfname)
             strLine = strLine.replace("__TDBMTIME__",    getFormattedTimeUTC(self.tDBmtime))
-            strLine = strLine.replace("__FILESIZE__",    str(self.FileSize))
+            strLine = strLine.replace("__FILETYPE__",    FILE_TYPES[self.fileType])
+            strLine = strLine.replace("__FILESIZE__",    str(self.fileSize))
             strLine = strLine.replace("__MD5__",         self.md5 if not None else "Not Calculated")
 
-        for strLine in HtType:
-            # Type 1
-            strLine = strLine.replace("__TDBRECOLOR__",  "%d (%s)" % (self.tDBREcolor, "Black" if self.tDBREcolor else "Red"))
-            strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.tDBREpdid == NONE_BLOCK) else str(self.tDBREpdid)))
-            strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.tDBREndid == NONE_BLOCK) else str(self.tDBREndid)))
-            strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.tDBREsdid == NONE_BLOCK) else str(self.tDBREsdid)))
-            strLine = strLine.replace("__TDBRECLASS__",  self.tDBREcid)
-            strLine = strLine.replace("__TDBREUFLAGS__", self.tDBREuserflags)
-            strLine = strLine.replace("__TDBRECTIME__",  self.tDBREctime)
-            strLine = strLine.replace("__TDBREMTIME__",  self.tDBREmtime)
-            strLine = strLine.replace("__TDBRESID1SD__", str(self.tDBREsid_firstSecDir))
-            strLine = strLine.replace("__TDBRESIDSZD__", str(self.tDBREsid_sizeDir))
+            self.repfile.write(strLine)
 
-            # Type 2
-            strLine = strLine.replace("__TDBRETYPE__",             self.tDBREtype)
-            strLine = strLine.replace("__TDBREFORMATVER__",        self.tDBREformatVer)
-            strLine = strLine.replace("__TDBRECACHETYPE__",        str(self.tDBREcacheType))
-            strLine = strLine.replace("__TDBRECACHEOFF1ST__",      str(self.tDBREcacheOff1st))
-            strLine = strLine.replace("__TDBRECACHEOFF1STAVAIL__", str(self.tDBREcacheOff1stAvail))
-            strLine = strLine.replace("__TDBRECACHECOUNT__",       str(self.tDBREcacheCount))
 
-            # Type 3
-            #strLine = strLine.replace("__TDBRETYPE__",       self.tDBREtype) # ...from above
-            #strLine = strLine.replace("__TDBREFORMATVER__",  self.tDBREformatVer) # ...from above
-            strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.tDBREentryUsed))
-            strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.tDBREentryCount))
+    def typewrite(self):
+        global NONE_BLOCK
+
+        # Write report type...
+        for strLine in HTTP_TYPE:
+            # Adjust Type 1 (OLE, Thumbs.db)...
+            if (self.fileType == THUMBS_TYPE_OLE):
+                strLine = strLine.replace("__TDBRECOLOR__",  "%d (%s)" % (self.tDBREcolor, "Black" if self.tDBREcolor else "Red"))
+                strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.tDBREpdid == NONE_BLOCK) else str(self.tDBREpdid)))
+                strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.tDBREndid == NONE_BLOCK) else str(self.tDBREndid)))
+                strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.tDBREsdid == NONE_BLOCK) else str(self.tDBREsdid)))
+                strLine = strLine.replace("__TDBRECLASS__",  self.tDBREcid)
+                strLine = strLine.replace("__TDBREUFLAGS__", self.tDBREuserflags)
+                strLine = strLine.replace("__TDBRECTIME__",  self.tDBREctime)
+                strLine = strLine.replace("__TDBREMTIME__",  self.tDBREmtime)
+                strLine = strLine.replace("__TDBRESID1SD__", str(self.tDBREsid_firstSecDir))
+                strLine = strLine.replace("__TDBRESIDSZD__", str(self.tDBREsid_sizeDir))
+
+            # Adjust Type 2 (CMMM, Thumbcache_*)...
+            elif (self.fileType == THUMBS_TYPE_CMMM):
+                strLine = strLine.replace("__TDBREFORMATTYPE__",       self.tDBREformatType)
+                strLine = strLine.replace("__TDBRECACHETYPE__",        self.tDBREcacheType)
+                strLine = strLine.replace("__TDBRECACHEOFF1ST__",      str(self.tDBREcacheOff1st))
+                strLine = strLine.replace("__TDBRECACHEOFF1STAVAIL__", str(self.tDBREcacheOff1stAvail))
+                strLine = strLine.replace("__TDBRECACHECOUNT__",       str(self.tDBREcacheCount))
+
+            # Adjust Type 3 (IMMM, Thumbcache_*)...
+            elif (self.fileType == THUMBS_TYPE_IMMM):
+                strLine = strLine.replace("__TDBREFORMATTYPE__", self.tDBREformatType)
+                strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.tDBREentryUsed))
+                strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.tDBREentryCount))
 
             self.repfile.write(strLine)
 
 
     def close(self, strStats):
-        # Terminate processing HtttReport instance...
+        # Write report footer...
+        for strLine in HTTP_FOOTER:
+            strLine = strLine.replace("__TYPESTATS__", strStats)
+            strLine = strLine.replace("__VERSION__", "Vinetto " + self.verstr)
 
-        for strLine in HtFooter:
-            strLine = strLine.replace("__TYPEXTRACT__", strStats)
-            strLine = strLine.replace("__VVERSION__", "Vinetto " + self.verstr)
             self.repfile.write(strLine)
+
         self.repfile.close()
 
 
-    def rowflush(self):
+    def rowFlush(self):
         # Process a report line...
         self.rownumber += 1
-        for strLine in HtPicRow:
+        for strLine in HTTP_PIC_ROW:
             strLine = strLine.replace("__ROWNUMBER__", str(self.rownumber))
             # Fill...
             for j in range(len(self.tnId)):
-                strLine = strLine.replace("__TNfilled__" + str(j), "1")
+                strLine = strLine.replace("__TNFILLED__" + str(j), "1")
                 buff = IMGTAG.replace("__TNFNAME__", self.tnFname[j])
                 buff = buff.replace("__TNNAME__", self.tnName[j])
                 strLine = strLine.replace("__IMGTAG__" + str(j), buff)
                 strLine = strLine.replace("__TNID__" + str(j), self.tnId[j])
             # Blank...
             for j in range(len(self.tnId), 7):
-                strLine = strLine.replace("__TNfilled__" + str(j), "0")
+                strLine = strLine.replace("__TNFILLED__" + str(j), "0")
                 strLine = strLine.replace("__IMGTAG__" + str(j), " ")
                 strLine = strLine.replace("__TNID__" + str(j), " ")
 
@@ -208,6 +223,7 @@ class HttpReport(Report):
 
         self.repfile.write("<TABLE WIDTH=\"720\">" +
                            "<TR><TD><P ALIGN=\"LEFT\">\n")
+        strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.fileType == THUMBS_TYPE_OLE else "Cache ID")
         for i in range(len(self.tnId)):
             if (self.tnName[i] != ""):
                 self.repfile.write("<TT>" +
@@ -218,7 +234,7 @@ class HttpReport(Report):
             else:
                 self.repfile.write("<TT STYLE=\"color: blue\">" +
                                    self.tnId[i].replace(" ", "&nbsp;") + ": " +
-                                   "** Catalog entry not found **" +
+                                   strEntryNotFound +
                                    "</TT><br />\n")
 
         self.repfile.write("</P></TD></TR></TABLE>")
@@ -232,7 +248,7 @@ class HttpReport(Report):
     def printOrphanCatEnt(self, OrphanICat):
         # Print orphan catalog entry...
         if (OrphanICat != []):
-            for strLine in HtOrphans:
+            for strLine in HTTP_ORPHANS:
                 if strLine.find("__ORPHANENTRY__") < 0:
                     self.repfile.write(strLine)
                 else:
@@ -260,22 +276,22 @@ class HttpReport(Report):
         self.tnTs.append(strTimeStamp)
         self.tnName.append(strEntryName)
         if (bFlush or len(self.tnId) >= 7):
-            self.rowflush()
+            self.rowFlush()
 
     def flush(self, astrStats, strSubDir):
-        # Process the report body and the report end...
         self.headwrite()
+        self.typewrite()
 
+        # Process the report body and the report end...
         self.rownumber = 0
         self.tnId    = []
         self.tnFname = []
         self.tnTs    = []
         self.tnName  = []
 
-#        for (iTN, iType, strFileName) in TN_STREAMS:
         for iTN in TN_STREAMS:
-            for (iType, strFileName, bStreamId) in TN_STREAMS[iTN]:
-                if (bStreamId):
+            for (iType, strFileName, bStreamID) in TN_STREAMS[iTN]:
+                if (bStreamID):
                     strFilePath = strSubDir + "/" + strFileName
                 else:
                     strFilePath = "./" + strFileName
