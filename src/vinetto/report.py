@@ -1,10 +1,11 @@
 # -*- coding: UTF-8 -*-
 """
-module vinreport.py
+module report.py
 -----------------------------------------------------------------------------
 
  Vinetto : a forensics tool to examine Thumbs.db files
  Copyright (C) 2005, 2006 by Michel Roukine
+ Copyright (C) 2019-2020 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,27 +26,21 @@ This file is part of Vinetto.
 -----------------------------------------------------------------------------
 """
 
-__major__ = "0"
-__minor__ = "4"
-__micro__ = "3"
-__maintainer__ = "Keven L. Ates"
-__author__ = "Michel Roukine"
-__location__ = "https://github.com/AtesComp/Vinetto"
+
+file_major = "0"
+file_minor = "4"
+file_micro = "4"
 
 
 from time import time
 from os.path import dirname, basename, abspath, getmtime
 
-from vinetto.vinutils import TN_CATALOG, TN_STREAMS, NONE_BLOCK, \
-                             getCatalogEntry, getFormattedTimeUTC
+import vinetto.config as config
+
+from vinetto.utils import TN_CATALOG, TN_STREAMS, \
+                          getCatalogEntry, convertToPyTime, getFormattedTimeUTC
 from pkg_resources import resource_filename
 
-
-THUMBS_TYPE_OLE  = 0
-THUMBS_TYPE_CMMM = 1
-THUMBS_TYPE_IMMM = 2
-
-FILE_TYPES = ["OLE (Thumb.db)", "CMMM (Thumbcache_*.db)", "IMMM (Thumbcache_*.db)"]
 
 HTTP_HEADER  = []
 HTTP_TYPE    = []
@@ -88,11 +83,11 @@ class HttpReport(Report):
 
             if (separatorID == 0):
                 HTTP_HEADER.append(strLine)
-            elif (separatorID == 1 and self.fileType == THUMBS_TYPE_OLE):
+            elif (separatorID == 1 and self.fileType == config.THUMBS_TYPE_OLE):
                 HTTP_TYPE.append(strLine)
-            elif (separatorID == 2 and self.fileType == THUMBS_TYPE_CMMM):
+            elif (separatorID == 2 and self.fileType == config.THUMBS_TYPE_CMMM):
                 HTTP_TYPE.append(strLine)
-            elif (separatorID == 3 and self.fileType == THUMBS_TYPE_IMMM):
+            elif (separatorID == 3 and self.fileType == config.THUMBS_TYPE_IMMM):
                 HTTP_TYPE.append(strLine)
             elif (separatorID == 4):
                 HTTP_PIC_ROW.append(strLine)
@@ -106,22 +101,21 @@ class HttpReport(Report):
         self.TNnameList = []
 
 
-    def setType1(self, tDBREcolor, tDBREpdid, tDBREndid, tDBREsdid, tDBREcid, tDBREuserflags,
-                tDBREctime, tDBREmtime, tDBREsid_firstSecDir, tDBREsid_sizeDir):
+    def setOLE(self, oleBlock):
         # Initialize Type 1 report (OLE, Thumbs.db) for report type section
-        self.tDBREcolor = tDBREcolor
-        self.tDBREpdid = tDBREpdid
-        self.tDBREndid = tDBREndid
-        self.tDBREsdid = tDBREsdid
-        self.tDBREcid = tDBREcid
-        self.tDBREuserflags = tDBREuserflags
-        self.tDBREctime = tDBREctime
-        self.tDBREmtime = tDBREmtime
-        self.tDBREsid_firstSecDir = tDBREsid_firstSecDir
-        self.tDBREsid_sizeDir = tDBREsid_sizeDir
+        self.tDBREcolor = oleBlock["color"]
+        self.tDBREpdid  = oleBlock["PDID"]
+        self.tDBREndid  = oleBlock["NDID"]
+        self.tDBREsdid  = oleBlock["SDID"]
+        self.tDBREcid   = oleBlock["CID"]
+        self.tDBREuserflags = oleBlock["userflags"]
+        self.tDBREctime = getFormattedTimeUTC( convertToPyTime(oleBlock["create"]) )
+        self.tDBREmtime = getFormattedTimeUTC( convertToPyTime(oleBlock["modify"]) )
+        self.tDBREsid_firstSecDir = oleBlock["SID_firstSecDir"]
+        self.tDBREsid_sizeDir = oleBlock["SID_sizeDir"]
 
 
-    def setType2(self, strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail,
+    def setCMMM(self, strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail,
                  tDB_cacheCount):
         # Initialize Type 2 report (CMMM, Thumbcache_*) for report type section
         self.tDBREformatType = strFormatType
@@ -139,16 +133,14 @@ class HttpReport(Report):
 
 
     def headwrite(self):
-        global NONE_BLOCK, FILE_TYPES
-
         # Write report header...
         self.repfile = open(self.outputdir + self.tDBfname + ".html", "w")
         for strLine in HTTP_HEADER:
-            strLine = strLine.replace("__DATEREPORT__",  "Report Date: " + getFormattedTimeUTC(time()))
+            strLine = strLine.replace("__DATEREPORT__",  "Report Date: " + getFormattedTimeUTC( time() ))
             strLine = strLine.replace("__TDBDIRNAME__",  self.tDBdirname)
             strLine = strLine.replace("__TDBFNAME__",    self.tDBfname)
             strLine = strLine.replace("__TDBMTIME__",    getFormattedTimeUTC(self.tDBmtime))
-            strLine = strLine.replace("__FILETYPE__",    FILE_TYPES[self.fileType])
+            strLine = strLine.replace("__FILETYPE__",    config.THUMBS_FILE_TYPES[self.fileType])
             strLine = strLine.replace("__FILESIZE__",    str(self.fileSize))
             strLine = strLine.replace("__MD5__",         self.md5 if not None else "Not Calculated")
 
@@ -156,16 +148,14 @@ class HttpReport(Report):
 
 
     def typewrite(self):
-        global NONE_BLOCK
-
         # Write report type...
         for strLine in HTTP_TYPE:
             # Adjust Type 1 (OLE, Thumbs.db)...
-            if (self.fileType == THUMBS_TYPE_OLE):
+            if (self.fileType == config.THUMBS_TYPE_OLE):
                 strLine = strLine.replace("__TDBRECOLOR__",  "%d (%s)" % (self.tDBREcolor, "Black" if self.tDBREcolor else "Red"))
-                strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.tDBREpdid == NONE_BLOCK) else str(self.tDBREpdid)))
-                strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.tDBREndid == NONE_BLOCK) else str(self.tDBREndid)))
-                strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.tDBREsdid == NONE_BLOCK) else str(self.tDBREsdid)))
+                strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.tDBREpdid == config.OLE_NONE_BLOCK) else str(self.tDBREpdid)))
+                strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.tDBREndid == config.OLE_NONE_BLOCK) else str(self.tDBREndid)))
+                strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.tDBREsdid == config.OLE_NONE_BLOCK) else str(self.tDBREsdid)))
                 strLine = strLine.replace("__TDBRECLASS__",  self.tDBREcid)
                 strLine = strLine.replace("__TDBREUFLAGS__", self.tDBREuserflags)
                 strLine = strLine.replace("__TDBRECTIME__",  self.tDBREctime)
@@ -174,7 +164,7 @@ class HttpReport(Report):
                 strLine = strLine.replace("__TDBRESIDSZD__", str(self.tDBREsid_sizeDir))
 
             # Adjust Type 2 (CMMM, Thumbcache_*)...
-            elif (self.fileType == THUMBS_TYPE_CMMM):
+            elif (self.fileType == config.THUMBS_TYPE_CMMM):
                 strLine = strLine.replace("__TDBREFORMATTYPE__",       self.tDBREformatType)
                 strLine = strLine.replace("__TDBRECACHETYPE__",        self.tDBREcacheType)
                 strLine = strLine.replace("__TDBRECACHEOFF1ST__",      str(self.tDBREcacheOff1st))
@@ -182,7 +172,7 @@ class HttpReport(Report):
                 strLine = strLine.replace("__TDBRECACHECOUNT__",       str(self.tDBREcacheCount))
 
             # Adjust Type 3 (IMMM, Thumbcache_*)...
-            elif (self.fileType == THUMBS_TYPE_IMMM):
+            elif (self.fileType == config.THUMBS_TYPE_IMMM):
                 strLine = strLine.replace("__TDBREFORMATTYPE__", self.tDBREformatType)
                 strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.tDBREentryUsed))
                 strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.tDBREentryCount))
@@ -224,7 +214,7 @@ class HttpReport(Report):
 
         self.repfile.write("<TABLE WIDTH=\"720\">" +
                            "<TR><TD><P ALIGN=\"LEFT\">\n")
-        strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.fileType == THUMBS_TYPE_OLE else "Cache ID")
+        strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.fileType == config.THUMBS_TYPE_OLE else "Cache ID")
         for i in range(len(self.tnId)):
             if (self.tnName[i] != ""):
                 self.repfile.write("<TT>" +

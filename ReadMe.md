@@ -10,65 +10,80 @@ Linux, Mac, and Windows.  Testing has currently been limited to Linux.
 
 ## Project Overview
 
-1. **Context** : The Windows systems (98, ME, 2000 and XP) can store thumbnails
-and metadata of the picture files contained in the directories of its FAT32 or
-NTFS filesystems.
-   1. Thumbnails and associated metadata are stored in Thumbs.db files.
-   Thumbs.db files are undocumented OLE structured files.
+1. **Context** : Older Windows systems (98, ME, 2000, XP, and Server 2003) can
+store a thumb cache containing thumbnails and metadata of image files found in
+the directories of its FAT32 or NTFS filesystems.  Newer Windows systems
+(Vista, 7, 8, 10, other related Editions, and Server versions) use a unified
+thumb cache system for each user.
+   1. For older OS systems, thumbnails and associated metadata are stored in
+   Thumbs.db files in each directory.  Thumbs.db files are undocumented OLE
+   structured files.
 
-   2. When an image file has been deleted from the filesystem, the related
-   thumbnail and associated metadata remain stored in the Thumbs.db file.  The
-   data contained in those Thumbs.db files are an helpful source of information
-   to the forensics investigator.
+   2. For newer OS systems, thumbnails and associated metadata are stored in
+   thumbcache_\*.db files in each user's directory at:
+     "Users/\*/AppData/Local/Microsoft/Windows/Explorer/"
+
+   3. When an image file has been deleted from the filesystem, the related
+   thumbnail and associated metadata may remain stored in the thumb cache
+   files.
+
+   4. Whether deleted or not, the data contained in the thumb cache files
+   are an helpful source of information to the forensics investigator.  It
+   may provide important resources related to activity associated with the
+   images.
 
 2. **Intention** : Vinetto extracts thumbnails and associated metadata from
-thumb image cache files.  Vinetto will function according to four modes:
+thumb cache files.  Additionally, a thumbnail's Thumb Cache ID is cross checked
+to extract file matadata, including possible original file name, from a
+defaults or specified ESEDB (Windows.edb) file.  This process uses the python
+libraries from "libesedb" to find and extract the relevant file metadata.
+Vinetto will function according to four modes:
    1. *file* : Vinetto extracts thumbnail images and metadata from specified
    cache files.  **This is the current default operating mode.**
-      - Local directory Thumbs.db are processes.
-      - **TODO:** It will also process Thumbcache_\*.db files.
-      - **TODO:** It will attempt to cross check Thumb Ids with file names in a
-      specified Windows.edb file. This process uses the python libraries from
-      libesedb to find and extract the relevant file information.
+      - Local directory Thumbs.db are processed.
+      - User Thumbcache_\*.db files are processed.
+      - Thumb Cache IDs are cross checked to extract any relevant metadata
+      from a specified ESEDB file.
 
-   2. *directory* : Vinetto processes any found \*.db files in the specified
-   BASE directory.
-      - **TODO:** It will check for consistency between the specified
-      directory's content and its related Thumbs.db file.  I.e., it will report
-      thumbnails that have a missing associated file in the directory.
-      - **TODO:** It will also process Thumbcache_\*.db files.
-      - **TODO:** As per default, it will attempt to cross check Thumb Ids with
-      file names in a specified Windows.edb file.
+   2. *directory* : **TODO** Vinetto processes any found \*.db files in the
+   specified BASE directory.
+      - It checks for consistency between the specified directory's content and
+      its related Thumbs.db file (i.e., it reports thumbnails that have a
+      missing associated file in the directory).
+      - It processes any Thumbcache_\*.db files.
+      - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
+      metadata from a specified ESEDB file.
 
-   3. *recursive* : Vinetto processes any found \*.db files from the specified
-   BASE directory recursively down its directory tree.
-      - **TODO:** It will check for consistency between a subdirectory's
-      content and its related Thumbs.db file.  I.e., it will report
-      thumbnails that have a missing associated file in its subdirectory.
-      - **TODO:** It will also process Thumbcache_\*.db files.
-      - **TODO:** As per default, it will attempt to cross check Thumb Ids with
-      file names in a specified Windows.edb file.
+   3. *recursive* : **TODO** Vinetto processes any found \*.db files from the
+   specified  BASE directory recursively down its directory tree.
+      - As per *directory*, it check for consistency between a subdirectory's
+      content and its related Thumbs.db file (i.e., it reports thumbnails that
+      have a missing associated file in the directory).
+      - It processes any Thumbcache_\*.db files.
+      - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
+      metadata from a specified ESEDB file.
 
    4. *automatic* : **TODO:** Vinetto will process the specified BASE
-   directory as a Windows Vista+ OS partition.
-      - **TODO:** It will processing thumbcache files from
-      BASE/Users/*/AppData/Local/Microsoft/Windows/Explorer/
-      - **TODO:** As per default, it will attempt to cross check Thumb Ids with
-      file names in
-      BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb
-      or in a specified Windows.edb file.
+   directory as a Windows OS partition.
+      - It checks the BASE directory to be consistent with Vista+ OS version.
+      If less than Vista, it processes as per *recursive*.  If Vista+, it
+      processes Thumbcache_\*.db files from each User directory:
+        "Users/*/AppData/Local/Microsoft/Windows/Explorer/"
+      - It attempts to cross check Thumb Cache IDs from the Windows.edb file in
+      the **default location** or in a specified "ESEDB" file.
 
 3. **Purpose** : Vinetto will help \*nix-based forensics investigators to:
-   1. easily preview thumbnails of deleted pictures on Windows systems,
+   1. easily preview thumbnails of images (existing or deleted) on Windows
+   systems,
 
-   2. obtain informations (dates, path, ...) about those deleted images.
+   2. obtain metadata (dates, path, ...) about those images.
 
 4. **Miscellaneous** : Vinetto is intended to be integrated into forensics
 liveCD like FCCU GNU/Linux Forensic Boot CD.
 
 ## Requirements
 
-1. Python-2.3 or later.
+1. Python-2.3 or later including standard libraries.
 
 2. PIL or Pillow.  PIL (Python Imaging Library) 1.1.5 or later.  Pillow is used
 by the maintainer.  PIL is used to attempt correct reconstitution of Type 1
@@ -104,26 +119,29 @@ and Windows(R)(TM) OSes as well. YMMV.
 ## Usage Overview:
 
 ```
-    usage: vinetto [-h] [-e EDBFILE] [-H] [-m {d,r}] [--md5] [--nomd5] [-o DIR]
-                [-q] [-s] [-U] [--version]
+    usage: vinetto [-h] [-e EDBFILE] [-H] [-m {f,d,r,a}] [--md5] [--nomd5]
+                [-o DIR] [-q] [-s] [-U] [--version]
                 infile
 
     Vinetto.py - The Thumbnail File Parser
 
     positional arguments:
-    infile                an input file, depending on mode, such as a
-                            thumbnail file ("Thumb.db" or similar) or a directory
+    infile                depending on operating mode, either a location to a thumbnail
+                            file ("Thumb.db" or similar) or a directory
 
     optional arguments:
     -h, --help            show this help message and exit
     -e EDBFILE, --edb EDBFILE
                             examine EDBFILE for original thumbnail filenames
     -H, --htmlrep         write html report to DIR (requires option -o)
-    -m {d,r}, --mode {d,r}
-                            operating mode: "d" or "r"
-                            where "d" indicates directory processing
+    -m {f,d,r,a}, --mode {f,d,r,a}
+                            operating mode: "f", "d", "r", or "a"
+                            where "f" indicates single file processing
+                                    "d" indicates directory processing
                                     "r" indicates recursive directory processing from a
                                         starting directory
+                                    "a" indicates automatic processing using well known
+                                        directories starting from a base directory
     --md5                 force the MD5 hash value calculation for an input file
                             Normally, the MD5 is calculated when a file is less than
                             0.5 GiB in size
@@ -140,30 +158,30 @@ and Windows(R)(TM) OSes as well. YMMV.
     --version             show program's version number and exit
 
     Operating Mode Notes:
-      Using the mode switch (-m, --mode) causes the input to be treated differently
-      based on the mode selected
-      File      (f): DEFAULT
+    Using the mode switch (-m, --mode) causes the input to be treated differently
+    based on the mode selected
+    File      (f): DEFAULT
         Use the input as a location to an individual thumbnail file to process
-      Directory (d):
+    Directory (d):
         Use the input as a directory containing individual thumbnail files where
         each file is automatically iterated for processing
-      Recursive (r):
+    Recursive (r):
         Use the input as a BASE directory from which it and subdirectories are
         recursively searched for individual thumbnail files for processing
-      Automatic (a):
+    Automatic (a):
         Use the input as a BASE directory of a partition to examine default
         locations for relevant thumbnail files to process
-          Thumbcache Files:
+        Thumbcache Files:
             BASE/Users/*/AppData/Local/Microsoft/Windows/Explorer
-              where '*' are user directories iterated automatically
-          Windows.edb File:
+            where '*' are user directories iterated automatically
+        Windows.edb File:
             BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb
         When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
         location
 
-    --- Vinetto.py 0.8.6 ---
+    --- Vinetto.py 0.8.9 ---
     Based on the original Vinetto by Michel Roukine
-    Updated by Keven L. Ates
+    Author: Keven L. Ates
     Vinetto.py is open source software
     See: https://github.com/AtesComp/Vinetto
 ```

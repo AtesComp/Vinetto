@@ -1,10 +1,11 @@
 # -*- coding: UTF-8 -*-
 """
-module vinutils.py
+module utils.py
 -----------------------------------------------------------------------------
 
  Vinetto : a forensics tool to examine Thumbs.db files
  Copyright (C) 2005, 2006 by Michel Roukine
+ Copyright (C) 2019-2020 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,14 +26,15 @@ This file is part of Vinetto.
 -----------------------------------------------------------------------------
 """
 
-__major__ = "0"
-__minor__ = "3"
-__micro__ = "5"
-__maintainer__ = "Keven L. Ates"
-__author__ = "Michel Roukine"
-__location__ = "https://github.com/AtesComp/Vinetto"
+
+file_major = "0"
+file_minor = "3"
+file_micro = "6"
+
 
 from time import strftime, gmtime
+
+
 try:
     # Python < 3
     from string import maketrans
@@ -48,9 +50,6 @@ iCATALOG_PREVIOUS_ID = None
 TN_STREAMS = {}
 bSTREAMS_INDEX_OUT_OF_SEQ = False
 iSTREAMS_PREVIOUS_ID = None
-
-LAST_BLOCK = 4294967294 # unsigned -2
-NONE_BLOCK = 4294967295 # unsigned -1
 
 
 def isCatalogOutOfSequence():

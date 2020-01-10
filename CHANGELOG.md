@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.9] - 2020-01-10 (DEVELOPEMENT)
+
+### Changed
+- Restructured globals
+- Revised file versioning
+- Claimed authorship due to extensive restructuring
+- Allow for multiple maintainers
+
 ## [0.8.8] - 2020-01-09 (DEVELOPEMENT)
 
 ### Added
