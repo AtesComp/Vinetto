@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.8] - 2020-01-09 (DEVELOPEMENT)
+
+### Added
+
+- ESEDB data expanded to include additional related columns
+- Added file extension processing in image row display for HTML report
+
+### Changed
+
+- Streamlined ESEDB related processing
+- Corrected and modified ESEDB processing and output
+- Corrected and modified image row display for HTML report
+
 ## [0.8.7] - 2020-01-07 (DEVELOPEMENT)
 
 ### Changed

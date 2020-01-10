@@ -1,6 +1,6 @@
 __major__ = "0"
 __minor__ = "8"
-__micro__ = "7"
+__micro__ = "8"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"

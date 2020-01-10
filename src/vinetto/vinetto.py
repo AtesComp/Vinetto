@@ -115,24 +115,79 @@ TC_CACHE_ALL = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1
 #    The Windows.edb stores the ThumbnailCacheID as part of its metadata for indexed files.
 #    Uses ESEDB library pyesedb to read the EDB file.
 #
-ESEDB_FILE     = None # Windows.edb or equivalent user specified file
-ESEDB_TABLE    = None # SystemIndex_0A or SystemIndex_PropertyStore
-ESEDB_ICOL_TCI = None # System_ThumbnailCacheId
-ESEDB_ICOL_IPD = None # System_ItemPathDisplay
-ESEDB_ICOL_IND = None # System_ItemNameDisplay
-ESEDB_ICOL_IN  = None # System_ItemName
-ESEDB_ICOL_IU  = None # System_ItemUrl
-ESEDB_ICOL_IHS = None # System_Image_HorizontalSize
-ESEDB_ICOL_IVS = None # System_Image_VerticalSize
-ESEDB_ICOL_ID  = None # System_Image_Dimensions
-ESEDB_ICOL_OFN = None # System_OriginalFileName
-ESEDB_ICOL_FN  = None # System_FileName
-ESEDB_ICOL_DM  = None # System_DateModified
-ESEDB_ICOL_DC  = None # System_DateCreated
-ESEDB_ICOL_DA  = None # System_DateAccessed
+ESEDB_FILE      = None # Windows.edb or equivalent user specified file
+ESEDB_TABLE     = None # SystemIndex_0A or SystemIndex_PropertyStore
 
-ESEDB_IDX = {"TCI":  0, "IPD":  1, "IND":  2, "IN" :  3, "IU" :  4, "IHS":  5, "IVS":  6,
-             "ID" :  7, "OFN":  8, "FN" :  9, "DM" : 10, "DC" : 11, "DA" : 12 }
+ESEDB_ICOL_NAMES = {
+    # 'x' - bstr  == (Large) Binary Data
+    # 's' - str   == (Large) Text
+    # 'i' - int   == Integer (32/16/8)-bit (un)signed
+    # 'b' - bool  == Boolean or Boolean Flags
+    # 'f' - float == Floating Point (Double Precision) (64/32-bit)
+    # 'd' - date  == Binary Data converted to Formatted UTC Time
+
+    # ESEDB Data Types:
+    # BINARY_DATA = 9
+    # BOOLEAN = 1
+    # CURRENCY = 5
+    # DATE_TIME = 8
+    # DOUBLE_64BIT = 7
+    # FLOAT_32BIT = 6
+    # GUID = 16
+    # INTEGER_16BIT_SIGNED = 3
+    # INTEGER_16BIT_UNSIGNED = 17
+    # INTEGER_32BIT_SIGNED = 4
+    # INTEGER_32BIT_UNSIGNED = 14
+    # INTEGER_64BIT_SIGNED = 15
+    # INTEGER_8BIT_UNSIGNED = 2
+    # LARGE_BINARY_DATA = 11
+    # LARGE_TEXT = 12
+    # NULL = 0
+    # SUPER_LARGE_VALUE = 13
+    # TEXT = 10
+
+    # Key:   (Column Text,                             Type,      Display Text   )
+    "TCID":  ("System_ThumbnailCacheId",                'x', "    ThumbCacheID: "), # 4670-System_ThumbnailCacheId
+    "MIME":  ("System_MIMEType",                        's', "        MimeType: "), # 4468-System_MIMEType
+    "CTYPE": ("System_ContentType",                     's', "     ContentType: "), # 4349-System_ContentType
+    "ITT":   ("System_ItemTypeText",                    's', "    ItemTypeText: "), # 5-System_ItemTypeText
+    "ITYPE": ("System_ItemType",                        's', "        ItemType: "), # 4446-System_ItemType
+    "FEXT":  ("System_FileExtension",                   's', "         FileExt: "), # 4388-System_FileExtension
+    "FNAME": ("System_FileName",                        's', "        FileName: "), # 11-System_FileName
+    "INAME": ("System_ItemName",                        's', "        ItemName: "), # 4438-System_ItemName
+    "IND":   ("System_ItemNameDisplay",                 's', " ItemNameDisplay: "), # 4439-System_ItemNameDisplay
+    "PNAME": ("System_ParsingName",                     's', "       ParseType: "), # 4561-System_ParsingName
+    "INDWE": ("System_ItemNameDisplayWithoutExtension", 's', "   ItemNameWOExt: "), # 4440-System_ItemNameDisplayWithoutExtension
+    "IPD":   ("System_ItemPathDisplay",                 's', "        ItemPath: "), # 4443-System_ItemPathDisplay
+    "IURL":  ("System_ItemUrl",                         's', "         ItemUrl: "), # 33-System_ItemUrl
+    "IPDN":  ("System_ItemPathDisplayNarrow",           's', "       ItemPathN: "), # 4444-System_ItemPathDisplayNarrow
+    "IFPD":  ("System_ItemFolderPathDisplay",           's', "  ItemFolderPath: "), # 4436-System_ItemFolderPathDisplay
+    "IFND":  ("System_ItemFolderNameDisplay",           's', "  ItemFolderName: "), # 3-System_ItemFolderNameDisplay
+    "IFPDN": ("System_ItemFolderPathDisplayNarrow",     's', " ItemFolderPathN: "), # 4437-System_ItemFolderPathDisplayNarrow
+    "DATEM": ("System_DateModified",                    'd', "    DateModified: "), # 15F-System_DateModified
+    "DATEC": ("System_DateCreated",                     'd', "     DateCreated: "), # 16F-System_DateCreated
+    "DATEA": ("System_DateAccessed",                    'd', "    DateAccessed: "), # 17F-System_DateAccessed
+    "DATEI": ("System_DateImported",                    'd', "    DateImported: "), # 4361-System_DateImported
+    "IDATE": ("System_ItemDate",                        'd', "        ItemDate: "), # 4434-System_ItemDate
+    "DDC":   ("System_Document_DateCreated",            'd', "  DateDocCreated: "), # 4367-System_Document_DateCreated
+    "DDS":   ("System_Document_DateSaved",              'd', "    DateDocSaved: "), # 4369-System_Document_DateSaved
+    "KIND":  ("System_Kind",                            'x', "           Kind#: "), # 4452-System_Kind
+    "KINDT": ("System_KindText",                        's', "        KindText: "), # 4453-System_KindText
+    "IDIM":  ("System_Image_Dimensions",                's', "       ImageDims: "), # 4416-System_Image_Dimensions
+    "IHSZ":  ("System_Image_HorizontalSize",            'i', "   ImageHorzSize: "), # 4418-System_Image_HorizontalSize
+    "IVSZ":  ("System_Image_VerticalSize",              'i', "   ImageVertSize: "), # 4420-System_Image_VerticalSize
+    "IHRES": ("System_Image_HorizontalResolution",      'f', "    ImageHorzRes: "), # 4417-System_Image_HorizontalResolution
+    "IVRES": ("System_Image_VerticalResolution",        'f', "    ImageVertRes: "), # 4419-System_Image_VerticalResolution
+    "IBITD": ("System_Image_BitDepth",                  'i', "   ImageBitDepth: "), # 4413-System_Image_BitDepth
+
+    "FOWN":  ("System_FileOwner",                       's', "       FileOwner: "), # 4392-System_FileOwner
+    "SIZE":  ("System_Size",                            'x', "        FileSize: "), # 13F-System_Size
+    "IOMD5": ("InvertedOnlyMD5",                        'x', " InvertedOnlyMD5: "), # 0F-InvertedOnlyMD5
+}
+
+ESEDB_ICOL = {}
+for key in ESEDB_ICOL_NAMES.keys():
+    ESEDB_ICOL[key] = None
 
 ARGS = None
 EXIT_CODE = 0
@@ -307,14 +362,12 @@ def printDBHead(thumbType, formatVer, strFormatType, cacheType, strCacheType, ca
     return
 
 
-def printDBCache(iCounter, strSig, iSize, iHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, listESEDB):
-    global ESEDB_FILE
-
+def printDBCache(iCounter, strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, dictESEDB):
     print(" Entry Counter: %d" % iCounter)
     print("     Signature: %s" % strSig)
     print("          Size: %d" % iSize)
-    print("          Hash: %s" % format(iHash, 'x'))
-    print("     Extension: %s" % ("None" if (strExt == None) else strExt))
+    print("          Hash: %s" % strHash)
+    print("     Extension: %s" % strExt)
     print("       ID Size: %d" % iIdSize)
     print("      Pad Size: %d" % iPadSize)
     print("     Data Size: %d" % iDataSize)
@@ -323,30 +376,23 @@ def printDBCache(iCounter, strSig, iSize, iHash, strExt, iIdSize, iPadSize, iDat
     print(" Data Checksum: %d" % iChkSumD)
     print(" Head Checksum: %d" % iChkSumH)
     print("            ID: %s" % strID)
-    if (ESEDB_FILE != None and listESEDB != None):
-        printESEDBInfo(listESEDB)
-    else:
-        print(" ESEBD Enhance: None")
+    printESEDBInfo(dictESEDB)
     return
 
 
-def printESEDBInfo(listESEDB):
-    global ESEDB_IDX
+def printESEDBInfo(dictESEDB):
+    global ESEDB_FILE, ESEDB_ICOL_NAMES, ESEDB_ICOL
 
-    print(" ESEBD Enhance:")
-    print("    ThumbCacheID: %s" % ("None" if (listESEDB(ESEDB_IDX("TCI")) == None) else listESEDB(ESEDB_IDX("TCI"))))
-    print("        ItemPath: %s" % ("None" if (listESEDB(ESEDB_IDX("IPD")) == None) else listESEDB(ESEDB_IDX("IPD"))))
-    print(" ItemNameDisplay: %s" % ("None" if (listESEDB(ESEDB_IDX("IND")) == None) else listESEDB(ESEDB_IDX("IND"))))
-    print("        ItemName: %s" % ("None" if (listESEDB(ESEDB_IDX("IN" )) == None) else listESEDB(ESEDB_IDX("IN" ))))
-    print("         ItemUrl: %s" % ("None" if (listESEDB(ESEDB_IDX("IU" )) == None) else listESEDB(ESEDB_IDX("IU" ))))
-    print("   ImageHorzSize: %d" % ("None" if (listESEDB(ESEDB_IDX("IHS")) == None) else listESEDB(ESEDB_IDX("IHS"))))
-    print("   ImageVertSize: %d" % ("None" if (listESEDB(ESEDB_IDX("IVS")) == None) else listESEDB(ESEDB_IDX("IVS"))))
-    print("       ImageDims: %s" % ("None" if (listESEDB(ESEDB_IDX("ID" )) == None) else listESEDB(ESEDB_IDX("ID" ))))
-    print("    OrigFileName: %s" % ("None" if (listESEDB(ESEDB_IDX("OFN")) == None) else listESEDB(ESEDB_IDX("OFN"))))
-    print("        FileName: %s" % ("None" if (listESEDB(ESEDB_IDX("FN" )) == None) else listESEDB(ESEDB_IDX("FN" ))))
-    print("    DateModified: %s" % ("None" if (listESEDB(ESEDB_IDX("DM" )) == None) else listESEDB(ESEDB_IDX("DM" ))))
-    print("     DateCreated: %s" % ("None" if (listESEDB(ESEDB_IDX("DC" )) == None) else listESEDB(ESEDB_IDX("DC" ))))
-    print("    DateAccessed: %s" % ("None" if (listESEDB(ESEDB_IDX("DA" )) == None) else listESEDB(ESEDB_IDX("DA" ))))
+    strEnhance = " ESEBD Enhance:"
+    if (ESEDB_FILE != None and dictESEDB != None):
+        print(strEnhance)
+
+        for strKey in ESEDB_ICOL_NAMES.keys():
+            iCol = ESEDB_ICOL[strKey]
+            if (iCol != None):
+                print("%s%s" % (ESEDB_ICOL_NAMES[strKey][2], dictESEDB[strKey]))
+    else:
+        print(strEnhance + " None")
     return
 
 def setupSymLink():
@@ -363,38 +409,38 @@ def setupSymLink():
     return
 
 
-def symlink_force(target, link_name):
+def symlink_force(strTarget, strLink):
     global EXIT_CODE
 
     try:
-        os.symlink(target, link_name)
+        os.symlink(strTarget, strLink)
     except OSError as e:
         if e.errno == errno.EEXIST:
-            os.remove(link_name)
-            os.symlink(target, link_name)
+            os.remove(strLink)
+            os.symlink(strTarget, strLink)
         else:
-            sys.stderr.write(" Error: Cannot create symlink %s to image %s\n" % (link_name, target))
+            sys.stderr.write(" Error: Cannot create symlink %s to file %s\n" % (strLink, strTarget))
             EXIT_CODE = 18
             return
     return
 
 
-def getFileName(iStreamID, strRawName, bHasSymName, iType):
+def getFileName(iStreamID, strRawName, strExt, bHasSymName, iType):
     global ARGS
 
     strFileName = ""
     if (bHasSymName and ARGS.symlinks): # ...implies ARGS.outdir
             strFileName = THUMBS_SUBDIR + "/"
     if (iStreamID >= 0):
-        strFileName += getStreamFileName(iStreamID, iType)
+        strFileName += getStreamFileName(iStreamID, strExt, iType)
     else:
-        strFileName += getRawFileName(strRawName, iType)
+        strFileName += getRawFileName(strRawName, strExt, iType)
     return strFileName
 
 
 def prepareEDB():
     global ARGS, EXIT_CODE
-    global ESEDB_FILE, ESEDB_TABLE, ESEDB_ICOL_TCI, ESEDB_ICOL_IPD, ESEDB_ICOL_IU
+    global ESEDB_FILE, ESEDB_TABLE, ESEDB_ICOL_NAMES, ESEDB_ICOL
 
     try:
         from vinetto.lib import pyesedb
@@ -413,7 +459,7 @@ def prepareEDB():
     ESEDB_FILE.open(ARGS.edbfile)
     sys.stderr.write(strErrType + "Opened ESEDB file %s\n" % ARGS.edbfile)
 
-#    # Get Tables...
+#    # TEST Get Tables...
 #    iTblCnt = ESEDB_FILE.get_number_of_tables()
 #    sys.stderr.write(" DBG: Got %d tables\n" % iTblCnt)
 #    for iTbl in range(iTblCnt):
@@ -438,65 +484,31 @@ def prepareEDB():
     for iCol in range(iColCnt):
         column = ESEDB_TABLE.get_column(iCol)
         strColName = column.get_name()
-        if (strColName.endswith("System_ThumbnailCacheId")):
-            ESEDB_ICOL_TCI = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_ItemPathDisplay")):
-            ESEDB_ICOL_IPD = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_ItemNameDisplay")):
-            ESEDB_ICOL_IND = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_ItemName")):
-            ESEDB_ICOL_IN = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_ItemUrl")):
-            ESEDB_ICOL_IU = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_Image_HorizontalSize")):
-            ESEDB_ICOL_IHS = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_Image_VerticalSize")):
-            ESEDB_ICOL_IVS = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_Image_Dimensions")):
-            ESEDB_ICOL_ID = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_OriginalFileName")):
-            ESEDB_ICOL_OFN = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_FileName")):
-            ESEDB_ICOL_FN = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_DateModified")):
-            ESEDB_ICOL_DM = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_DateCreated")):
-            ESEDB_ICOL_DC = iCol
-            iColCntFound += 1
-        if (strColName.endswith("System_DateAccessed")):
-            ESEDB_ICOL_DA = iCol
-            iColCntFound += 1
-        if (iColCntFound == 13): # Total Columns searched
+        for strKey in ESEDB_ICOL_NAMES.keys():
+            if (strColName.endswith(ESEDB_ICOL_NAMES[strKey][0])):
+                ESEDB_ICOL[strKey] = iCol # ...column number for column name
+                iColCntFound += 1
+
+        if (iColCntFound == len(ESEDB_ICOL_NAMES)): # Total Columns searched
             break
-    sys.stderr.write(" DBG:     Got interested column indicies: %d\n" % iColCntFound)
+    sys.stderr.write(" INFO:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(ESEDB_ICOL_NAMES)))
     return
 
 
-def searchEDB(strTCI):
+def searchEDB(strTCID):
     global EXIT_CODE
-    global ESEDB_FILE, ESEDB_TABLE
+    global ESEDB_TABLE, ESEDB_ICOL_NAMES, ESEDB_ICOL
 
-    if (strTCI == None or ESEDB_ICOL_TCI == None):
+    if (strTCID == None or ESEDB_ICOL["TCID"] == None):
         return None
 
-    strConvertTCI = strTCI
-    if (len(strTCI)%2 == 1):
-        strConvertTCI = "0" + strTCI
+    strConvertTCID = strTCID
+    if (len(strTCID)%2 == 1):
+        strConvertTCID = "0" + strTCID
     try:
-        bstrTCI = unhexlify(strConvertTCI)
+        bstrTCID = unhexlify(strConvertTCID)
     except:
-        sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare" % strConvertTCI)
+        sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare\n" % strConvertTCID)
         return None
 
     iRecCnt = ESEDB_TABLE.get_number_of_records()
@@ -505,54 +517,119 @@ def searchEDB(strTCI):
     bFound = False
     for iRec in range(iRecCnt):
         record = ESEDB_TABLE.get_record(iRec)
-        bstrRecTCI = record.get_value_data(ESEDB_ICOL_TCI)
-        #if (bstrRecTCI != None):
-        #    print(str(hexlify(bstrTCI)) + " <> " + str(hexlify(bstrRecTCI)))
-        #else:
-        #    print(str(hexlify(bstrTCI)) + " <> " + "None")
-        if (bstrRecTCI == None):
+        bstrRecTCID = record.get_value_data(ESEDB_ICOL["TCID"])
+#        # TEST TCID Compare...
+#        if (bstrRecTCID != None):
+#            print(str(hexlify(bstrTCID))[2:-1] + " <> " + str(hexlify(bstrRecTCID))[2:-1])
+#        else:
+#            print(str(hexlify(bstrTCID))[2:-1] + " <> " + "None")
+        if (bstrRecTCID == None):
             continue
-        if (bstrTCI == bstrRecTCI):
+        if (bstrTCID == bstrRecTCID):
             bFound = True
             break
+
+#        # TEST Record Retrieval...
+#        strImageTest = ((record.get_value_data_as_string(ESEDB_ICOL["MIME"]) or "") +
+#                        (record.get_value_data_as_string(ESEDB_ICOL["CTYPE"]) or "") +
+#                        (record.get_value_data_as_string(ESEDB_ICOL["ITT"]) or "") )
+#        if ("image" in strImageTest):
+#            print("\nTCID: " + str( hexlify( bstrRecTCID ))[2:-1])
+#            for strKey in ESEDB_ICOL_NAMES.keys():
+#                if (strKey == "TCID"):
+#                    continue
+#                cTest = ESEDB_ICOL_NAMES[strKey][1]
+#                iCol = ESEDB_ICOL[strKey]
+#                sys.stdout.write(strKey + ": ")
+#                if (iCol != None):
+#                    if   (cTest == 'x'):
+#                        x = record.get_value_data(iCol)
+#                        if (x != None):
+#                            x = str(hexlify( x ))[2:-1]
+#                    elif (cTest == 's'):
+#                        x = record.get_value_data_as_string(iCol)
+#                    elif (cTest == 'i'):
+#                        x = record.get_value_data_as_integer(iCol)
+#                    elif (cTest == 'b'):
+#                        iVal = record.get_value_data_as_integer(iCol)
+#                        if (iVal == None or iVal == 0):
+#                            iVal = False
+#                        elif (iVal == 1 or iVal == -1):
+#                            iVal = True
+#                        else:
+#                            strFmt = "08b"
+#                            if (iVal > 255):
+#                                strFmt = "016b"
+#                            if (iVal > 65535):
+#                                strFmt = "032b"
+#                            if (iVal > 4294967295):
+#                                strFmt = "064b"
+#                            iVal = format(iVal, strFmt)
+#                        x = iVal
+#                    elif (cTest == 'f'):
+#                        x = record.get_value_data_as_floating_point(iCol)
+#                    elif (cTest == 'd'):
+#                        x = getFormattedTimeUTC( convertToPyTime( unpack("<Q", record.get_value_data(iCol))[0] ) )
+#                    print(x)
 
     if (not bFound):
         return None
 
-    strRecTCI = str( hexlify( bstrRecTCI ))[2:-1]
+    dictRet = {}
+    dictRet["TCID"] = str( hexlify( bstrRecTCID ))[2:-1] # ...stript off start b' and end '
 
-    if (ESEDB_ICOL_IPD != None):
-        strRecIPD = get_value_data(ESEDB_ICOL_IPD).decode()
-    if (ESEDB_ICOL_IND != None):
-        strRecIND = get_value_data_as_string(ESEDB_ICOL_IND)
-    if (ESEDB_ICOL_IN != None):
-        strRecIN = get_value_data_as_string(ESEDB_ICOL_IN)
-    if (ESEDB_ICOL_IU != None):
-        strRecIU = get_value_data_as_string(ESEDB_ICOL_IU)
-    if (ESEDB_ICOL_IHS != None):
-        iRecIHS = get_value_data_as_integer(ESEDB_ICOL_IHS)
-    if (ESEDB_ICOL_IVS != None):
-        iRecIVS = get_value_data_as_integer(ESEDB_ICOL_IVS)
-    if (ESEDB_ICOL_ID != None):
-        strRecID = get_value_data_as_string(ESEDB_ICOL_ID)
-    if (ESEDB_ICOL_OFN != None):
-        strRecOFN = get_value_data_as_string(ESEDB_ICOL_OFN)
-    if (ESEDB_ICOL_FN != None):
-        strRecFN = get_value_data_as_string(ESEDB_ICOL_FN)
-    if (ESEDB_ICOL_DM != None):
-        strRecDM = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DM) ) )
-    if (ESEDB_ICOL_DC != None):
-        strRecDC = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DC) ) )
-    if (ESEDB_ICOL_DA != None):
-        strRecDA = getFormattedTimeUTC( convertToPyTime( get_value_data(ESEDB_ICOL_DA) ) )
+    for strKey in ESEDB_ICOL_NAMES.keys():
+        if (strKey == "TCID"):
+            continue
+        cTest = ESEDB_ICOL_NAMES[strKey][1]
+        iCol = ESEDB_ICOL[strKey]
+        if (iCol != None):
+            # 'x' - bstr  == (Large) Binary Data
+            # 's' - str   == (Large) Text
+            # 'i' - int   == Integer (32/16/8)-bit (un)signed
+            # 'b' - bool  == Boolean or Boolean Flags
+            # 'f' - float == Floating Point (Double Precision) (64/32-bit)
+            # 'd' - date  == Binary Data converted to Formatted UTC Time
+            if   (cTest == 'x'):
+                dictRet[strKey] = record.get_value_data(iCol)
+            elif (cTest == 's'):
+                dictRet[strKey] = record.get_value_data_as_string(iCol)
+            elif (cTest == 'i'):
+                dictRet[strKey] = record.get_value_data_as_integer(iCol)
+            elif (cTest == 'b'):
+                iVal = record.get_value_data_as_integer(iCol)
+                if (iVal == None or iVal == 0):
+                    iVal = False
+                elif (iVal == 1 or iVal == -1):
+                    iVal = True
+                else:
+                    if (iVal < -2147483648):
+                        iVal = iVal & 0xffffffffffffffff
+                    if (iVal < -32768):
+                        iVal = iVal & 0xffffffff
+                    if (iVal < -128):
+                        iVal = iVal & 0xffff
+                    if (iVal < 0):
+                        iVal = iVal & 0xff
+                    strFmt = "08b"
+                    if (iVal > 255):
+                        strFmt = "016b"
+                    if (iVal > 65535):
+                        strFmt = "032b"
+                    if (iVal > 4294967295):
+                        strFmt = "064b"
+                iVal = format(iVal, strFmt)
+                dictRet[strKey] = iVal
+            elif (cTest == 'f'):
+                dictRet[strKey] = record.get_value_data_as_floating_point(iCol)
+            elif (cTest == 'd'):
+                dictRet[strKey] = getFormattedTimeUTC( convertToPyTime( unpack("<Q", record.get_value_data(iCol))[0] ) )
 
-    listRet = (strRecTCI, strRecIPD, strRecIND, strRecIN, strRecIU, iRecIHS, iRecIVS,
-               strRecID, strRecOFN, strRecFN, strRecDM, strRecDC, strRecDA)
-    return listRet
+    return dictRet
 
 
 def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
-    global ARGS, EXIT_CODE, LAST_BLOCK, ESEDB_IDX, HTTP_REPORT
+    global ARGS, EXIT_CODE, LAST_BLOCK, HTTP_REPORT
     global IMAGE_TYPE_1_HEADER, IMAGE_TYPE_1_QUANTIZE, IMAGE_TYPE_1_HUFFMAN
 
     if (thumbsDBsize % 512 ) != 0:
@@ -736,8 +813,8 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         strCatEntryTimestamp = getFormattedTimeUTC( convertToPyTime(iCatEntryTimestamp) )
                         strCatEntryName      = decodeBytes(iCatEntryName)
                         if (ARGS.symlinks): # ...implies ARGS.outdir
-                            symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg",
-                                          ARGS.outdir + strCatEntryName)
+                            strTarget = ARGS.outdir + THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg"
+                            symlink_force(strTarget, ARGS.outdir + strCatEntryName)
                             if (EXIT_CODE > 0):
                                 return
                         if (not ARGS.quiet):
@@ -765,38 +842,37 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         EXIT_CODE = 15
                         return
 
+                    strExt = "jpg"
                     if (len(strRawName) >= 4):
                         # ESEDB Search...
-                        listESEDB = searchEDB(strRawName[strRawName.find("_")+1:])
-                        if (listESEDB != None):
+                        dictESEDB = searchEDB(strRawName[strRawName.find("_")+1:])
+                        if (dictESEDB != None):
                             if (not ARGS.quiet):
-                                printESEDBInfo(listESEDB)
+                                printESEDBInfo(dictESEDB)
                             if (ARGS.symlinks): # ...implies ARGS.outdir
-                                if (listESEDB(ESEDB_IDX("IU")) != None):
-                                    strURL = listESEDB(ESEDB_IDX("IU"))
-                                    strFileName = strURL.split("/")[-1].split("?")[0]
-                                    symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg",
-                                                  ARGS.outdir + strFileName)
+                                if (dictESEDB["IURL"] != None):
+                                    strFileName = dictESEDB["IURL"].split("/")[-1].split("?")[0]
+                                    strTarget = ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + "." + strExt
+                                    symlink_force(strTarget, ARGS.outdir + strFileName)
                                     if (EXIT_CODE > 0):
                                         return
                                     fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
-                                    fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strRawName + ".jpg" +
-                                                  " => " + strFileName + "\n")
+                                    fileURL.write(strTarget + " => " + strFileName + "\n")
                                     fileURL.close()
 
                     # --------------------------- Header 2 ------------------------
                     # Type 2 Thumbnail Image? (full jpeg)
                     if (sr[headOffset: headOffset + 4] == bytearray(b"\xff\xd8\xff\xe0")):
                         if (ARGS.outdir != None):
-                            strFileName = getFileName(iStreamID, strRawName, bHasSymName, 2)
-                            fileImg = open(ARGS.outdir + strFileName + ".jpg", "wb")
+                            strFileName = getFileName(iStreamID, strRawName, strExt, bHasSymName, 2)
+                            fileImg = open(ARGS.outdir + strFileName, "wb")
                             fileImg.write(sr[headOffset:])
                             fileImg.close()
                         else: # Not extracting...
                             if (bHasSymName):
-                                addStreamIdToStreams(iStreamID, 2, "")
+                                addStreamIdToStreams(iStreamID, 2, "", "")
                             else:
-                                addFileNameToStreams(strRawName, 2, "")
+                                addFileNameToStreams(strRawName, 2, "", "")
 
                     # Type 1 Thumbnail Image?
                     elif (unpack(tDB_endian+"L", sr[headOffset: headOffset + 4])[0] == 1):
@@ -807,7 +883,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                             return
 
                         if (ARGS.outdir != None and PIL_FOUND):
-                            strFileName = getFileName(iStreamID, strRawName, bHasSymName, 1)
+                            strFileName = getFileName(iStreamID, strRawName, strExt, bHasSymName, 1)
                             # Type 1 Thumbnail Image processing ...
                             type1sr = ( IMAGE_TYPE_1_HEADER[:0x14] +
                                         IMAGE_TYPE_1_QUANTIZE +
@@ -819,12 +895,12 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                             #r, g, b, a = image.split()
                             #image = Image.merge("RGB", (r, g, b))
                             image = image.transpose(Image.FLIP_TOP_BOTTOM)
-                            image.save(ARGS.outdir + strFileName + ".jpg", "JPEG", quality=100)
+                            image.save(ARGS.outdir + strFileName, "JPEG", quality=100)
                         else: # Cannot extract (PIL not found) or not extracting...
                             if (bHasSymName):
-                                addStreamIdToStreams(iStreamID, 1, "")
+                                addStreamIdToStreams(iStreamID, 1, "", "")
                             else:
-                                addFileNameToStreams(strRawName, 1, "")
+                                addFileNameToStreams(strRawName, 1, "", "")
                     else:
                         sys.stderr.write(" Error: Header 2 not found in stream %d\n" % iStreamCounter)
                         EXIT_CODE = 17
@@ -883,7 +959,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
 
 def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
-    global ARGS, THUMBS_SIG_CMMM, THUMBS_TYPE_CMMM, TC_FORMAT_TYPE, ESEDB_IDX, HTTP_REPORT
+    global ARGS, THUMBS_SIG_CMMM, THUMBS_TYPE_CMMM, TC_FORMAT_TYPE, HTTP_REPORT
 
     # tDB_endian = "<" ALWAYS Little???
 
@@ -925,7 +1001,7 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
     iCacheCounter = 1
     while (True):
         if (thumbsDBsize < (iOffset + 48)):
-            sys.stderr.write(" Warning: Remaining cache entry %d too small\n" % iCacheCounter)
+            sys.stderr.write(" Warning: Remaining cache entry %d too small to process\n" % iCacheCounter)
             break
 
         thumbsDB.seek(iOffset)
@@ -971,12 +1047,12 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         iOffset += (tDB_idSize + tDB_padSize + tDB_dataSize)
 
         strID = None
-        #print(tDB_id)
         if (tDB_id != None):
-            strID  = decodeBytes(tDB_id)
+            strID = decodeBytes(tDB_id)
         else:
-            continue # ...probably empty last entry
+            continue # ...no ID, so probably empty last entry
 
+        strHash = format(tDB_hash, 'x')
 
         strExt = None
         # Try the given Vista ext...
@@ -997,41 +1073,39 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         #    No Data, no Ext!
 
         # ESEDB Search...
-        listESEDB = searchEDB(strID)
+        dictESEDB = searchEDB(strID)
 
         if (not ARGS.quiet):
             print(" Cache Entry\n --------------------")
-            printDBCache(iCacheCounter, tDB_sig.decode(), tDB_size, tDB_hash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
-                         tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, strID, listESEDB)
+            printDBCache(iCacheCounter, tDB_sig.decode(), tDB_size, strHash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
+                         tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, strID, dictESEDB)
 
-        strCleanID = cleanFileName(strID)
+        strCleanFileName = cleanFileName(strID)
         bHasSymName = False
 
         if (tDB_dataSize > 0):
             # Setup symbolic link to filename...
-            if (listESEDB != None and listESEDB(ESEDB_IDX("TCI")) != None):
+            if (dictESEDB != None and dictESEDB["TCID"] != None):
                 strFileName = None
-                if (listESEDB(ESEDB_IDX("IU")) != None):
-                    strURL = listESEDB(ESEDB_IDX("IU"))
-                    strFileName = strURL.split("/")[-1].split("?")[0]
+                if (dictESEDB["IURL"] != None):
+                    strFileName = dictESEDB["IURL"].split("/")[-1].split("?")[0]
                 if (strFileName != None and ARGS.symlinks): # ...implies ARGS.outdir
                         bHasSymName = True
-                        symlink_force(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt,
-                                      ARGS.outdir + strFileName)
+                        strTarget = ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
+                        symlink_force(strTarget, ARGS.outdir + strFileName)
                         if (EXIT_CODE > 0):
                                 return
                         fileURL = open(ARGS.outdir + THUMBS_FILE_URLS, "a+")
-                        fileURL.write(ARGS.outdir + THUMBS_SUBDIR + "/" + strCleanID + "." + strExt +
-                                      " => " + strFileName + "\n")
+                        fileURL.write(strTarget + " => " + strFileName + "\n")
                         fileURL.close()
 
                 # Add a "catalog" entry if Cache ID match in ESEDB...
-                addCatalogEntry(1, listESEDB(ESEDB_IDX("DM")), strFileName)
+                addCatalogEntry(1, dictESEDB["DATEM"], strFileName)
 
             # Write data to filename...
             if (ARGS.outdir != None):
-                strFileName = getFileName(-1, strCleanID, bHasSymName, 2)
-                fileImg = open(ARGS.outdir + strFileName + "." + strExt, "wb")
+                strFileName = getFileName(-1, strCleanFileName, strExt, bHasSymName, 2)
+                fileImg = open(ARGS.outdir + strFileName, "wb")
                 fileImg.write(tDB_data)
                 fileImg.close()
             else: # Not extracting...
@@ -1068,7 +1142,7 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
     # tDB_endian = "<" ALWAYS
 
     if (thumbsDBsize < 24):
-        print(" Warning: %s too small to process header\n" % infile)
+        sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
     # Header...
@@ -1096,7 +1170,7 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
     iEntryCounter = 1
     while (iEntryCounter < tDB_entryCount):
         if (thumbsDBsize < (iOffset + 32)):
-            print(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
+            sys.stderr.write(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
             return
 
         tDB_hash = unpack("<Q", thumbsDB[iOffset +  0: iOffset + 8])[0]

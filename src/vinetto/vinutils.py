@@ -27,7 +27,7 @@ This file is part of Vinetto.
 
 __major__ = "0"
 __minor__ = "3"
-__micro__ = "4"
+__micro__ = "5"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
@@ -80,7 +80,7 @@ def addCatalogEntry(iCatEntryId, strCatEntryTimestamp, strCatEntryName):
     return
 
 
-def addStreamIdToStreams(iStreamId, iIndexType, strIndexFileName):
+def addStreamIdToStreams(iStreamId, iIndexType, strIndexFileName, strIndexExt):
     global TN_STREAMS, bSTREAMS_INDEX_OUT_OF_SEQ, iSTREAMS_PREVIOUS_ID
 
     # Add new thumbnail stream reference for Stream Id...
@@ -89,22 +89,22 @@ def addStreamIdToStreams(iStreamId, iIndexType, strIndexFileName):
             bSTREAMS_INDEX_OUT_OF_SEQ = True
 
     if iStreamId in TN_STREAMS:
-        TN_STREAMS[iStreamId].append((iIndexType, strIndexFileName, True))
+        TN_STREAMS[iStreamId][1].append((iIndexType, strIndexFileName, True))
     else:
-        TN_STREAMS[iStreamId] = [(iIndexType, strIndexFileName, True)]
+        TN_STREAMS[iStreamId] = [strIndexExt, [(iIndexType, strIndexFileName, True)]]
 
     iSTREAMS_PREVIOUS_ID = iStreamId
     return
 
 
-def addFileNameToStreams(strGivenFileName, iIndexType, strIndexFileName):
+def addFileNameToStreams(strGivenFileName, iIndexType, strIndexFileName, strIndexExt):
     global TN_STREAMS
 
     # Add new thumbnail stream reference for given filename...
     if strGivenFileName in TN_STREAMS:
-        TN_STREAMS[strGivenFileName].append((iIndexType, strIndexFileName, False))
+        TN_STREAMS[strGivenFileName][1].append((iIndexType, strIndexFileName, False))
     else:
-        TN_STREAMS[strGivenFileName] = [(iIndexType, strIndexFileName, False)]
+        TN_STREAMS[strGivenFileName] = [strIndexExt, [(iIndexType, strIndexFileName, False)]]
 
     return
 
@@ -122,11 +122,11 @@ def countThumbnails(iType = 0):
 
     # Return number of extracted/unextracted thumbnails...
     iCount = 0
-    for aIndexDir in TN_STREAMS:
+    for key in TN_STREAMS:
         if (iType == 0): # ...count everything
-            iCount += len(TN_STREAMS[aIndexDir])
+            iCount += len(TN_STREAMS[key][1])
         else: # ...count the given type
-            for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[aIndexDir]:
+            for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[key][1]:
                 if (iType == iIndexType):
                     iCount += 1
     return iCount
@@ -140,8 +140,8 @@ def extractStats(strDirectory):
 
     # Return extraction statistics...
     dicStats = {"u": {1: 0, 2: 0}, "e": {1: 0, 2: 0} }
-    for aIndexDir in TN_STREAMS:
-        for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[aIndexDir]:
+    for key in TN_STREAMS:
+        for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[key][1]:
             if (strIndexFileName == ""):
                 dicStats["u"][iIndexType] += 1
             else:
@@ -194,7 +194,7 @@ def nextIndexedFileName(strFileName):
     return ( strFileName[ :iMark + 1] + str(iVal + 1) )
 
 
-def getStreamFileName(iStreamId, iType):
+def getStreamFileName(iStreamId, strExt, iType):
     global TN_STREAMS
 
     # Compute filename from the Stream Id for a thumbnail...
@@ -202,14 +202,14 @@ def getStreamFileName(iStreamId, iType):
 
     # Is the Stream Id already indexed?
     if iStreamId in TN_STREAMS:
-        for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[iStreamId]:
+        for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[iStreamId][1]:
             if strComputedFileName == strIndexFileName:
                 strComputedFileName = nextIndexedFileName(strIndexFileName)
-    addStreamIdToStreams(iStreamId, iType, strComputedFileName)
-    return strComputedFileName
+    addStreamIdToStreams(iStreamId, iType, strComputedFileName, strExt)
+    return strComputedFileName + "." + strExt
 
 
-def getRawFileName(strGivenFileName, iType):
+def getRawFileName(strGivenFileName, strExt, iType):
     global TN_STREAMS
 
      # Compute filename from the given filename for a thumbnail...
@@ -217,11 +217,11 @@ def getRawFileName(strGivenFileName, iType):
 
     # Is the given filename already indexed?
     if strGivenFileName in TN_STREAMS:
-        for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[strGivenFileName]:
+        for (iIndexType, strIndexFileName, bStreamId) in TN_STREAMS[strGivenFileName][1]:
             if strComputedFileName == strIndexFileName:
                 strComputedFileName = nextIndexedFileName(strIndexFileName)
-    addFileNameToStreams(strGivenFileName, iType, strComputedFileName)
-    return strComputedFileName
+    addFileNameToStreams(strGivenFileName, iType, strComputedFileName, strExt)
+    return strComputedFileName + "." + strExt
 
 
 def convertToPyTime(iFileTime_Win32):

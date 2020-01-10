@@ -27,7 +27,7 @@ This file is part of Vinetto.
 
 __major__ = "0"
 __minor__ = "4"
-__micro__ = "2"
+__micro__ = "3"
 __maintainer__ = "Keven L. Ates"
 __author__ = "Michel Roukine"
 __location__ = "https://github.com/AtesComp/Vinetto"
@@ -53,7 +53,7 @@ HTTP_PIC_ROW = []
 HTTP_ORPHANS = []
 HTTP_FOOTER  = []
 
-IMGTAG = "<IMG SRC=\"__TNFNAME__.jpg\" ALT=\"__TNNAME__\">"
+IMGTAG = "<IMG SRC=\"__TNFNAME__\" ALT=\"__TNNAME__\" style=\"background-color:black;\" />"
 
 
 class Report:
@@ -210,9 +210,10 @@ class HttpReport(Report):
             for j in range(len(self.tnId)):
                 strLine = strLine.replace("__TNFILLED__" + str(j), "1")
                 buff = IMGTAG.replace("__TNFNAME__", self.tnFname[j])
-                buff = buff.replace("__TNNAME__", self.tnName[j])
+                buff = buff.replace("__TNNAME__", (self.tnName[j] if (self.tnName[j] != "") else self.tnId[j]))
                 strLine = strLine.replace("__IMGTAG__" + str(j), buff)
-                strLine = strLine.replace("__TNID__" + str(j), self.tnId[j])
+                #strLine = strLine.replace("__TNID__" + str(j), self.tnId[j])
+                strLine = strLine.replace("__TNID__" + str(j), self.tnFname[j])
             # Blank...
             for j in range(len(self.tnId), 7):
                 strLine = strLine.replace("__TNFILLED__" + str(j), "0")
@@ -264,13 +265,13 @@ class HttpReport(Report):
                             self.repfile.write(orphanLine)
 
 
-    def populateCell(self, iTN, strFilePath, strTimeStamp, strEntryName):
+    def populateCell(self, key, strFilePath, strTimeStamp, strEntryName):
         # Organize the data for a cell in a report line...
         bFlush = False
-        if (type(iTN) == int):
-            self.tnId.append("% 4i" % iTN)
+        if (type(key) == int):
+            self.tnId.append("% 4i" % key)
         else:
-            self.tnId.append(iTN)
+            self.tnId.append(key)
             bFlush = True
         self.tnFname.append(strFilePath)
         self.tnTs.append(strTimeStamp)
@@ -289,21 +290,21 @@ class HttpReport(Report):
         self.tnTs    = []
         self.tnName  = []
 
-        for iTN in TN_STREAMS:
-            for (iType, strFileName, bStreamID) in TN_STREAMS[iTN]:
+        for key in TN_STREAMS:
+            for (iType, strFileName, bStreamID) in TN_STREAMS[key][1]:
                 if (bStreamID):
-                    strFilePath = strSubDir + "/" + strFileName
+                    strFilePath = strSubDir + "/" + strFileName + "." + TN_STREAMS[key][0]
                 else:
-                    strFilePath = "./" + strFileName
-                catEntry = getCatalogEntry(iTN)
+                    strFilePath = "./" + strFileName + "." + TN_STREAMS[key][0]
+                catEntry = getCatalogEntry(key)
                 if (len(catEntry) == 0):
-                    self.populateCell(iTN, strFilePath, "", "")
+                    self.populateCell(key, strFilePath, "", "")
                 else:
                     for (strTimeStamp, strEntryName) in catEntry:
-                        self.populateCell(iTN, strFilePath, strTimeStamp, strEntryName)
+                        self.populateCell(key, strFilePath, strTimeStamp, strEntryName)
 
         if (len(self.tnId) > 0):
-            self.rowflush()
+            self.rowFlush()
 
         # Scanning for orphan catalog entries
         OrphanICat = []
