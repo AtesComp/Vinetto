@@ -3,7 +3,7 @@
 module report.py
 -----------------------------------------------------------------------------
 
- Vinetto : a forensics tool to examine Thumbs.db files
+ Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
  Copyright (C) 2019-2020 by Keven L. Ates
 
@@ -36,9 +36,9 @@ from time import time
 from os.path import dirname, basename, abspath, getmtime
 
 import vinetto.config as config
+import vinetto.version as version
+from vinetto.utils import getFormattedWinToPyTimeUTC, getFormattedTimeUTC
 
-from vinetto.utils import TN_CATALOG, TN_STREAMS, \
-                          getCatalogEntry, convertToPyTime, getFormattedTimeUTC
 from pkg_resources import resource_filename
 
 
@@ -51,30 +51,33 @@ HTTP_FOOTER  = []
 IMGTAG = "<IMG SRC=\"__TNFNAME__\" ALT=\"__TNNAME__\" style=\"background-color:black;\" />"
 
 
+###############################################################################
+# Vinetto Report SuperClass
+###############################################################################
 class Report:
-    """ Vinetto report SuperClass.  """
-    def __init__(self, target, outputdir, verstr, fileType, fileSize, md5):
+    def __init__(self, target, outputdir, fileType, fileSize, md5):
         """ Initialize a new Report instance.  """
         self.tDBfname   = basename(target)
         self.tDBdirname = abspath(dirname(target))
         self.tDBmtime   = getmtime(target)
         self.outputdir  = outputdir
-        self.verstr     = verstr
         self.fileType   = fileType
         self.fileSize   = fileSize
         self.md5        = md5
 
 
-class HttpReport(Report):
-    """ Html vinetto elementary mode report Class.  """
-    def __init__(self, charset, tDBfname, outputdir, verstr, fileType, fileSize, md5):
-        """ Initialize a new HtttReport instance.  """
-        Report.__init__(self, tDBfname, outputdir, verstr, fileType, fileSize, md5)
+###############################################################################
+# Vinetto Html Report (elementary mode) Class
+###############################################################################
+class HtmlReport(Report):
+    def __init__(self, charset, tDBfname, outputdir, fileType, fileSize, md5):
+        # Initialize a new HtmlReport instance...
+        Report.__init__(self, tDBfname, outputdir, fileType, fileSize, md5)
         self.rownumber = 0
         separatorID = 0
 
         # Load HTTP sections...
-        for strLine in open(resource_filename('vinetto', 'data/HtRepTemplate.html'), "r").readlines():
+        for strLine in open(resource_filename('vinetto', 'data/HtmlReportTemplate.html'), "r").readlines():
             if strLine.find("__CHARSET__") > 0:
                 strLine = strLine.replace("__CHARSET__", charset)
             if strLine.find("__ITS__") >= 0:
@@ -101,6 +104,10 @@ class HttpReport(Report):
         self.TNnameList = []
 
 
+    #--------------------------------------------------------------------------
+    # Public Methods
+    #--------------------------------------------------------------------------
+
     def setOLE(self, oleBlock):
         # Initialize Type 1 report (OLE, Thumbs.db) for report type section
         self.tDBREcolor = oleBlock["color"]
@@ -109,8 +116,8 @@ class HttpReport(Report):
         self.tDBREsdid  = oleBlock["SDID"]
         self.tDBREcid   = oleBlock["CID"]
         self.tDBREuserflags = oleBlock["userflags"]
-        self.tDBREctime = getFormattedTimeUTC( convertToPyTime(oleBlock["create"]) )
-        self.tDBREmtime = getFormattedTimeUTC( convertToPyTime(oleBlock["modify"]) )
+        self.tDBREctime = getFormattedWinToPyTimeUTC(oleBlock["create"])
+        self.tDBREmtime = getFormattedWinToPyTimeUTC(oleBlock["modify"])
         self.tDBREsid_firstSecDir = oleBlock["SID_firstSecDir"]
         self.tDBREsid_sizeDir = oleBlock["SID_sizeDir"]
 
@@ -132,7 +139,51 @@ class HttpReport(Report):
         self.tDBREentryCount = tDB_entryCount
 
 
-    def headwrite(self):
+    def flush(self, astrStats, strSubDir, tdbStreams = None, tdbCatalog = None):
+        self.__writeHead()
+        self.__writeType()
+
+        # Process the report body and the report end...
+        self.rownumber = 0
+        self.tnId    = []
+        self.tnFname = []
+        self.tnTs    = []
+        self.tnName  = []
+
+        if (tdbStreams != None and len(tdbStreams) > 0):
+            for key in tdbStreams:
+                bStreamID = tdbStreams[key][1]
+                for (iType, strFileName) in tdbStreams[key][2]:
+                    if (bStreamID):
+                        strFilePath = strSubDir + "/" + strFileName + "." + tdbStreams[key][0][0]
+                    else:
+                        strFilePath = "./" + strFileName + "." + tdbStreams[key][0][0]
+
+                    if (tdbCatalog == None or len(tdbCatalog) == 0 or not key in tdbCatalog):
+                        self.__populateCell(key, strFilePath)
+                    else:
+                        self.__populateCell(key, strFilePath, tdbCatalog[key])
+
+        if (len(self.tnId) > 0):
+            self.__rowFlush()
+
+        self.__printOrphanCatEnt(tdbStreams, tdbCatalog)
+
+        strStats = ""
+        if (astrStats != None):
+            for strStat in astrStats:
+                strStats += strStat.replace(" ", "&nbsp;") + "<br />"
+            self.__close(strStats[:-6])
+        else:
+            strStats += "No Stats!".replace(" ", "&nbsp;")
+            self.__close(strStats)
+
+
+    #--------------------------------------------------------------------------
+    # Private Methods
+    #--------------------------------------------------------------------------
+
+    def __writeHead(self):
         # Write report header...
         self.repfile = open(self.outputdir + self.tDBfname + ".html", "w")
         for strLine in HTTP_HEADER:
@@ -147,7 +198,7 @@ class HttpReport(Report):
             self.repfile.write(strLine)
 
 
-    def typewrite(self):
+    def __writeType(self):
         # Write report type...
         for strLine in HTTP_TYPE:
             # Adjust Type 1 (OLE, Thumbs.db)...
@@ -180,18 +231,7 @@ class HttpReport(Report):
             self.repfile.write(strLine)
 
 
-    def close(self, strStats):
-        # Write report footer...
-        for strLine in HTTP_FOOTER:
-            strLine = strLine.replace("__TYPESTATS__", strStats)
-            strLine = strLine.replace("__VERSION__", "Vinetto " + self.verstr)
-
-            self.repfile.write(strLine)
-
-        self.repfile.close()
-
-
-    def rowFlush(self):
+    def __rowFlush(self):
         # Process a report line...
         self.rownumber += 1
         for strLine in HTTP_PIC_ROW:
@@ -214,19 +254,20 @@ class HttpReport(Report):
 
         self.repfile.write("<TABLE WIDTH=\"720\">" +
                            "<TR><TD><P ALIGN=\"LEFT\">\n")
-        strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.fileType == config.THUMBS_TYPE_OLE else "Cache ID")
+        #strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.fileType == config.THUMBS_TYPE_OLE else "Cache ID")
         for i in range(len(self.tnId)):
             if (self.tnName[i] != ""):
-                self.repfile.write("<TT>" +
+                self.repfile.write("<TT STYLE=\"color: blue\">" +
                                    self.tnId[i].replace(" ", "&nbsp;") + ": " +
                                    self.tnTs[i].replace(" ", "&nbsp;") + " &nbsp;" +
                                    self.tnName[i].replace(" ", "&nbsp;") +
                                    "</TT><br />\n")
             else:
-                self.repfile.write("<TT STYLE=\"color: blue\">" +
-                                   self.tnId[i].replace(" ", "&nbsp;") + ": " +
-                                   strEntryNotFound +
-                                   "</TT><br />\n")
+                #self.repfile.write("<TT STYLE=\"color: blue\">" +
+                #                   self.tnId[i].replace(" ", "&nbsp;") + ": " +
+                #                   strEntryNotFound +
+                #                   "</TT><br />\n")
+                self.repfile.write("<br />\n")
 
         self.repfile.write("</P></TD></TR></TABLE>")
 
@@ -236,18 +277,39 @@ class HttpReport(Report):
         self.tnName  = []
 
 
-    def printOrphanCatEnt(self, OrphanICat):
+    def __populateCell(self, key, strFilePath, listCat = [("", "")]):
+        for (strTimeStamp, strEntryName) in listCat:
+            # Organize the data for a cell in a report line...
+            bFlush = False
+            if isinstance(key, int):
+                self.tnId.append("% 4i" % key)
+            else:
+                self.tnId.append(key)
+                bFlush = True
+            self.tnFname.append(strFilePath)
+            self.tnTs.append(strTimeStamp)
+            self.tnName.append(strEntryName)
+            if (bFlush or len(self.tnId) >= 7):
+                self.__rowFlush()
+
+    def __printOrphanCatEnt(self, tdbStreams, tdbCatalog):
+        if (tdbStreams == None or len(tdbStreams) == 0 or tdbCatalog == None or len(tdbCatalog) == 0):
+            return
+
+        # Scan for orphan catalog entries...
+        listOrphanCatIDs = tdbCatalog.getOrphans(tdbStreams)
+
         # Print orphan catalog entry...
-        if (OrphanICat != []):
+        if (listOrphanCatIDs != []):
             for strLine in HTTP_ORPHANS:
                 if strLine.find("__ORPHANENTRY__") < 0:
                     self.repfile.write(strLine)
                 else:
-                    for iCatEntryID in OrphanICat:
-                        catEntry = getCatalogEntry(iCatEntryID)
-                        for (strTimeStamp, strEntryName) in catEntry:
+                    for iCatID in listOrphanCatIDs:
+                        listCat = tdbCatalog[iCatID]
+                        for (strTimeStamp, strEntryName) in listCat:
                             strTT = str("<TT>" +
-                                        ("% 4d" % iCatEntryID).replace(" ", "&nbsp;") + ": " +
+                                        ("% 4d" % iCatID).replace(" ", "&nbsp;") + ": " +
                                         strTimeStamp.replace(" ", "&nbsp;") + " &nbsp;" +
                                         strEntryName.replace(" ", "&nbsp;") +
                                         "</TT><br />\n")
@@ -255,59 +317,14 @@ class HttpReport(Report):
                             self.repfile.write(orphanLine)
 
 
-    def populateCell(self, key, strFilePath, strTimeStamp, strEntryName):
-        # Organize the data for a cell in a report line...
-        bFlush = False
-        if (type(key) == int):
-            self.tnId.append("% 4i" % key)
-        else:
-            self.tnId.append(key)
-            bFlush = True
-        self.tnFname.append(strFilePath)
-        self.tnTs.append(strTimeStamp)
-        self.tnName.append(strEntryName)
-        if (bFlush or len(self.tnId) >= 7):
-            self.rowFlush()
+    def __close(self, strStats):
+        # Write report footer...
+        for strLine in HTTP_FOOTER:
+            strLine = strLine.replace("__TYPESTATS__", strStats)
+            strLine = strLine.replace("__VERSION__", "Vinetto " + version.STR_VERSION)
 
-    def flush(self, astrStats, strSubDir):
-        self.headwrite()
-        self.typewrite()
+            self.repfile.write(strLine)
 
-        # Process the report body and the report end...
-        self.rownumber = 0
-        self.tnId    = []
-        self.tnFname = []
-        self.tnTs    = []
-        self.tnName  = []
+        self.repfile.close()
 
-        for key in TN_STREAMS:
-            for (iType, strFileName, bStreamID) in TN_STREAMS[key][1]:
-                if (bStreamID):
-                    strFilePath = strSubDir + "/" + strFileName + "." + TN_STREAMS[key][0]
-                else:
-                    strFilePath = "./" + strFileName + "." + TN_STREAMS[key][0]
-                catEntry = getCatalogEntry(key)
-                if (len(catEntry) == 0):
-                    self.populateCell(key, strFilePath, "", "")
-                else:
-                    for (strTimeStamp, strEntryName) in catEntry:
-                        self.populateCell(key, strFilePath, strTimeStamp, strEntryName)
 
-        if (len(self.tnId) > 0):
-            self.rowFlush()
-
-        # Scanning for orphan catalog entries
-        OrphanICat = []
-        for iCatEntryID in TN_CATALOG:
-            if iCatEntryID not in TN_STREAMS:
-                OrphanICat.append(iCatEntryID)
-        self.printOrphanCatEnt(OrphanICat)
-
-        strStats = ""
-        if (astrStats != None):
-            for strStat in astrStats:
-                strStats += strStat.replace(" ", "&nbsp;") + "<br />"
-            self.close(strStats[:-6])
-        else:
-            strStats += "No Stats!".replace(" ", "&nbsp;")
-            self.close(strStats)

@@ -1,9 +1,9 @@
 # -*- coding: UTF-8 -*-
 """
-module utils.py
+module version.py
 -----------------------------------------------------------------------------
 
- Vinetto : a forensics tool to examine Thumbs.db files
+ Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
  Copyright (C) 2019-2020 by Keven L. Ates
 
@@ -28,8 +28,9 @@ This file is part of Vinetto.
 
 
 major = "0"
-minor = "8"
-micro = "9"
+minor = "9"
+micro = "0"
+
 maintainer = (("Keven L. Ates", "atescomp@gmail.com"), )
 author     = ("Keven L. Ates", "atescomp@gmail.com")
 location   = "https://github.com/AtesComp/Vinetto"

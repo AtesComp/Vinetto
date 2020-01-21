@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 """
+module vinetto.py
 -----------------------------------------------------------------------------
 
- Vinetto : a forensics tool to examine Thumbs.db files
+ Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
  Copyright (C) 2019-2020 by Keven L. Ates
 
@@ -42,17 +43,12 @@ from struct import unpack
 from binascii import hexlify, unhexlify
 
 import vinetto.version as version
-
 import vinetto.config as config
-
 import vinetto.report as report
+import vinetto.tdb_catalog as tdb_catalog
+import vinetto.tdb_streams as tdb_streams
 
-from vinetto.utils import addCatalogEntry, countCatalogEntry, countThumbnails, \
-                          getStreamFileName, getRawFileName, \
-                          isCatalogOutOfSequence, isStreamsOutOfSequence, \
-                          addStreamIdToStreams, addFileNameToStreams, \
-                          extractStats, convertToPyTime, getFormattedTimeUTC, \
-                          cleanFileName
+from vinetto.utils import getFormattedWinToPyTimeUTC, cleanFileName
 
 from pkg_resources import resource_filename
 
@@ -67,7 +63,7 @@ STR_SEP = " ------------------------------------------------------"
 
 
 def getArgs():
-    # Return arguments passed to vinetto on the command line.
+    # Return arguments passed to vinetto on the command line...
 
     strProg = os.path.basename(__file__).capitalize()
     strDesc = strProg + " - The Thumbnail File Parser"
@@ -175,13 +171,13 @@ def decodeBytes(bytesString):
         return str(bytesString, "utf-16-le")
 
 
-def nextBlock(TDB, Table, indx, endian):
+def nextBlock(fileTDB, listSAT, iOffset, cEndian):
     # Return next block
-    iSAT = indx // 128  # SAT block number to search in
-    iSECT = indx % 128 # SECTor to search in the SAT block
-    iOffset = Table[iSAT] * 512 + 0x200 + iSECT * 4
-    TDB.seek(iOffset)
-    return unpack(endian+"L", TDB.read(4))[0]
+    iSATIndex = iOffset // 128  # ...SAT index for search sector
+    iSATOffset = iOffset % 128  # ...Sector offset within search sector
+    iFileOffset = 512 + listSAT[iSATIndex] * 512 + iSATOffset * 4
+    fileTDB.seek(iFileOffset)
+    return unpack(cEndian+"L", fileTDB.read(4))[0]
 
 
 def printBlock(strName, oleBlock):
@@ -193,8 +189,8 @@ def printBlock(strName, oleBlock):
     print("   Sub  Dir ID: %s" % ("None" if (oleBlock["SDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["SDID"])))
     print("      Class ID: " + oleBlock["CID"])
     print("    User Flags: " + oleBlock["userflags"])
-    print("        Create: " + oleBlock["create"])
-    print("        Modify: " + oleBlock["modify"])
+    print("        Create: " + getFormattedWinToPyTimeUTC(oleBlock["create"]))
+    print("        Modify: " + getFormattedWinToPyTimeUTC(oleBlock["modify"]))
     print("       1st Sec: %d" % oleBlock["SID_firstSecDir"])
     print("          Size: %d" % oleBlock["SID_sizeDir"])
     return
@@ -237,19 +233,53 @@ def printDBCache(iCounter, strSig, iSize, strHash, strExt, iIdSize, iPadSize, iD
 
 def printESEDBInfo(dictESEDB):
     strEnhance = " ESEBD Enhance:"
-    if (config.ESEDB_FILE != None and dictESEDB != None):
-        print(strEnhance)
-
-        for strKey in config.ESEDB_ICOL_NAMES.keys():
-            iCol = config.ESEDB_ICOL[strKey]
-            if (iCol != None):
-                print("%s%s" % (config.ESEDB_ICOL_NAMES[strKey][2], dictESEDB[strKey]))
-    else:
+    # If there is no output...
+    if (config.ESEDB_FILE == None or dictESEDB == None):
         print(strEnhance + " None")
+        return
+
+    # Otherwise, print...
+    print(strEnhance)
+    for strKey in config.ESEDB_ICOL_NAMES.keys():
+        cTest = config.ESEDB_ICOL_NAMES[strKey][1]
+        iCol = config.ESEDB_ICOL[strKey]
+        if (iCol != None):
+            # Format the key's value for output...
+            # 'x' - bstr  == (Large) Binary Data
+            # 's' - str   == (Large) Text
+            # 'i' - int   == Integer (32/16/8)-bit (un)signed
+            # 'b' - bool  == Boolean or Boolean Flags (Integer)
+            # 'f' - float == Floating Point (Double Precision) (64/32-bit)
+            # 'd' - date  == Binary Data converted to Formatted UTC Time
+            strESEDB = dictESEDB[strKey]
+            if   (cTest == 'x'):
+                strESEDB = str( hexlify( dictESEDB[strKey] ))[2:-1]  # ...stript off start b' and end '
+            elif (cTest == 's'):
+                pass
+            elif (cTest == 'i'):
+                strESEDB = format(dictESEDB[strKey], "d")
+            elif (cTest == 'b'):
+                if (isinstance(dictESEDB[strKey], bool)):
+                    strESEDB = format(dictESEDB[strKey], "")
+                else:  # ..Integer
+                    strFmt = "08b"               # ...setup flag format for 8 bit integer
+                    if (dictESEDB[strKey] > 255):
+                        strFmt = "016b"          # ...setup flag format for 16 bit integer format
+                    if (dictESEDB[strKey] > 65535):
+                        strFmt = "032b"          # ...setup flag format for 32 bit integer format
+                    if (dictESEDB[strKey] > 4294967295):
+                        strFmt = "064b"          # ...setup flag format for 64 bit integer format
+                    strESEDB = format(dictESEDB[strKey], strFmt)
+            elif (cTest == 'f'):
+                strESEDB = format(dictESEDB[strKey], "G")
+            elif (cTest == 'd'):
+                strESEDB = getFormattedWinToPyTimeUTC(dictESEDB[strKey])
+
+            print("%s%s" % (config.ESEDB_ICOL_NAMES[strKey][2], strESEDB))
     return
 
 def setupSymLink():
-    if (config.ARGS.symlinks): # ...implies config.ARGS.outdir
+    if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
         if not os.path.exists(config.ARGS.outdir + config.THUMBS_SUBDIR):
             try:
                 os.mkdir(config.ARGS.outdir + config.THUMBS_SUBDIR)
@@ -272,17 +302,6 @@ def symlink_force(strTarget, strLink):
             config.EXIT_CODE = 18
             return
     return
-
-
-def getFileName(iStreamID, strRawName, strExt, bHasSymName, iType):
-    strFileName = ""
-    if (bHasSymName and config.ARGS.symlinks): # ...implies config.ARGS.outdir
-            strFileName = config.THUMBS_SUBDIR + "/"
-    if (iStreamID >= 0):
-        strFileName += getStreamFileName(iStreamID, strExt, iType)
-    else:
-        strFileName += getRawFileName(strRawName, strExt, iType)
-    return strFileName
 
 
 def prepareEDB():
@@ -316,30 +335,158 @@ def prepareEDB():
     strSysIndex = "SystemIndex_"
     strTableName = "PropertyStore"
     config.ESEDB_TABLE = config.ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
-    if (config.ESEDB_TABLE == None): # ...try older...
+    if (config.ESEDB_TABLE == None):  # ...try older...
         strTableName = "0A"
         config.ESEDB_TABLE = config.ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
     sys.stderr.write(" Info: Opened ESEDB Table %s%s for enhanced processing\n" % (strSysIndex, strTableName))
 
     iColCnt = config.ESEDB_TABLE.get_number_of_columns()
-    sys.stderr.write(" DBG:     Got %d columns\n" % iColCnt)
+    #sys.stderr.write(" DBG:     Got %d columns\n" % iColCnt)
     iColCntFound = 0
     for iCol in range(iColCnt):
         column = config.ESEDB_TABLE.get_column(iCol)
         strColName = column.get_name()
         for strKey in config.ESEDB_ICOL_NAMES.keys():
             if (strColName.endswith(config.ESEDB_ICOL_NAMES[strKey][0])):
-                config.ESEDB_ICOL[strKey] = iCol # ...column number for column name
+                config.ESEDB_ICOL[strKey] = iCol  # ...column number for column name
                 iColCntFound += 1
 
-        if (iColCntFound == len(config.ESEDB_ICOL_NAMES)): # Total Columns searched
+        if (iColCntFound == len(config.ESEDB_ICOL_NAMES)):  # Total Columns searched
             break
     sys.stderr.write(" INFO:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
     return
 
 
+def loadEDB():
+    if (config.ESEDB_ICOL["TCID"] == None):
+        return
+    if (config.ESEDB_ICOL["MIME"] == None and config.ESEDB_ICOL["CTYPE"] == None and config.ESEDB_ICOL["ITT"] == None):
+        return
+    config.ESEDB_REC_LIST = []
+
+    iRecCnt = config.ESEDB_TABLE.get_number_of_records()
+    strRecIPD = None
+    strRecIU = None
+    for iRec in range(iRecCnt):
+        record = config.ESEDB_TABLE.get_record(iRec)
+
+        # Test for ThumbnailCacheId exists...
+        bstrRecTCID = record.get_value_data(config.ESEDB_ICOL["TCID"])
+        if (bstrRecTCID == None):
+            continue
+
+        # Test for image type record...
+        strMime = ""
+        if (config.ESEDB_ICOL["MIME"] != None):
+            strMime = (record.get_value_data_as_string(config.ESEDB_ICOL["MIME"]) or "")
+        strCType = ""
+        if (config.ESEDB_ICOL["CTYPE"] != None):
+            strCType = (record.get_value_data_as_string(config.ESEDB_ICOL["CTYPE"]) or "")
+        strITT = ""
+        if (config.ESEDB_ICOL["ITT"] != None):
+            strITT = (record.get_value_data_as_string(config.ESEDB_ICOL["ITT"]) or "")
+        strImageTest = strMime + strCType + strITT
+        if (not "image" in strImageTest):
+            continue
+
+#        # TEST Record Retrieval...
+#        print("\nTCID: " + str( hexlify( bstrRecTCID ))[2:-1])
+#        for strKey in config.ESEDB_ICOL_NAMES.keys():
+#            if (strKey == "TCID"):
+#                continue
+#            cTest = config.ESEDB_ICOL_NAMES[strKey][1]
+#            iCol = config.ESEDB_ICOL[strKey]
+#            sys.stdout.write(strKey + ": ")
+#            if (iCol != None):
+#                if   (cTest == 'x'):
+#                    x = record.get_value_data(iCol)
+#                    if (x != None):
+#                        x = str(hexlify( x ))[2:-1]
+#                elif (cTest == 's'):
+#                    x = record.get_value_data_as_string(iCol)
+#                elif (cTest == 'i'):
+#                    x = record.get_value_data_as_integer(iCol)
+#                elif (cTest == 'b'):
+#                    iVal = record.get_value_data_as_integer(iCol)
+#                    if (iVal == None or iVal == 0):
+#                        iVal = False
+#                    elif (iVal == 1 or iVal == -1):
+#                        iVal = True
+#                    else:
+#                        strFmt = "08b"
+#                        if (iVal > 255):
+#                            strFmt = "016b"
+#                        if (iVal > 65535):
+#                            strFmt = "032b"
+#                        if (iVal > 4294967295):
+#                            strFmt = "064b"
+#                        iVal = format(iVal, strFmt)
+#                    x = iVal
+#                elif (cTest == 'f'):
+#                    x = record.get_value_data_as_floating_point(iCol)
+#                elif (cTest == 'd'):
+#                    x = getFormattedWinToPyTimeUTC(unpack("<Q", record.get_value_data(iCol))[0])
+#                print(x)
+
+        dictRecord = {}
+        dictRecord["TCID"]  = bstrRecTCID
+        dictRecord["MIME"]  = strMime
+        dictRecord["CTYPE"] = strCType
+        dictRecord["ITT"]   = strITT
+
+        for strKey in config.ESEDB_ICOL_NAMES.keys():
+            if (strKey == "TCID" or strKey == "MIME" or strKey == "CTYPE" or strKey == "ITT"):
+                continue
+            iCol = config.ESEDB_ICOL[strKey]
+            if (iCol != None):
+                cTest = config.ESEDB_ICOL_NAMES[strKey][1]
+                # 'x' - bstr  == (Large) Binary Data
+                # 's' - str   == (Large) Text
+                # 'i' - int   == Integer (32/16/8)-bit (un)signed
+                # 'b' - bool  == Boolean or Boolean Flags (Integer)
+                # 'f' - float == Floating Point (Double Precision) (64/32-bit)
+                # 'd' - date  == Binary Data converted to Formatted UTC Time
+                if   (cTest == 'x'):
+                    dictRecord[strKey] = record.get_value_data(iCol)
+                elif (cTest == 's'):
+                    dictRecord[strKey] = record.get_value_data_as_string(iCol)
+                elif (cTest == 'i'):
+                    dictRecord[strKey] = record.get_value_data_as_integer(iCol)
+                elif (cTest == 'b'):
+                    iVal = record.get_value_data_as_integer(iCol)
+                    if (iVal == None or iVal == 0):  # ...convert integer to boolean False
+                        iVal = False
+                    elif (iVal == 1 or iVal == -1):  # ...convert integer to boolean True
+                        iVal = True
+                    else:  # Setup Flag Display for integer flags
+                        if (iVal < -2147483648):     # ...convert negative 64 bit integer to positive
+                            iVal = iVal & 0xffffffffffffffff
+                        if (iVal < -32768):          # ...convert negative 32 bit integer to positive
+                            iVal = iVal & 0xffffffff
+                        if (iVal < -128):            # ...convert negative 16 bit integer to positive
+                            iVal = iVal & 0xffff
+                        if (iVal < 0):               # ...convert negative 8 bit integer to positive
+                            iVal = iVal & 0xff
+                    dictRecord[strKey] = iVal
+                elif (cTest == 'f'):
+                    dictRecord[strKey] = record.get_value_data_as_floating_point(iCol)
+                elif (cTest == 'd'):
+                    dictRecord[strKey] = unpack("<Q", record.get_value_data(iCol))[0]
+
+        config.ESEDB_REC_LIST.append(dictRecord)
+
+#    # TEST: Print ESEDB Image Records...
+#    for dictRecord in config.ESEDB_REC_LIST:
+#        printESEDBInfo(dictRecord)
+#        print()
+
+    return
+
+
 def searchEDB(strTCID):
-    if (strTCID == None or config.ESEDB_ICOL["TCID"] == None):
+    if (config.ESEDB_REC_LIST == None or strTCID == None):
+        return None
+    if (len(config.ESEDB_REC_LIST) == 0):
         return None
 
     strConvertTCID = strTCID
@@ -351,121 +498,18 @@ def searchEDB(strTCID):
         sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare\n" % strConvertTCID)
         return None
 
-    iRecCnt = config.ESEDB_TABLE.get_number_of_records()
-    strRecIPD = None
-    strRecIU = None
     bFound = False
-    for iRec in range(iRecCnt):
-        record = config.ESEDB_TABLE.get_record(iRec)
-        bstrRecTCID = record.get_value_data(config.ESEDB_ICOL["TCID"])
+    for dictRecord in config.ESEDB_REC_LIST:
 #        # TEST TCID Compare...
-#        if (bstrRecTCID != None):
-#            print(str(hexlify(bstrTCID))[2:-1] + " <> " + str(hexlify(bstrRecTCID))[2:-1])
-#        else:
-#            print(str(hexlify(bstrTCID))[2:-1] + " <> " + "None")
-        if (bstrRecTCID == None):
-            continue
-        if (bstrTCID == bstrRecTCID):
+#        print(str(hexlify(bstrTCID))[2:-1] + " <> " + str(hexlify(dictRecord["BTCID"]))[2:-1])
+        if (bstrTCID == dictRecord["TCID"]):
             bFound = True
             break
-
-#        # TEST Record Retrieval...
-#        strImageTest = ((record.get_value_data_as_string(config.ESEDB_ICOL["MIME"]) or "") +
-#                        (record.get_value_data_as_string(config.ESEDB_ICOL["CTYPE"]) or "") +
-#                        (record.get_value_data_as_string(config.ESEDB_ICOL["ITT"]) or "") )
-#        if ("image" in strImageTest):
-#            print("\nTCID: " + str( hexlify( bstrRecTCID ))[2:-1])
-#            for strKey in config.ESEDB_ICOL_NAMES.keys():
-#                if (strKey == "TCID"):
-#                    continue
-#                cTest = config.ESEDB_ICOL_NAMES[strKey][1]
-#                iCol = config.ESEDB_ICOL[strKey]
-#                sys.stdout.write(strKey + ": ")
-#                if (iCol != None):
-#                    if   (cTest == 'x'):
-#                        x = record.get_value_data(iCol)
-#                        if (x != None):
-#                            x = str(hexlify( x ))[2:-1]
-#                    elif (cTest == 's'):
-#                        x = record.get_value_data_as_string(iCol)
-#                    elif (cTest == 'i'):
-#                        x = record.get_value_data_as_integer(iCol)
-#                    elif (cTest == 'b'):
-#                        iVal = record.get_value_data_as_integer(iCol)
-#                        if (iVal == None or iVal == 0):
-#                            iVal = False
-#                        elif (iVal == 1 or iVal == -1):
-#                            iVal = True
-#                        else:
-#                            strFmt = "08b"
-#                            if (iVal > 255):
-#                                strFmt = "016b"
-#                            if (iVal > 65535):
-#                                strFmt = "032b"
-#                            if (iVal > 4294967295):
-#                                strFmt = "064b"
-#                            iVal = format(iVal, strFmt)
-#                        x = iVal
-#                    elif (cTest == 'f'):
-#                        x = record.get_value_data_as_floating_point(iCol)
-#                    elif (cTest == 'd'):
-#                        x = getFormattedTimeUTC( convertToPyTime( unpack("<Q", record.get_value_data(iCol))[0] ) )
-#                    print(x)
 
     if (not bFound):
         return None
 
-    dictRet = {}
-    dictRet["TCID"] = str( hexlify( bstrRecTCID ))[2:-1] # ...stript off start b' and end '
-
-    for strKey in config.ESEDB_ICOL_NAMES.keys():
-        if (strKey == "TCID"):
-            continue
-        cTest = config.ESEDB_ICOL_NAMES[strKey][1]
-        iCol = config.ESEDB_ICOL[strKey]
-        if (iCol != None):
-            # 'x' - bstr  == (Large) Binary Data
-            # 's' - str   == (Large) Text
-            # 'i' - int   == Integer (32/16/8)-bit (un)signed
-            # 'b' - bool  == Boolean or Boolean Flags
-            # 'f' - float == Floating Point (Double Precision) (64/32-bit)
-            # 'd' - date  == Binary Data converted to Formatted UTC Time
-            if   (cTest == 'x'):
-                dictRet[strKey] = record.get_value_data(iCol)
-            elif (cTest == 's'):
-                dictRet[strKey] = record.get_value_data_as_string(iCol)
-            elif (cTest == 'i'):
-                dictRet[strKey] = record.get_value_data_as_integer(iCol)
-            elif (cTest == 'b'):
-                iVal = record.get_value_data_as_integer(iCol)
-                if (iVal == None or iVal == 0):
-                    iVal = False
-                elif (iVal == 1 or iVal == -1):
-                    iVal = True
-                else:
-                    if (iVal < -2147483648):
-                        iVal = iVal & 0xffffffffffffffff
-                    if (iVal < -32768):
-                        iVal = iVal & 0xffffffff
-                    if (iVal < -128):
-                        iVal = iVal & 0xffff
-                    if (iVal < 0):
-                        iVal = iVal & 0xff
-                    strFmt = "08b"
-                    if (iVal > 255):
-                        strFmt = "016b"
-                    if (iVal > 65535):
-                        strFmt = "032b"
-                    if (iVal > 4294967295):
-                        strFmt = "064b"
-                iVal = format(iVal, strFmt)
-                dictRet[strKey] = iVal
-            elif (cTest == 'f'):
-                dictRet[strKey] = record.get_value_data_as_floating_point(iCol)
-            elif (cTest == 'd'):
-                dictRet[strKey] = getFormattedTimeUTC( convertToPyTime( unpack("<Q", record.get_value_data(iCol))[0] ) )
-
-    return dictRet
+    return dictRecord
 
 
 def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
@@ -475,65 +519,91 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
     if (thumbsDBsize % 512 ) != 0:
         sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, thumbsDBsize))
 
-    tDB_endian = "<" # Little Endian
+    tDB_endian = "<"  # Little Endian
 
-    thumbsDB.seek(0x08)
-    tDB_GUID             = thumbsDB.read(16)
-    tDB_revisionNo       = unpack(tDB_endian+"H", thumbsDB.read(2))[0]
-    tDB_versionNo        = unpack(tDB_endian+"H", thumbsDB.read(2))[0]
-    tDB_endianOrder      = thumbsDB.read(2) # 0xFFFE=65534 OR 0xFEFF=65279
+    # Structure:
+    # --------------------
+    # The CFBF file consists of a 512-Byte header record followed by a number of
+    # sectors whose size is defined in the header. The literature defines Sectors
+    # to be either 512 or 4096 bytes in length, although the format is potentially
+    # capable of supporting sectors ranging in size from 128-Bytes upwards in
+    # powers of 2 (128, 256, 512, 1024, etc.). The lower limit of 128 is the
+    # minimum required to fit a single directory entry in a Directory Sector.
+    #
+    # There are several types of sector that may be present in a CFBF:
+    #
+    # * Sector Allocation Table (FAT) Sector - contains chains of sector indices
+    #     much as a FAT does in the FAT/FAT32 filesystems
+    # * MiniSAT Sectors - similar to the SAT but storing chains of mini-sectors
+    #     within the Mini-Stream
+    # * Double-Indirect SAT (DISAT) Sector - contains chains of SAT sector indices
+    # * Directory Sector – contains directory entries
+    # * Stream Sector – contains arbitrary file data
+    # * Range Lock Sector – contains the byte-range locking area of a large file
+
+    thumbsDB.seek(8)  # ...skip magic bytes                              # File Signature: 0xD0CF11E0A1B11AE1 for current version
+    tDB_GUID              = thumbsDB.read(16)                            # CLSID
+    tDB_revisionNo        = unpack(tDB_endian+"H", thumbsDB.read(2))[0]  # Minor Version
+    tDB_versionNo         = unpack(tDB_endian+"H", thumbsDB.read(2))[0]  # Version
+    tDB_endianOrder       = thumbsDB.read(2)  # 0xFFFE OR 0xFEFF         # Byte Order, 0xFFFE (Intel)
 
     if (tDB_endianOrder == bytearray(b"\xff\xfe")):
-        tDB_endian = ">" # Big Endian
+        tDB_endian = ">"  # Big Endian
     #elif (tDB_endianOrder == bytearray(b"\xfe\xff")):
     #    tDB_endian = "<"
+    tDB_sectorSize        = unpack(tDB_endian+"H", thumbsDB.read(2))[0]  # Sector Shift
+    tDB_sectorSizeMini    = unpack(tDB_endian+"H", thumbsDB.read(2))[0]  # Mini Sector Shift
+    reserved              = unpack(tDB_endian+"H", thumbsDB.read(2))[0]  # short int reserved
+    reserved              = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # int reserved
+    reserved              = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Sector Count for Directory Chain (4 KB Sectors)
+    tDB_SID_totalSecSAT   = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Sector Count for SAT Chain (512 B Sectors)
+    tDB_SID_firstSecDir   = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Root Directory: 1st Sector in Directory Chain
+    reserved              = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Signature for transactions (0, not implemented)
+    tDB_streamMinSize     = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Mini Stream Max Size (typically 4 KB)
+    tDB_SID_firstSecMSAT  = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # First Sector in the MiniSAT chain
+    tDB_SID_totalSecMSAT  = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Sector Count in the MiniSAT chain
+    tDB_SID_firstSecDISAT = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # First Sector in the DISAT chain
+    tDB_SID_totalSecDISAT = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # Sector Count in the DISAT chain
 
-    tDB_sectorSize       = unpack(tDB_endian+"H", thumbsDB.read(2))[0]
-    tDB_sectorSizeMini   = unpack(tDB_endian+"H", thumbsDB.read(2))[0]
-    reserved             = unpack(tDB_endian+"H", thumbsDB.read(2))[0]
-    reserved             = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    reserved             = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_SID_totalSecSAT  = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_SID_firstSecDir  = unpack(tDB_endian+"L", thumbsDB.read(4))[0] # Root directory 1st block
-    reserved             = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_streamMinSize    = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_SID_firstSecSSAT = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_SID_totalSecSSAT = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_SID_firstSecMSAT = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-    tDB_SID_totalSecMSAT = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
-
-    SATblocks = []
-    for i in range(tDB_SID_totalSecSAT):
-        iOffset = 0x4c + (i * 4)
+    # Load Sector Allocation Table (SAT) list...
+    listSAT = []
+    for iCurrentSector in range(tDB_SID_totalSecSAT):
+        iOffset = 76 + (iCurrentSector * 4)
         thumbsDB.seek(iOffset)
-        SATblocks.append(unpack(tDB_endian+"L", thumbsDB.read(4))[0])
+        listSAT.append(unpack(tDB_endian+"L", thumbsDB.read(4))[0])
 
-    # -----------------------------------------------------------------------------
-    # Analyzing Root Entry directory ...
+    # Load Mini Sector Allocation Table (MniSAT) list...
+    iCurrentSector = tDB_SID_firstSecMSAT
+    listMiniSAT = []
+    while (iCurrentSector != config.OLE_LAST_BLOCK):
+        listMiniSAT.append(iCurrentSector)
+        iCurrentSector = nextBlock(thumbsDB, listSAT, iCurrentSector, tDB_endian)
 
-    i = tDB_SID_firstSecSSAT
-    SSATblocks = []
-    while (i != config.OLE_LAST_BLOCK):
-        SSATblocks.append(i)
-        i = nextBlock(thumbsDB, SATblocks, i, tDB_endian)
+    iCurrentSector = tDB_SID_firstSecDir
+    iOffset = 512 + iCurrentSector * 512
 
-    currentBlock = tDB_SID_firstSecDir
-    iOffset = 0x200 + currentBlock * 0x200
-    thumbsDB.seek(iOffset+0x74)
-    firstSSATstreamBlock = unpack(tDB_endian+"L", thumbsDB.read(4))[0]
+    # Load Mini SAT Streams list...
+    thumbsDB.seek(iOffset + 116)
+    iStream = unpack(tDB_endian+"L", thumbsDB.read(4))[0]  # First Mini SAT Stream
+    listMiniSATStreams = []
+    while (iStream != config.OLE_LAST_BLOCK):
+        listMiniSATStreams.append(iStream)
+        iStream = nextBlock(thumbsDB, listSAT, iStream, tDB_endian)
 
-    i = firstSSATstreamBlock
-    SSATstreamBlocks = []
-    while (i != config.OLE_LAST_BLOCK):
-        SSATstreamBlocks.append(i)
-        i = nextBlock(thumbsDB, SATblocks, i, tDB_endian)
+    # =============================================================
+    # Process Entries...
+    # =============================================================
+
+    tdbStreams = tdb_streams.TDB_Streams()
+    tdbCatalog = tdb_catalog.TDB_Catalog()
 
     iStreamCounter = 0
-    while (currentBlock != config.OLE_LAST_BLOCK):
-        iOffset = 0x200 + currentBlock * 0x200
-        for i in range(iOffset, iOffset + 0x200, 0x80):
+    while (iCurrentSector != config.OLE_LAST_BLOCK):
+        iOffset = 512 + iCurrentSector * 512
+        for i in range(iOffset, iOffset + 512, 128):  # 4 Entries per Block: 128 * 4 = 512
             thumbsDB.seek(i)
-            oleBlock["nameDir"]         = thumbsDB.read(0x40)
+            oleBlock = {}
+            oleBlock["nameDir"]         = thumbsDB.read(64)
             oleBlock["nameDirSize"]     = unpack(tDB_endian+"H", thumbsDB.read(2))[0]
             oleBlock["type"]            = unpack("B",            thumbsDB.read(1))[0]
             oleBlock["color"]           = unpack("?",            thumbsDB.read(1))[0]
@@ -551,23 +621,46 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
             #   a unicode string length is half the bytes length minus 1 (terminal null)
             strRawName = decodeBytes(oleBlock["nameDir"])[0:(oleBlock["nameDirSize"] // 2 - 1)]
 
-            if (oleBlock["type"] == 2): # stream files extraction
+            # Empty Entry processing...
+            # =============================================================
+            if (oleBlock["type"] == 0):
                 if (not config.ARGS.quiet):
-                    print(" Stream Entry\n --------------------")
+                    print(" Empty Entry\n" +
+                          " --------------------")
                     printBlock(strRawName, oleBlock)
 
-                #strStreamId  = "%04d" % iStreamCounter
-                strStreamId = strRawName[::-1] # ...reverse the raw name
+            # Storage Entry processing...
+            # =============================================================
+            elif (oleBlock["type"] == 1):
+                if (not config.ARGS.quiet):
+                    print(" Storage Entry\n" +
+                          " --------------------")
+                    printBlock(strRawName, oleBlock)
+
+            # Stream Entry processing...
+            # =============================================================
+            elif (oleBlock["type"] == 2):
+                bRegularBlock = (oleBlock["SID_sizeDir"] >= 4096)
+
+                if (not config.ARGS.quiet):
+                    print(" Stream Entry (" + ("Standard" if bRegularBlock else "Mini") + ")\n" +
+                          " --------------------")
+                    printBlock(strRawName, oleBlock)
+
+                #strStreamID  = "%04d" % iStreamCounter
+                strStreamID = strRawName[::-1]  # ...reverse the raw name
+                keyStreamName = strRawName
                 bHasSymName = False
                 iStreamID = -1
-                if (len(strStreamId) < 4):
+                if (len(strStreamID) < 4):
                     try:
-                        iStreamID = int(strStreamId)
+                        iStreamID = int(strStreamID)
                     except ValueError:
                         iStreamID = -1
                 if (iStreamID >= 0):
-                    #strStreamId = "%04d" % iStreamID
+                    #strStreamID = "%04d" % iStreamID
                     bHasSymName = True
+                    keyStreamName = iStreamID
 
                 if (config.EXIT_CODE > 0):
                     return
@@ -575,10 +668,10 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                 bytesToWrite = oleBlock["SID_sizeDir"]
                 sr = bytearray(b"")
 
-                if (oleBlock["SID_sizeDir"] >= 4096): # stream located in the SAT
-                    currentStreamBlock = oleBlock["SID_firstSecDir"]
-                    while (currentStreamBlock != config.OLE_LAST_BLOCK):
-                        iStreamOffset = 0x200 + currentStreamBlock * 0x200
+                if (bRegularBlock):  # ...stream located in the SAT...
+                    iCurrentStreamBlock = oleBlock["SID_firstSecDir"]
+                    while (iCurrentStreamBlock != config.OLE_LAST_BLOCK):
+                        iStreamOffset = 512 + iCurrentStreamBlock * 512
                         thumbsDB.seek(iStreamOffset)
 
                         if (bytesToWrite >= 512):
@@ -586,20 +679,20 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         else:
                             sr = sr + thumbsDB.read(bytesToWrite)
                         bytesToWrite = bytesToWrite - 512
-                        currentStreamBlock = nextBlock(thumbsDB, SATblocks, currentStreamBlock, tDB_endian)
+                        iCurrentStreamBlock = nextBlock(thumbsDB, listSAT, iCurrentStreamBlock, tDB_endian)
 
-                else:                # stream located in the SSAT
-                    currentStreamMiniBlock = oleBlock["SID_firstSecDir"]
-                    while (currentStreamMiniBlock != config.OLE_LAST_BLOCK):
+                else:  # ...stream located in the Mini SAT...
+                    iCurrentStreamMiniBlock = oleBlock["SID_firstSecDir"]
+                    while (iCurrentStreamMiniBlock != config.OLE_LAST_BLOCK):
                         # Computing offset of the miniBlock to copy
-                        # 1 : Which block of the SSATstream?
-                        nb = currentStreamMiniBlock // 8
+                        # 1 : Which block of the Mini SAT stream?
+                        nb = iCurrentStreamMiniBlock // 8
                         # 2 : Where is this block?
-                        bl = SSATstreamBlocks[nb]
+                        bl = listMiniSATStreams[nb]
                         # 3 : Which offset from the start of block?
-                        ioffset = (currentStreamMiniBlock % 8) * 64
+                        ioffset = (iCurrentStreamMiniBlock % 8) * 64
 
-                        iStreamOffset = 0x200 + bl * 0x200 + ioffset
+                        iStreamOffset = 512 + bl * 512 + ioffset
                         thumbsDB.seek(iStreamOffset)
 
                         if (bytesToWrite >= 64):
@@ -607,20 +700,18 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         else:
                             sr = sr + thumbsDB.read(bytesToWrite)
                         bytesToWrite = bytesToWrite - 64
-                        # Computing next currentStreamMiniBlock
-                        currentStreamMiniBlock = nextBlock(thumbsDB, SSATblocks, currentStreamMiniBlock, tDB_endian)
-
-                # Extraction stream processing ... ---------------------------------
+                        # Computing next iCurrentStreamMiniBlock
+                        iCurrentStreamMiniBlock = nextBlock(thumbsDB, listMiniSAT, iCurrentStreamMiniBlock, tDB_endian)
 
                 sr_len = len(sr)
 
-                # Is this a Catalog?
+                # Catalog Stream processing...
+                # -------------------------------------------------------------
                 if (strRawName == "Catalog"):
                     if (not config.ARGS.quiet):
                         print("       Entries: ---------------------------------------")
-                    # -------------------------------------------------------------
-                    # Catalog header...
 
+                    # Get catalog header...
                     iCatOffset      = unpack(tDB_endian+"H", sr[ 0: 2])[0]
                     iCatVersion     = unpack(tDB_endian+"H", sr[ 2: 4])[0]
                     iCatThumbCount  = unpack(tDB_endian+"L", sr[ 4: 8])[0]
@@ -629,9 +720,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
                     iStreamCounter -= 1
 
-                    # -------------------------------------------------------------
-                    # Analyzing Catalog entries ...
-
+                    # Process catalog entries...
                     while (iCatOffset < sr_len):
                         # Preamble...
                         iCatEntryLen       = unpack(tDB_endian+"L", sr[iCatOffset      :iCatOffset +  4])[0]
@@ -642,32 +731,33 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         # 2. end with 4 null bytes (4)
                         # Therefore, the start of the name string is at the end of the preamble
                         #   and the end of the name string is at the end of the entry minus 4
-                        iCatEntryName      =                        sr[iCatOffset + 16: iCatOffset + iCatEntryLen - 4]
+                        bstrCatEntryName   =                        sr[iCatOffset + 16: iCatOffset + iCatEntryLen - 4]
 
                         strCatEntryId        = "%d" % (iCatEntryID)
-                        strCatEntryTimestamp = getFormattedTimeUTC( convertToPyTime(iCatEntryTimestamp) )
-                        strCatEntryName      = decodeBytes(iCatEntryName)
-                        if (config.ARGS.symlinks): # ...implies config.ARGS.outdir
+                        strCatEntryTimestamp = getFormattedWinToPyTimeUTC(iCatEntryTimestamp)
+                        strCatEntryName      = decodeBytes(bstrCatEntryName)
+                        if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                             strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCatEntryId + ".jpg"
                             symlink_force(strTarget, config.ARGS.outdir + strCatEntryName)
                             if (config.EXIT_CODE > 0):
                                 return
                         if (not config.ARGS.quiet):
                             print("          " + ("% 4s" % strCatEntryId) + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strCatEntryName)
-                        addCatalogEntry(iCatEntryID, strCatEntryTimestamp, strCatEntryName)
+                        tdbCatalog[iCatEntryID] = (strCatEntryTimestamp, strCatEntryName)
 
                         # Next catalog entry...
                         iCatOffset = iCatOffset + iCatEntryLen
 
-                else: # Not a Catalog, an Image entry...
-                    # Is EOI at end of stream?
-                    if (sr[sr_len - 2: sr_len] != bytearray(b"\xff\xd9")): # ...Not End Of Image (EOI)
+                # Image Stream processing...
+                # -------------------------------------------------------------
+                else:
+                    # Is End Of Image (EOI) at end of stream?
+                    if (sr[sr_len - 2: sr_len] != bytearray(b"\xff\xd9")):  # ...Not End Of Image (EOI)
                         sys.stderr.write(" Error: Missing End of Image (EOI) marker in stream %d\n" % iStreamCounter)
                         config.EXIT_CODE = 14
                         return
 
-                    # --------------------------- Header 1 ------------------------
-                    # Get file offset
+                    # --- Header 1: Get file offset...
                     headOffset   = unpack(tDB_endian+"L", sr[ 0: 4])[0]
                     headRevision = unpack(tDB_endian+"L", sr[ 4: 8])[0]
 
@@ -684,7 +774,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         if (dictESEDB != None):
                             if (not config.ARGS.quiet):
                                 printESEDBInfo(dictESEDB)
-                            if (config.ARGS.symlinks): # ...implies config.ARGS.outdir
+                            if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                                 if (dictESEDB["IURL"] != None):
                                     strFileName = dictESEDB["IURL"].split("/")[-1].split("?")[0]
                                     strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strRawName + "." + strExt
@@ -695,47 +785,39 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                                     fileURL.write(strTarget + " => " + strFileName + "\n")
                                     fileURL.close()
 
-                    # --------------------------- Header 2 ------------------------
-                    # Type 2 Thumbnail Image? (full jpeg)
+                    # --- Header 2: Type 2 Thumbnail Image? (Full JPEG)...
                     if (sr[headOffset: headOffset + 4] == bytearray(b"\xff\xd8\xff\xe0")):
                         if (config.ARGS.outdir != None):
-                            strFileName = getFileName(iStreamID, strRawName, strExt, bHasSymName, 2)
+                            strFileName = tdbStreams.getFileName(keyStreamName, strExt, bHasSymName, 2)
                             fileImg = open(config.ARGS.outdir + strFileName, "wb")
                             fileImg.write(sr[headOffset:])
                             fileImg.close()
-                        else: # Not extracting...
-                            if (bHasSymName):
-                                addStreamIdToStreams(iStreamID, 2, "", "")
-                            else:
-                                addFileNameToStreams(strRawName, 2, "", "")
+                        else:  # Not extracting...
+                            tdbStreams[keyStreamName] = ["", (2, "")]
 
-                    # Type 1 Thumbnail Image?
+                    # --- Header 2: Type 1 Thumbnail Image? (Partial JPEG)...
                     elif (unpack(tDB_endian+"L", sr[headOffset: headOffset + 4])[0] == 1):
                         # Is second header OK?
-                        if (unpack(tDB_endian+"H", sr[headOffset + 4: headOffset + 6])[0] != (sr_len - headOffset - 0x10)):
+                        if (unpack(tDB_endian+"H", sr[headOffset + 4: headOffset + 6])[0] != (sr_len - headOffset - 16)):
                             sys.stderr.write(" Error: Header 2 length mismatch in stream %d\n" % iStreamCounter)
                             config.EXIT_CODE = 16
                             return
 
                         if (config.ARGS.outdir != None and PIL_FOUND):
-                            strFileName = getFileName(iStreamID, strRawName, strExt, bHasSymName, 1)
-                            # Type 1 Thumbnail Image processing ...
-                            type1sr = ( IMAGE_TYPE_1_HEADER[:0x14] +
-                                        IMAGE_TYPE_1_QUANTIZE +
-                                        sr[0x1e:0x34] +
-                                        IMAGE_TYPE_1_HUFFMAN +
-                                        sr[0x34:] )
+                            strFileName = tdbStreams.getFileName(keyStreamName, strExt, bHasSymName, 1)
 
-                            image = Image.open(StringIO.StringIO(type1sr))
+                            # Construct thumbnail image from standard blocks and stored image data...
+                            bstrImage = ( IMAGE_TYPE_1_HEADER[:20] +
+                                          IMAGE_TYPE_1_QUANTIZE + sr[30:52] +
+                                          IMAGE_TYPE_1_HUFFMAN  + sr[52:] )
+
+                            image = Image.open(StringIO.StringIO(bstrImage))
                             #r, g, b, a = image.split()
                             #image = Image.merge("RGB", (r, g, b))
                             image = image.transpose(Image.FLIP_TOP_BOTTOM)
                             image.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
-                        else: # Cannot extract (PIL not found) or not extracting...
-                            if (bHasSymName):
-                                addStreamIdToStreams(iStreamID, 1, "", "")
-                            else:
-                                addFileNameToStreams(strRawName, 1, "", "")
+                        else:  # Cannot extract (PIL not found) or not extracting...
+                            tdbStreams[keyStreamName] = ["", (1, "")]
                     else:
                         sys.stderr.write(" Error: Header 2 not found in stream %d\n" % iStreamCounter)
                         config.EXIT_CODE = 17
@@ -743,28 +825,49 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
                 if (not config.ARGS.quiet):
                     print(STR_SEP)
-                # -----------------------------------------------------------------
 
-            elif (oleBlock["type"] == 5): # Root Entry
+            # Lock Bytes Entry processing...
+            # =============================================================
+            elif (oleBlock["type"] == 3):
                 if (not config.ARGS.quiet):
-                    print(" Root Entry\n --------------------")
+                    print(" Lock Bytes Entry\n" +
+                          " --------------------")
                     printBlock(strRawName, oleBlock)
-                if (config.ARGS.htmlrep): # ...implies config.ARGS.outdir
+
+            # Property Entry processing...
+            # =============================================================
+            elif (oleBlock["type"] == 4):
+                if (not config.ARGS.quiet):
+                    print(" Property Entry\n" +
+                          " --------------------")
+                    printBlock(strRawName, oleBlock)
+
+            # Root Entry processing...
+            # =============================================================
+            elif (oleBlock["type"] == 5):
+                if (not config.ARGS.quiet):
+                    print(" Root Entry\n" +
+                          " --------------------")
+                    printBlock(strRawName, oleBlock)
+                if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
                     HTTP_REPORT.setOLE(oleBlock)
                 if (not config.ARGS.quiet):
                     print(STR_SEP)
 
             iStreamCounter += 1
 
-        currentBlock = nextBlock(thumbsDB, SATblocks, currentBlock, tDB_endian)
+        iCurrentSector = nextBlock(thumbsDB, listSAT, iCurrentSector, tDB_endian)
 
-    if isCatalogOutOfSequence():
+    # Process end of file...
+    # -----------------------------------------------------------------
+    if (tdbCatalog.isOutOfSequence()):
         sys.stderr.write(" Info: %s - Catalog index number out of usual sequence\n" % infile)
 
-    if isStreamsOutOfSequence():
-        sys.stderr.write(" Info: %s - Stream index number out of usual sequence\n" % infile)
+    if (tdbStreams.isOutOfSequence()):
+            sys.stderr.write(" Info: %s - Stream index number out of usual sequence\n" % infile)
 
-    astrStats = extractStats(config.ARGS.outdir)
+    astrStats = tdbStreams.extractStats()
+
     if (not config.ARGS.quiet):
         print(" Summary:")
         if (astrStats != None):
@@ -772,16 +875,16 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                 print("   " + strStat)
         else:
             print("   No Stats!")
-    if (config.ARGS.htmlrep): # ...implies config.ARGS.outdir
+
+    if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
         strSubDir = "."
-        if (config.ARGS.symlinks): # ...implies config.ARGS.outdir
+        if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
-        HTTP_REPORT.flush(astrStats, strSubDir)
+        HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
 
     if (config.ARGS.outdir != None):
-        iCountCatalogEntries = countCatalogEntry()
-        if (iCountCatalogEntries > 0):
-            if (iCountCatalogEntries != countThumbnails()):
+        if (len(tdbCatalog) > 0):
+            if (tdbCatalog.getCount() != tdbStreams.getCount()):
                 sys.stderr.write(" Warning: %s - Counts (Catalog != Extracted)\n" % infile)
             else:
                 sys.stderr.write(" Info: %s - Counts (Catalog == Extracted)\n" % infile)
@@ -799,14 +902,14 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         return
 
     # Header...
-    thumbsDB.seek(0x04)
+    thumbsDB.seek(4)
     tDB_formatVer        = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheType        = unpack("<L", thumbsDB.read(4))[0]
     if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8")):
-        thumbsDB.read(4) # Skip an integer size
+        thumbsDB.read(4)  # Skip an integer size
     tDB_cacheOff1st      = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheOff1stAvail = unpack("<L", thumbsDB.read(4))[0]
-    tDB_cacheCount       = None # Cache Count not available above Windows 8 v2
+    tDB_cacheCount       = None  # Cache Count not available above Windows 8 v2
     if (tDB_formatVer < config.TC_FORMAT_TYPE.get("Windows 8 v3")):
         tDB_cacheCount   = unpack("<L", thumbsDB.read(4))[0]
 
@@ -826,10 +929,16 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         printDBHead(config.THUMBS_TYPE_CMMM, tDB_formatVer, strFormatType, tDB_cacheType, strCacheType,
                     tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
         print(STR_SEP)
-    if (config.ARGS.htmlrep): # ...implies config.ARGS.outdir
+    if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
         HTTP_REPORT.setCMMM(strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
 
-    # Cache...
+    # =============================================================
+    # Process Cache Entries...
+    # =============================================================
+
+    tdbStreams = tdb_streams.TDB_Streams()
+    tdbCatalog = tdb_catalog.TDB_Catalog()
+
     iOffset = tDB_cacheOff1st
     iCacheCounter = 1
     while (True):
@@ -845,9 +954,9 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         tDB_hash = unpack("<Q", thumbsDB.read(8))[0]
         iOffset += 16
 
-        tDB_ext = None # File Extension not available above Windows Vista
+        tDB_ext = None  # File Extension not available above Windows Vista
         if (tDB_formatVer == config.TC_FORMAT_TYPE.get("Windows Vista")):
-            tDB_ext = thumbsDB.read(8) # 2 bytes * 4 wchar_t characters
+            tDB_ext = thumbsDB.read(8)  # 2 bytes * 4 wchar_t characters
             iOffset += 8
 
         tDB_idSize   = unpack("<L",  thumbsDB.read(4))[0]
@@ -855,8 +964,8 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         tDB_dataSize = unpack("<L",  thumbsDB.read(4))[0]
         iOffset += 12
 
-        tDB_width  = None # Image Width  not available below Windows 8
-        tDB_height = None # Image Height not available below Windows 8
+        tDB_width  = None  # Image Width  not available below Windows 8
+        tDB_height = None  # Image Height not available below Windows 8
         if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 7")):
             tDB_width  = unpack("<L",  thumbsDB.read(4))[0]
             tDB_height = unpack("<L",  thumbsDB.read(4))[0]
@@ -883,7 +992,7 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         if (tDB_id != None):
             strID = decodeBytes(tDB_id)
         else:
-            continue # ...no ID, so probably empty last entry
+            continue  # ...no ID, so probably empty last entry
 
         strHash = format(tDB_hash, 'x')
 
@@ -894,9 +1003,9 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         if (tDB_dataSize > 0):
             # Detect data type ext by magic bytes...
             tupleImageTypes = (
-                (bytearray(b'\x42\x4D'), "bmp"),                        # BM
-                (bytearray(b'\xFF\xD8\xFF\xE0'), "jpg")                 # ....
-                (bytearray(b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'), "png") # .PNG\n\r\sub\r
+                    ( bytearray(b'\x42\x4D'), "bmp" ),                         # BM
+                    ( bytearray(b'\xFF\xD8\xFF\xE0'), "jpg" ),                 # ....
+                    ( bytearray(b'\x89\x50\x4E\x47\x0D\x0A\x1A\x0A'), "png" )  # .PNG\n\r\sub\r
                 )
             for tupleImageType in tupleImageTypes:
                 if (tupleImageType[0] == tDB_data[0:len(tupleImageType[0])]):
@@ -925,7 +1034,7 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
                 strFileName = None
                 if (dictESEDB["IURL"] != None):
                     strFileName = dictESEDB["IURL"].split("/")[-1].split("?")[0]
-                if (strFileName != None and config.ARGS.symlinks): # ...implies config.ARGS.outdir
+                if (strFileName != None and config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                         bHasSymName = True
                         strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
                         symlink_force(strTarget, config.ARGS.outdir + strFileName)
@@ -936,16 +1045,16 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
                         fileURL.close()
 
                 # Add a "catalog" entry if Cache ID match in ESEDB...
-                addCatalogEntry(1, dictESEDB["DATEM"], strFileName)
+                tdbCatalog[iCacheCounter] = (dictESEDB["DATEM"], strFileName)
 
             # Write data to filename...
             if (config.ARGS.outdir != None):
-                strFileName = getFileName(-1, strCleanFileName, strExt, bHasSymName, 2)
+                strFileName = tdbStreams.getFileName(strCleanFileName, strExt, bHasSymName, 2)
                 fileImg = open(config.ARGS.outdir + strFileName, "wb")
                 fileImg.write(tDB_data)
                 fileImg.close()
-            else: # Not extracting...
-                addFileNameToStreams(strID, 2, "")
+            else:  # Not extracting...
+                tdbStreams[strID] = ["", (2, "")]
 
         # End of Loop
         iCacheCounter += 1
@@ -957,7 +1066,7 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         if (thumbsDBsize <= iOffset):
             break
 
-    astrStats = extractStats(config.ARGS.outdir)
+    astrStats = tdbStreams.extractStats()
     if (not config.ARGS.quiet):
         print(" Summary:")
         if (astrStats != None):
@@ -965,11 +1074,11 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
                 print("   " + strStat)
         else:
             print("   No Stats!")
-    if (config.ARGS.htmlrep): # ...implies config.ARGS.outdir
+    if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
         strSubDir = "."
-        if (config.ARGS.symlinks): # ...implies config.ARGS.outdir
+        if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
-        HTTP_REPORT.flush(astrStats, strSubDir)
+        HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
 
 
 def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
@@ -1029,7 +1138,7 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
         iOffset = iOffFlags + 24
         iEntryCounter += 1
 
-    astrStats = extractStats(config.ARGS.outdir)
+    astrStats = tdbStreams.extractStats()
     if (not config.ARGS.quiet):
         print(" Summary:")
         if (astrStats != None):
@@ -1037,9 +1146,9 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
                 print("   " + strStat)
         else:
             print("   No Stats!")
-    if (config.ARGS.htmlrep): # ...implies config.ARGS.outdir
+    if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
         strSubDir = "."
-        if (config.ARGS.symlinks): # ...implies config.ARGS.outdir
+        if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
         HTTP_REPORT.flush(astrStats, strSubDir)
 
@@ -1080,26 +1189,25 @@ def processThumbFile(infile, bProcessError=True):
 
     thumbsDBtype = None
     thumbsDB.seek(0)
-    thumbsDBdata = thumbsDB.read(0x08)
-    if   (thumbsDBdata[0x00:0x08] == config.THUMBS_SIG_OLE):
+    thumbsDBdata = thumbsDB.read(8)
+    if   (thumbsDBdata[0:8] == config.THUMBS_SIG_OLE):
         thumbsDBtype = config.THUMBS_TYPE_OLE
-    elif (thumbsDBdata[0x00:0x08] == config.THUMBS_SIG_OLEB):
+    elif (thumbsDBdata[0:8] == config.THUMBS_SIG_OLEB):
         thumbsDBtype = config.THUMBS_TYPE_OLE
-    elif (thumbsDBdata[0x00:0x04] == config.THUMBS_SIG_CMMM):
+    elif (thumbsDBdata[0:4] == config.THUMBS_SIG_CMMM):
         thumbsDBtype = config.THUMBS_TYPE_CMMM
-    elif (thumbsDBdata[0x00:0x04] == config.THUMBS_SIG_IMMM):
+    elif (thumbsDBdata[0:4] == config.THUMBS_SIG_IMMM):
         thumbsDBtype = config.THUMBS_TYPE_IMMM
-    else: # ...Header Signature not found...
+    else:  # ...Header Signature not found...
         if (bProcessError):
             sys.stderr.write(" Error: Header Signature not found in %s\n" % infile)
             config.EXIT_CODE = 12
-        return # ..always return here
+        return  # ..always return
 
     # Initialize optional HTML report...
-    if (config.ARGS.htmlrep): # ...implies config.ARGS.outdir
-        HTTP_REPORT = report.HttpReport(getEncoding(), infile, config.ARGS.outdir,
-                                STR_VERSION,
-                                thumbsDBtype, thumbsDBsize, thumbsDBmd5)
+    if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
+        HTTP_REPORT = report.HtmlReport(getEncoding(), infile, config.ARGS.outdir,
+                                        thumbsDBtype, thumbsDBsize, thumbsDBmd5)
 
     if (thumbsDBtype == config.THUMBS_TYPE_OLE):
         processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize)
@@ -1107,7 +1215,8 @@ def processThumbFile(infile, bProcessError=True):
         processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize)
     elif (thumbsDBtype == config.THUMBS_TYPE_IMMM):
         processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize)
-    else: # ...should never hit this as it's caught above, thumbsDBtype should always be set properly
+    else:  # ...should never hit this as thumbsDBtype is set in prior "if" block above,
+          # ...thumbsDBtype should always be set properly
         if (bProcessError):
             sys.stderr.write(" Error: No process for Header Signature in %s\n" % infile)
             config.EXIT_CODE = 12
@@ -1139,6 +1248,8 @@ def processDirectory(thumbDir, filenames=None):
             files.append(os.path.join(thumbDir, filename))
 
     # TODO: Check for "Thumbs.db" file and related image files in current directory
+    # TODO: This may involve passing info into processThumbFile() and following functionality
+    # TODO: to check existing image file names against stored thumbnail IDs
 
     for thumbFile in files:
         processThumbFile(thumbFile, False)
@@ -1167,7 +1278,7 @@ def processFileSystem():
                 if not entryUserDir.is_dir():
                     continue
                 userThumbsDir = os.path.join(entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR)
-                if not os.path.exists(userThumbsDir): # ...NOT exists?
+                if not os.path.exists(userThumbsDir):  # ...NOT exists?
                     print(" Warning: Skipping %s - does not contain %s\n" % (entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR))
                 else:
                     processDirectory(userThumbsDir)
@@ -1198,39 +1309,39 @@ def main():
     strError = " Error: "
 
     # Test Input File parameter...
-    if not os.path.exists(config.ARGS.infile): # ...NOT exists?
+    if not os.path.exists(config.ARGS.infile):  # ...NOT exists?
         sys.stderr.write("%s%s does not exist\n" % (strError, config.ARGS.infile))
         sys.exit(10)
-    if (config.ARGS.mode == "f"): # Traditional Mode...
-        if not os.path.isfile(config.ARGS.infile): # ...NOT a file?
+    if (config.ARGS.mode == "f"):  # Traditional Mode...
+        if not os.path.isfile(config.ARGS.infile):  # ...NOT a file?
             sys.stderr.write("%s%s not a file\n" % (strError, config.ARGS.infile))
             sys.exit(10)
-    else: # Directory, Recursive Directory, or Automatic Mode...
-        if not os.path.isdir(config.ARGS.infile): # ...NOT a directory?
+    else:  # Directory, Recursive Directory, or Automatic Mode...
+        if not os.path.isdir(config.ARGS.infile):  # ...NOT a directory?
             sys.stderr.write("%s%s not a directory\n" % (strError, config.ARGS.infile))
             sys.exit(10)
         # Add ending '/' as needed...
         if not config.ARGS.infile.endswith('/'):
             config.ARGS.infile += "/"
-    if not os.access(config.ARGS.infile, os.R_OK): # ...NOT readable?
+    if not os.access(config.ARGS.infile, os.R_OK):  # ...NOT readable?
         sys.stderr.write("%s%s not readable\n" % (strError, config.ARGS.infile))
         sys.exit(10)
 
     # Test Output Directory parameter...
     if (config.ARGS.outdir != None):
         # Testing DIR parameter...
-        if not os.path.exists(config.ARGS.outdir): # ...NOT exists?
+        if not os.path.exists(config.ARGS.outdir):  # ...NOT exists?
             try:
-                os.mkdir(config.ARGS.outdir) # ...make it
+                os.mkdir(config.ARGS.outdir)  # ...make it
                 sys.stderr.write(" Info: %s was created\n" % config.ARGS.outdir)
             except EnvironmentError as e:
                 sys.stderr.write("%sCannot create %s\n" % (strError, config.ARGS.outdir))
                 sys.exit(11)
-        else: # ...exists...
-            if not os.path.isdir(config.ARGS.outdir): # ...NOT a directory?
+        else:  # ...exists...
+            if not os.path.isdir(config.ARGS.outdir):  # ...NOT a directory?
                 sys.stderr.write("%s%s is not a directory\n" % (strError, config.ARGS.outdir))
                 sys.exit(11)
-            elif not os.access(config.ARGS.outdir, os.W_OK): # ...NOT writable?
+            elif not os.access(config.ARGS.outdir, os.W_OK):  # ...NOT writable?
                 sys.stderr.write("%s%s not writable\n" % (strError, config.ARGS.outdir))
                 sys.exit(11)
         # Add ending '/' as needed...
@@ -1256,19 +1367,19 @@ def main():
         strEDBFileReport = "Default ESEDB"
         # Try Vista+ first...
         strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_ESEDB_VISTA + config.OS_WIN_COMMON)
-        if not os.path.exists(strEDBFile): # ...NOT exists?
+        if not os.path.exists(strEDBFile):  # ...NOT exists?
             # Fallback to XP...
             strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP + config.OS_WIN_ESEDB_XP + config.OS_WIN_COMMON)
         config.ARGS.edbfile = strEDBFile
     if (config.ARGS.edbfile != None):
         # Testing EDBFILE parameter...
-        if not os.path.exists(config.ARGS.edbfile): # ...NOT exists?
+        if not os.path.exists(config.ARGS.edbfile):  # ...NOT exists?
             sys.stderr.write("%s%s does not exist\n" % (strErrorReport, strEDBFileReport))
             if bEDBErrorOut: sys.exit(19)
-        elif not os.path.isfile(config.ARGS.edbfile): # ...NOT a file?
+        elif not os.path.isfile(config.ARGS.edbfile):  # ...NOT a file?
             sys.stderr.write("%s%s is not a file\n" % (strErrorReport, strEDBFileReport))
             if bEDBErrorOut: sys.exit(19)
-        elif not os.access(config.ARGS.edbfile, os.R_OK): # ...NOT readable?
+        elif not os.access(config.ARGS.edbfile, os.R_OK):  # ...NOT readable?
             sys.stderr.write("%s%s not readable\n" % (strErrorReport, strEDBFileReport))
             if bEDBErrorOut: sys.exit(19)
         else:
@@ -1276,6 +1387,7 @@ def main():
 
         if bEDBFileGood:
             prepareEDB()
+            loadEDB()
         else:
             sys.stderr.write(strErrorReport + "Skipping any ESE DB processing\n")
 
@@ -1300,15 +1412,15 @@ def main():
             setupSymLink()
 
     if (config.EXIT_CODE == 0):
-        if (config.ARGS.mode == "f"): # Traditional Mode
+        if (config.ARGS.mode == "f"):  # Traditional Mode
             processThumbFile(config.ARGS.infile)
-        elif (config.ARGS.mode == "d"): # Directory Mode
+        elif (config.ARGS.mode == "d"):  # Directory Mode
             processDirectory(config.ARGS.infile)
-        elif (config.ARGS.mode == "r"): # Recursive Directory Mode
+        elif (config.ARGS.mode == "r"):  # Recursive Directory Mode
             processRecursiveDirectory()
-        elif (config.ARGS.mode == "a"): # Automatic Mode - File System
+        elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
             processFileSystem()
-        else: # Unknown Mode
+        else:  # Unknown Mode
             sys.stderr.write("%sUnknown mode (%s) to process %s\n" % (strError, config.ARGS.mode, config.ARGS.infile))
             config.EXIT_CODE = 10
 

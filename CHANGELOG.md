@@ -2,9 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2020-01-21 (DEVELOPEMENT)
+
+### Added
+
+- Extreme Makeover: New class files to contain custom dictionaries to manage catalogs and streams
+- All known stream types (Empty, Storage, Stream, LockBytes, Property, Root) are reported
+
+### Changed
+
+- Extreme Makeover: Contained existing functionality in classes as applicable
+- Restructured and renamed existing files
+- Use cache counter for "catalog" ID on Thumbcache_*.db entries
+
 ## [0.8.9] - 2020-01-10 (DEVELOPEMENT)
 
 ### Changed
+
 - Restructured globals
 - Revised file versioning
 - Claimed authorship due to extensive restructuring
