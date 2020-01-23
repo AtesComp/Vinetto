@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2020-01-2 (DEVELOPEMENT)
+
+### Added
+
+- ESEDB Explorer: Explore extracted image related ESEDB data -- omitting the input file allows exploring the -e file's extracted data
+- Verbosity: -v, --verbose option -- output for -v levels (currently only level 1) prints info messages + extra tablular output
+
+### Changed
+
+- output for -q surpresses all output except errors
+- output for normal (no -q or -v option == verbose level 0) prints warning messages + standard tablular output
+- functionalized some redundant code
+- extract and hold all image related ESEDB data once and close ESEDB file instead of redundantly querying ESEDB records
+- moved some functions to util module
+
 ## [0.9.0] - 2020-01-21 (DEVELOPEMENT)
 
 ### Added

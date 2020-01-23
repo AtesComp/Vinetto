@@ -29,10 +29,13 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "3"
-file_micro = "7"
+file_micro = "8"
 
 
+import sys
 from time import strftime, gmtime
+
+import vinetto.config as config
 
 
 def convertWinToPyTime(iFileTime_Win32):
@@ -72,5 +75,29 @@ def cleanFileName(strFileName):
         dictTransTab = str.maketrans(strInChars, strOutChars)
 
     return strFileName.translate(dictTransTab)
+
+
+def getEncoding():
+    # What encoding do we use?
+    if config.ARGS.utf8:
+        return "utf8"
+    else:
+        return "iso-8859-1"
+
+
+#def reencodeBytes(bytesString):
+#    # Convert bytes encoded as utf-16-le to the global encoding...
+#    if (sys.version_info[0] < 3):
+#        return unicode(bytesString, "utf-16-le").encode(getEncoding(), "replace")
+#    else:
+#        return str(bytesString, "utf-16-le").encode(getEncoding(), "replace")
+
+
+def decodeBytes(bytesString):
+    # Convert bytes encoded as utf-16-le to standard unicode...
+    if (sys.version_info[0] < 3):
+        return unicode(bytesString, "utf-16-le")
+    else:
+        return str(bytesString, "utf-16-le")
 
 

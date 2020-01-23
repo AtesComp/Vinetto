@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "0"
+file_micro = "2"
 
 
 import sys
@@ -48,7 +48,7 @@ import vinetto.report as report
 import vinetto.tdb_catalog as tdb_catalog
 import vinetto.tdb_streams as tdb_streams
 
-from vinetto.utils import getFormattedWinToPyTimeUTC, cleanFileName
+from vinetto.utils import getFormattedWinToPyTimeUTC, cleanFileName, getEncoding, decodeBytes
 
 from pkg_resources import resource_filename
 
@@ -67,7 +67,7 @@ def getArgs():
 
     strProg = os.path.basename(__file__).capitalize()
     strDesc = strProg + " - The Thumbnail File Parser"
-    strEpilog = (
+    strNote = (
         "Operating Mode Notes:\n" +
         "  Using the mode switch (-m, --mode) causes the input to be treated differently\n" +
         "  based on the mode selected\n" +
@@ -90,6 +90,8 @@ def getArgs():
         "    When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated\n" +
         "    location\n" +
         "\n"
+        )
+    strEpilog = (
         "--- " + strProg + " " + version.STR_VERSION + " ---\n" +
         "Based on the original Vinetto by " + version.original_author[0] + "\n" +
         "Author: " + version.author[0] + "\n" +
@@ -97,14 +99,20 @@ def getArgs():
         "  See: " + version.location
         )
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description=strDesc, epilog=strEpilog)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description=strDesc,
+                                     epilog=(strNote + strEpilog), add_help=False)
+    parser.add_argument("-h", "-?", "--help", action='help',
+                        help=('show this help message and exit'))
     parser.add_argument("-e", "--edb", dest="edbfile", metavar="EDBFILE",
-                        help="examine EDBFILE for original thumbnail filenames")
+                        help=("examine EDBFILE (Extensible Storage Engine Database) for\n" +
+                              "original thumbnail filenames\n" +
+                              "NOTE: -e without an INFILE explores EDBFILE"))
     parser.add_argument("-H", "--htmlrep", action="store_true", dest="htmlrep",
-                        help="write html report to DIR (requires option -o)")
-    parser.add_argument("-m", "--mode", dest="mode", choices=["f", "d", "r", "a"], default="f",
+                        help=("write html report to DIR (requires option -o)"))
+    parser.add_argument("-m", "--mode", nargs="?", dest="mode", choices=["f", "d", "r", "a"],
+                        default="f", const="f",
                         help=("operating mode: \"f\", \"d\", \"r\", or \"a\"\n" +
-                              "  where \"f\" indicates single file processing\n" +
+                              "  where \"f\" indicates single file processing (default)\n" +
                               "        \"d\" indicates directory processing\n" +
                               "        \"r\" indicates recursive directory processing from a\n" +
                               "              starting directory\n" +
@@ -118,9 +126,10 @@ def getArgs():
     parser.add_argument("--nomd5", action="store_true", dest="md5never",
                         help=("skip the MD5 hash value calculation for an input file"))
     parser.add_argument("-o", "--outdir", dest="outdir", metavar="DIR",
-                        help="write thumbnails to DIR")
+                        help=("write thumbnails to DIR"))
     parser.add_argument("-q", "--quiet", action="store_true", dest="quiet",
-                        help="quiet output")
+                        help=("quiet output, supress warnings\n" +
+                              "NOTE: -v overrides -q"))
     parser.add_argument("-s", "--symlinks", action="store_true", dest="symlinks",
                         help=("create symlink from the the image realname to the numbered name\n" +
                               "in DIR/" + config.THUMBS_SUBDIR + " (requires option -o)\n" +
@@ -128,47 +137,33 @@ def getArgs():
                               "      option to produce results OR a Windows.edb must be given\n" +
                               "      (-e) to find and extract possible file names"))
     parser.add_argument("-U", "--utf8", action="store_true", dest="utf8",
-                        help="use utf8 encodings")
+                        help=("use utf8 encodings"))
+    parser.add_argument("-v", '--verbose', action='count', default=0,
+                        help=("verbose output, print info messages - each use increments output\n" +
+                              "level"))
     parser.add_argument("--version", action="version", version=strEpilog)
-    parser.add_argument("infile",
-                        help=("depending on operating mode, either a location to a thumbnail\n" +
-                              " file (\"Thumb.db\" or similar) or a directory"))
+    parser.add_argument("infile", nargs="?",
+                        help=("depending on operating mode (see mode option), either a location\n" +
+                              "to a thumbnail file (\"Thumb.db\" or similar) or a directory"))
     pargs = parser.parse_args()
 
-    if (pargs.infile == None):
-        parser.error("No input file or directory specified")
-
-    if (pargs.outdir == None):
+    if (pargs.outdir == None):  # ...output NOT given...
         if (pargs.htmlrep):
             parser.error("-H option requires -o with a directory name")
         if (pargs.symlinks):
             parser.error("-s option requires -o with a directory name")
+    else:  # ...output given...
+        if (pargs.infile == None):  # ...then, input is required...
+            parser.error("No input file or directory specified")
+
+    if (pargs.edbfile == None):
+        if (pargs.infile == None):
+            parser.error("No input file or directory specified")
+
+    if (pargs.mode == None):
+      parser.error("Operating mode must be specified")
 
     return (pargs)
-
-
-def getEncoding():
-    # What encoding do we use?
-    if config.ARGS.utf8:
-        return "utf8"
-    else:
-        return "iso-8859-1"
-
-
-#def reencodeBytes(bytesString):
-#    # Convert bytes encoded as utf-16-le to the global encoding...
-#    if (sys.version_info[0] < 3):
-#        return unicode(bytesString, "utf-16-le").encode(getEncoding(), "replace")
-#    else:
-#        return str(bytesString, "utf-16-le").encode(getEncoding(), "replace")
-
-
-def decodeBytes(bytesString):
-    # Convert bytes encoded as utf-16-le to standard unicode...
-    if (sys.version_info[0] < 3):
-        return unicode(bytesString, "utf-16-le")
-    else:
-        return str(bytesString, "utf-16-le")
 
 
 def nextBlock(fileTDB, listSAT, iOffset, cEndian):
@@ -183,16 +178,17 @@ def nextBlock(fileTDB, listSAT, iOffset, cEndian):
 def printBlock(strName, oleBlock):
     print("          Name: %s" % strName)
     print("          Type: %d (%s)" % (oleBlock["type"], config.OLE_BLOCK_TYPES[oleBlock["type"]]))
-    print("         Color: %d (%s)" % (oleBlock["color"], "Black" if oleBlock["color"] else "Red"))
-    print("   Prev Dir ID: %s" % ("None" if (oleBlock["PDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["PDID"])))
-    print("   Next Dir ID: %s" % ("None" if (oleBlock["NDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["NDID"])))
-    print("   Sub  Dir ID: %s" % ("None" if (oleBlock["SDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["SDID"])))
-    print("      Class ID: " + oleBlock["CID"])
-    print("    User Flags: " + oleBlock["userflags"])
-    print("        Create: " + getFormattedWinToPyTimeUTC(oleBlock["create"]))
-    print("        Modify: " + getFormattedWinToPyTimeUTC(oleBlock["modify"]))
-    print("       1st Sec: %d" % oleBlock["SID_firstSecDir"])
-    print("          Size: %d" % oleBlock["SID_sizeDir"])
+    if (config.ARGS.verbose > 0):
+        print("         Color: %d (%s)" % (oleBlock["color"], "Black" if oleBlock["color"] else "Red"))
+        print("   Prev Dir ID: %s" % ("None" if (oleBlock["PDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["PDID"])))
+        print("   Next Dir ID: %s" % ("None" if (oleBlock["NDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["NDID"])))
+        print("   Sub  Dir ID: %s" % ("None" if (oleBlock["SDID"] == config.OLE_NONE_BLOCK) else str(oleBlock["SDID"])))
+        print("      Class ID: " + oleBlock["CID"])
+        print("    User Flags: " + oleBlock["userflags"])
+        print("        Create: " + getFormattedWinToPyTimeUTC(oleBlock["create"]))
+        print("        Modify: " + getFormattedWinToPyTimeUTC(oleBlock["modify"]))
+        print("       1st Sec: %d" % oleBlock["SID_firstSecDir"])
+        print("          Size: %d" % oleBlock["SID_sizeDir"])
     return
 
 
@@ -201,81 +197,135 @@ def printDBHead(thumbType, formatVer, strFormatType, cacheType, strCacheType, ca
     if (thumbType == config.THUMBS_TYPE_CMMM):
         print("        Format: %d (%s)" % (formatVer, strFormatType))
         print("          Type: %d (%s)" % (cacheType, strCacheType))
-        print("    Cache Info:")
-        print("          Offset: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
-        print("   1st Available: %s" % ("None" if (cacheOff1stAvail == None) else ("%d" % cacheOff1stAvail)))
-        print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
+        if (config.ARGS.verbose > 0):
+            print("    Cache Info:")
+            print("          Offset: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
+            print("   1st Available: %s" % ("None" if (cacheOff1stAvail == None) else ("%d" % cacheOff1stAvail)))
+            print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
     elif (thumbType == config.THUMBS_TYPE_IMMM):
         print("        Format: %d (%s)" % (formatVer, strFormatType))
-        print("    Entry Info:")
-        print("            Used: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
-        print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
+        if (config.ARGS.verbose > 0):
+            print("    Entry Info:")
+            print("            Used: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
+            print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
     return
 
 
 def printDBCache(iCounter, strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, dictESEDB):
     print(" Entry Counter: %d" % iCounter)
     print("     Signature: %s" % strSig)
-    print("          Size: %d" % iSize)
-    print("          Hash: %s" % strHash)
-    print("     Extension: %s" % strExt)
-    print("       ID Size: %d" % iIdSize)
-    print("      Pad Size: %d" % iPadSize)
-    print("     Data Size: %d" % iDataSize)
-    print("  Image  Width: %d" % iWidth)
-    print("  Image Height: %d" % iHeight)
-    print(" Data Checksum: %d" % iChkSumD)
-    print(" Head Checksum: %d" % iChkSumH)
+    if (config.ARGS.verbose > 0):
+        print("          Size: %d" % iSize)
+        print("          Hash: %s" % strHash)
+        print("     Extension: %s" % strExt)
+        print("       ID Size: %d" % iIdSize)
+        print("      Pad Size: %d" % iPadSize)
+        print("     Data Size: %d" % iDataSize)
+        print("  Image  Width: %d" % iWidth)
+        print("  Image Height: %d" % iHeight)
+        print(" Data Checksum: %d" % iChkSumD)
+        print(" Head Checksum: %d" % iChkSumH)
     print("            ID: %s" % strID)
-    printESEDBInfo(dictESEDB)
+    if (config.ARGS.edbfile != None):
+        printESEDBInfo(dictESEDB)
     return
 
 
-def printESEDBInfo(dictESEDB):
+def processESEDBInfo(recordESEDB, strKey, bRaw = False):
+    strESEDB = None
+    rawESEDB = None
+    dataESEDB = None
+    iCol = config.ESEDB_ICOL[strKey]
+    if (iCol != None):
+        cTest = config.ESEDB_ICOL_NAMES[strKey][1]
+        # Format the key's value for output...
+        # 'x' - bstr  == (Large) Binary Data
+        # 's' - str   == (Large) Text
+        # 'i' - int   == Integer (32/16/8)-bit (un)signed
+        # 'b' - bool  == Boolean or Boolean Flags (Integer)
+        # 'f' - float == Floating Point (Double Precision) (64/32-bit)
+        # 'd' - date  == Binary Data converted to Formatted UTC Time
+        if not bRaw:
+            dataESEDB = recordESEDB[strKey]
+
+        if   (cTest == 'x'):
+            if bRaw:
+                rawESEDB = recordESEDB.get_value_data(iCol)
+            else:
+                strESEDB = str( hexlify( dataESEDB ))[2:-1]  # ...stript off start b' and end '
+        elif (cTest == 's'):
+            if bRaw:
+                rawESEDB = recordESEDB.get_value_data_as_string(iCol)
+            else:
+                strESEDB = dataESEDB
+        elif (cTest == 'i'):
+            if bRaw:
+                rawESEDB = recordESEDB.get_value_data_as_integer(iCol)
+            else:
+                strESEDB = format(dataESEDB, "d")
+        elif (cTest == 'b'):
+            if bRaw:
+                rawESEDB = recordESEDB.get_value_data_as_integer(iCol)
+                if (rawESEDB == None or rawESEDB == 0):  # ...convert integer to boolean False
+                    rawESEDB = False
+                elif (rawESEDB == 1 or rawESEDB == -1):  # ...convert integer to boolean True
+                    rawESEDB = True
+                else:  # Setup Flag Display for integer flags
+                    if (rawESEDB < -2147483648):     # ...convert negative 64 bit integer to positive
+                        rawESEDB = rawESEDB & 0xffffffffffffffff
+                    if (rawESEDB < -32768):          # ...convert negative 32 bit integer to positive
+                        rawESEDB = rawESEDB & 0xffffffff
+                    if (rawESEDB < -128):            # ...convert negative 16 bit integer to positive
+                        rawESEDB = rawESEDB & 0xffff
+                    if (rawESEDB < 0):               # ...convert negative 8 bit integer to positive
+                        rawESEDB = rawESEDB & 0xff
+            else:
+                if (isinstance(dataESEDB, bool)):
+                    strESEDB = format(dataESEDB, "")
+                else:  # ..Integer
+                    strFmt = "08b"               # ...setup flag format for 8 bit integer
+                    if (dataESEDB > 255):
+                        strFmt = "016b"          # ...setup flag format for 16 bit integer format
+                    if (dataESEDB > 65535):
+                        strFmt = "032b"          # ...setup flag format for 32 bit integer format
+                    if (dataESEDB > 4294967295):
+                        strFmt = "064b"          # ...setup flag format for 64 bit integer format
+                    strESEDB = format(dataESEDB, strFmt)
+        elif (cTest == 'f'):
+            if bRaw:
+                rawESEDB = recordESEDB.get_value_data_as_floating_point(iCol)
+            else:
+                strESEDB = format(dataESEDB, "G")
+        elif (cTest == 'd'):
+            if bRaw:
+                rawESEDB = unpack("<Q", recordESEDB.get_value_data(iCol))[0]
+            else:
+                strESEDB = getFormattedWinToPyTimeUTC(dataESEDB)
+    if bRaw:
+        return rawESEDB
+    else:
+        return strESEDB
+
+
+def printESEDBInfo(dictESEDB, bHead = True):
     strEnhance = " ESEBD Enhance:"
     # If there is no output...
     if (config.ESEDB_FILE == None or dictESEDB == None):
-        print(strEnhance + " None")
+        if bHead:
+            print(strEnhance + " None")
         return
 
     # Otherwise, print...
-    print(strEnhance)
-    for strKey in config.ESEDB_ICOL_NAMES.keys():
-        cTest = config.ESEDB_ICOL_NAMES[strKey][1]
-        iCol = config.ESEDB_ICOL[strKey]
-        if (iCol != None):
-            # Format the key's value for output...
-            # 'x' - bstr  == (Large) Binary Data
-            # 's' - str   == (Large) Text
-            # 'i' - int   == Integer (32/16/8)-bit (un)signed
-            # 'b' - bool  == Boolean or Boolean Flags (Integer)
-            # 'f' - float == Floating Point (Double Precision) (64/32-bit)
-            # 'd' - date  == Binary Data converted to Formatted UTC Time
-            strESEDB = dictESEDB[strKey]
-            if   (cTest == 'x'):
-                strESEDB = str( hexlify( dictESEDB[strKey] ))[2:-1]  # ...stript off start b' and end '
-            elif (cTest == 's'):
-                pass
-            elif (cTest == 'i'):
-                strESEDB = format(dictESEDB[strKey], "d")
-            elif (cTest == 'b'):
-                if (isinstance(dictESEDB[strKey], bool)):
-                    strESEDB = format(dictESEDB[strKey], "")
-                else:  # ..Integer
-                    strFmt = "08b"               # ...setup flag format for 8 bit integer
-                    if (dictESEDB[strKey] > 255):
-                        strFmt = "016b"          # ...setup flag format for 16 bit integer format
-                    if (dictESEDB[strKey] > 65535):
-                        strFmt = "032b"          # ...setup flag format for 32 bit integer format
-                    if (dictESEDB[strKey] > 4294967295):
-                        strFmt = "064b"          # ...setup flag format for 64 bit integer format
-                    strESEDB = format(dictESEDB[strKey], strFmt)
-            elif (cTest == 'f'):
-                strESEDB = format(dictESEDB[strKey], "G")
-            elif (cTest == 'd'):
-                strESEDB = getFormattedWinToPyTimeUTC(dictESEDB[strKey])
-
-            print("%s%s" % (config.ESEDB_ICOL_NAMES[strKey][2], strESEDB))
+    if bHead:
+        print(strEnhance)
+    if (config.ARGS.verbose > 0):
+        for strKey in config.ESEDB_ICOL_NAMES:
+            strESEDB = processESEDBInfo(dictESEDB, strKey)
+            if (strESEDB != None):
+                print("%s%s" % (config.ESEDB_ICOL_NAMES[strKey][2], strESEDB))
+    else:
+        strESEDB = processESEDBInfo(dictESEDB, "TCID")
+        print("%s%s" % (config.ESEDB_ICOL_NAMES["TCID"][2], strESEDB))
     return
 
 def setupSymLink():
@@ -304,22 +354,33 @@ def symlink_force(strTarget, strLink):
     return
 
 
-def prepareEDB():
+def prepareESEDB():
     try:
         from vinetto.lib import pyesedb
+        bEDBFileGood = True
     except:
+        # Hard Error!  The "pyesedb" library is installed locally with Vinetto,
+        #   so missing "pyesedb" library is bad!
         sys.stderr.write(" Error: Cannot import local library pyesedb\n")
         config.EXIT_CODE = 19
-        return
+        return False
 
     pyesedb_ver = pyesedb.get_version()
-    sys.stderr.write(" Info: Imported pyesedb version %s\n" % pyesedb_ver)
+    if (config.ARGS.verbose > 0):
+        sys.stderr.write(" Info: Imported pyesedb version %s\n" % pyesedb_ver)
 
     config.ESEDB_FILE = pyesedb.file()
 
     # Open ESEBD file...
-    config.ESEDB_FILE.open(config.ARGS.edbfile)
-    sys.stderr.write(" Info: Opened ESEDB file %s\n" % config.ARGS.edbfile)
+    try:
+        config.ESEDB_FILE.open(config.ARGS.edbfile)
+    except IOError:
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: Cannot opened ESEDB File for enhanced processing\n")
+        return False
+
+    if (config.ARGS.verbose > 0):
+        sys.stderr.write(" Info: Opened ESEDB file %s\n" % config.ARGS.edbfile)
 
 #    # TEST Get Tables...
 #    iTblCnt = config.ESEDB_FILE.get_number_of_tables()
@@ -335,33 +396,51 @@ def prepareEDB():
     strSysIndex = "SystemIndex_"
     strTableName = "PropertyStore"
     config.ESEDB_TABLE = config.ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
-    if (config.ESEDB_TABLE == None):  # ...try older...
+    if (config.ESEDB_TABLE == None):  # ...try older table name...
         strTableName = "0A"
         config.ESEDB_TABLE = config.ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
-    sys.stderr.write(" Info: Opened ESEDB Table %s%s for enhanced processing\n" % (strSysIndex, strTableName))
+    if (config.ESEDB_TABLE == None):  # ...still no table available?...
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: Cannot opened ESEDB Table for enhanced processing\n")
+        return False
+
+    if (config.ARGS.verbose > 0):
+        sys.stderr.write(" Info: Opened ESEDB Table %s%s for enhanced processing\n" % (strSysIndex, strTableName))
 
     iColCnt = config.ESEDB_TABLE.get_number_of_columns()
-    #sys.stderr.write(" DBG:     Got %d columns\n" % iColCnt)
+    if (config.ARGS.verbose > 1):
+        sys.stderr.write(" Info:     Got %d columns\n" % iColCnt)
     iColCntFound = 0
     for iCol in range(iColCnt):
         column = config.ESEDB_TABLE.get_column(iCol)
         strColName = column.get_name()
-        for strKey in config.ESEDB_ICOL_NAMES.keys():
+        for strKey in config.ESEDB_ICOL_NAMES:
             if (strColName.endswith(config.ESEDB_ICOL_NAMES[strKey][0])):
                 config.ESEDB_ICOL[strKey] = iCol  # ...column number for column name
                 iColCntFound += 1
 
         if (iColCntFound == len(config.ESEDB_ICOL_NAMES)):  # Total Columns searched
             break
-    sys.stderr.write(" INFO:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
-    return
+
+    if (not config.ARGS.quiet):
+        sys.stderr.write(" INFO:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
+
+    return True
 
 
-def loadEDB():
+def loadESEDB():
     if (config.ESEDB_ICOL["TCID"] == None):
-        return
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: No ESEDB Image column %s available\n" % ESEDB_ICOL_NAMES["TCID"][0])
+        return False
     if (config.ESEDB_ICOL["MIME"] == None and config.ESEDB_ICOL["CTYPE"] == None and config.ESEDB_ICOL["ITT"] == None):
-        return
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: No ESEDB Image columns %s available\n" %
+                             (ESEDB_ICOL_NAMES["MIME"][0] + ", " +
+                              ESEDB_ICOL_NAMES["CTYPE"][0] + ", or " +
+                              ESEDB_ICOL_NAMES["ITT"][0]))
+        return False
+
     config.ESEDB_REC_LIST = []
 
     iRecCnt = config.ESEDB_TABLE.get_number_of_records()
@@ -391,42 +470,12 @@ def loadEDB():
 
 #        # TEST Record Retrieval...
 #        print("\nTCID: " + str( hexlify( bstrRecTCID ))[2:-1])
-#        for strKey in config.ESEDB_ICOL_NAMES.keys():
+#        for strKey in config.ESEDB_ICOL_NAMES:
 #            if (strKey == "TCID"):
 #                continue
-#            cTest = config.ESEDB_ICOL_NAMES[strKey][1]
-#            iCol = config.ESEDB_ICOL[strKey]
 #            sys.stdout.write(strKey + ": ")
-#            if (iCol != None):
-#                if   (cTest == 'x'):
-#                    x = record.get_value_data(iCol)
-#                    if (x != None):
-#                        x = str(hexlify( x ))[2:-1]
-#                elif (cTest == 's'):
-#                    x = record.get_value_data_as_string(iCol)
-#                elif (cTest == 'i'):
-#                    x = record.get_value_data_as_integer(iCol)
-#                elif (cTest == 'b'):
-#                    iVal = record.get_value_data_as_integer(iCol)
-#                    if (iVal == None or iVal == 0):
-#                        iVal = False
-#                    elif (iVal == 1 or iVal == -1):
-#                        iVal = True
-#                    else:
-#                        strFmt = "08b"
-#                        if (iVal > 255):
-#                            strFmt = "016b"
-#                        if (iVal > 65535):
-#                            strFmt = "032b"
-#                        if (iVal > 4294967295):
-#                            strFmt = "064b"
-#                        iVal = format(iVal, strFmt)
-#                    x = iVal
-#                elif (cTest == 'f'):
-#                    x = record.get_value_data_as_floating_point(iCol)
-#                elif (cTest == 'd'):
-#                    x = getFormattedWinToPyTimeUTC(unpack("<Q", record.get_value_data(iCol))[0])
-#                print(x)
+#            rawESEDB = processESEDBInfo(record, strKey, True)
+#            print(rawESEDB)
 
         dictRecord = {}
         dictRecord["TCID"]  = bstrRecTCID
@@ -434,59 +483,208 @@ def loadEDB():
         dictRecord["CTYPE"] = strCType
         dictRecord["ITT"]   = strITT
 
-        for strKey in config.ESEDB_ICOL_NAMES.keys():
+        for strKey in config.ESEDB_ICOL_NAMES:
             if (strKey == "TCID" or strKey == "MIME" or strKey == "CTYPE" or strKey == "ITT"):
                 continue
-            iCol = config.ESEDB_ICOL[strKey]
-            if (iCol != None):
-                cTest = config.ESEDB_ICOL_NAMES[strKey][1]
-                # 'x' - bstr  == (Large) Binary Data
-                # 's' - str   == (Large) Text
-                # 'i' - int   == Integer (32/16/8)-bit (un)signed
-                # 'b' - bool  == Boolean or Boolean Flags (Integer)
-                # 'f' - float == Floating Point (Double Precision) (64/32-bit)
-                # 'd' - date  == Binary Data converted to Formatted UTC Time
-                if   (cTest == 'x'):
-                    dictRecord[strKey] = record.get_value_data(iCol)
-                elif (cTest == 's'):
-                    dictRecord[strKey] = record.get_value_data_as_string(iCol)
-                elif (cTest == 'i'):
-                    dictRecord[strKey] = record.get_value_data_as_integer(iCol)
-                elif (cTest == 'b'):
-                    iVal = record.get_value_data_as_integer(iCol)
-                    if (iVal == None or iVal == 0):  # ...convert integer to boolean False
-                        iVal = False
-                    elif (iVal == 1 or iVal == -1):  # ...convert integer to boolean True
-                        iVal = True
-                    else:  # Setup Flag Display for integer flags
-                        if (iVal < -2147483648):     # ...convert negative 64 bit integer to positive
-                            iVal = iVal & 0xffffffffffffffff
-                        if (iVal < -32768):          # ...convert negative 32 bit integer to positive
-                            iVal = iVal & 0xffffffff
-                        if (iVal < -128):            # ...convert negative 16 bit integer to positive
-                            iVal = iVal & 0xffff
-                        if (iVal < 0):               # ...convert negative 8 bit integer to positive
-                            iVal = iVal & 0xff
-                    dictRecord[strKey] = iVal
-                elif (cTest == 'f'):
-                    dictRecord[strKey] = record.get_value_data_as_floating_point(iCol)
-                elif (cTest == 'd'):
-                    dictRecord[strKey] = unpack("<Q", record.get_value_data(iCol))[0]
+            dictRecord[strKey] = processESEDBInfo(record, strKey, True)
 
         config.ESEDB_REC_LIST.append(dictRecord)
 
 #    # TEST: Print ESEDB Image Records...
 #    for dictRecord in config.ESEDB_REC_LIST:
-#        printESEDBInfo(dictRecord)
+#        printESEDBInfo(dictRecord, False)
 #        print()
 
+    if (len(config.ESEDB_REC_LIST) == 0):
+        config.ESEDB_REC_LIST = None
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: No ESEDB Image data available\n")
+        return False
+
+    if (not config.ARGS.quiet):
+        sys.stderr.write(" INFO:        ESEDB Image data loaded\n")
+
+    return True
+
+
+def examineESEBDRecord(strCmd):
+    strValidRecord = "Enter a valid record number"
+
+    print("List Record")
+    if (strCmd[2:] == ""):
+        print(strValidRecord)
+    else:
+        iVerboseOld = config.ARGS.verbose
+        config.ARGS.verbose = 1
+
+        try:
+            iRec = int(strCmd[2:])
+            try:
+                dictRecord = config.ESEDB_REC_LIST[iRec - 1]
+                print("Record: %d" % iRec)
+                printESEDBInfo(dictRecord, False)
+                print()
+            except:
+                print(strValidRecord)
+        except:
+            print(strValidRecord)
+
+        config.ARGS.verbose = iVerboseOld
+
+    return
+
+
+def examineESEBD():
+    import re
+    import readline
+
+    try:
+        funcInput = raw_input
+    except NameError:
+        funcInput = input
+
+    def prompt(strMessage, strErrorMessage, isValid):
+        # Prompt for input given a message and return that value after verifying the input.
+        #
+        # Keyword arguments:
+        #   strMessage -- the message to display when asking the user for the value
+        #   strErrorMessage -- the message to display when the value fails validation
+        #   isValid -- a function that returns True if the value given by the user is valid
+
+        res = None
+        while res is None:
+            res = funcInput(str(strMessage)+' > ')
+            if (not isValid(res)):
+                print(str(strErrorMessage))
+                res = None
+        return res
+
+    strValidColumn = "Enter a valid column number"
+    strRecordsFound = "Records Found: %d\n"
+    strMessage = "ESEDB Explorer"
+    strErrorMessage = "A valid command must be provided. Try 'h'."
+    while (True):
+        strCmd = prompt(
+            strMessage,
+            strErrorMessage,
+            isValid = lambda v : re.search(r"^[ehlqs]$|^l .+$", v))
+
+        if (strCmd == "h"):  # Help
+            print("Help")
+            print("Available Commands:")
+            print("  h - this help")
+            print("  l - list all stored ESEDB data")
+            print("  l record - list the specified ESEDB record verbose")
+            print("  s - search stored ESEDB data")
+            print("  e - exit (quit) ESEDB Explorer")
+            print("  q - exit (quit) ESEDB Explorer")
+
+        elif (strCmd == "l"):  # List
+            print("List")
+            iCount = 0
+            for dictRecord in config.ESEDB_REC_LIST:
+                iCount += 1
+                print("Record: %d" % iCount)
+                printESEDBInfo(dictRecord, False)
+                print()
+            print(strRecordsFound % iCount)
+
+        elif (strCmd[:2] == "l "):  # List Record
+            examineESEBDRecord(strCmd)
+
+        elif (strCmd == "s"):  # Search
+            strColKey = None
+            iCol = None
+            strRegEx = None
+
+            while (True):
+                strCmd = prompt(
+                    (strMessage + ": Search " + ( "All Columns" if (strColKey == None) else ("Column %d (%s)" % (iCol, strColKey)) )),
+                    strErrorMessage,
+                    isValid = lambda v : re.search(r"^[ehlq]$|^[clv] .*$", v))
+
+                if (strCmd == "h"):  # Help
+                    print("Help")
+                    print("Available Commands:")
+                    print("  h - this help")
+                    print("  l - list all searchable columns")
+                    print("  l record - list the specified ESEDB record verbose")
+                    print("  c column - select specified column number (blank for all)")
+                    print("  v regex - search for value matching regex in selected column")
+                    print("  e - exit (quit) Search")
+                    print("  q - exit (quit) Search")
+
+                elif (strCmd == "l"):  # List
+                    print("List")
+                    for strKey in config.ESEDB_ICOL:
+                        print("% 4d : %6s  %s" % (config.ESEDB_ICOL[strKey], strKey, config.ESEDB_ICOL_NAMES[strKey][0]))
+
+                elif (strCmd[:2] == "l "):  # List Record
+                    examineESEBDRecord(strCmd)
+
+                elif (strCmd[:2] == "c "):  # Column Selection
+                    print("Column Selection")
+                    if (strCmd[2:] == ""):
+                        strColKey = None
+                        iCol = None
+                    else:
+                        try:
+                            iColNew = int(strCmd[2:])
+                            try:
+                                strColKey = list(config.ESEDB_ICOL.keys())[list(config.ESEDB_ICOL.values()).index(iColNew)]
+                                iCol = iColNew
+                            except:
+                                print("Enter a valid column number")
+                        except:
+                            print("Enter a valid column number")
+
+                elif (strCmd[:2] == "v "):  # Value RegEx
+                    print("Searching columns in records...")
+                    iCount = 0
+                    iRec = 0
+                    if (strCmd[2:] == ""):
+                        strRegEx = None
+                    else:
+                        strRegEx = strCmd[2:]
+                        reObj = re.compile(strRegEx)
+                        isFound = lambda v : reObj.search(v) if (v != None) else False
+                        for dictRecord in config.ESEDB_REC_LIST:
+                            iRec += 1
+                            bFound = False
+                            if (strColKey == None):
+                                for strKey in dictRecord:
+                                    if isFound(processESEDBInfo(dictRecord, strKey)):
+                                        bFound = True
+                                        break
+                            elif isFound(processESEDBInfo(dictRecord, strColKey)):
+                                bFound = True
+
+                            if (bFound):
+                                iCount += 1
+                                print("Record: %d" % iRec)
+                                printESEDBInfo(dictRecord)
+                                print()
+                    print(strRecordsFound % iCount)
+
+                elif (strCmd == "e" or strCmd == "q"):  # Exit/Quit
+                    break
+
+                else:
+                    print(strErrorMessage)
+
+        elif (strCmd == "e" or strCmd == "q"):  # Exit/Quit
+            break
+
+        else:
+            print(strErrorMessage)
+
+    del readline
+    del re
     return
 
 
 def searchEDB(strTCID):
     if (config.ESEDB_REC_LIST == None or strTCID == None):
-        return None
-    if (len(config.ESEDB_REC_LIST) == 0):
         return None
 
     strConvertTCID = strTCID
@@ -495,7 +693,8 @@ def searchEDB(strTCID):
     try:
         bstrTCID = unhexlify(strConvertTCID)
     except:
-        sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare\n" % strConvertTCID)
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare\n" % strConvertTCID)
         return None
 
     bFound = False
@@ -516,8 +715,9 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
     global HTTP_REPORT
     global IMAGE_TYPE_1_HEADER, IMAGE_TYPE_1_QUANTIZE, IMAGE_TYPE_1_HUFFMAN
 
-    if (thumbsDBsize % 512 ) != 0:
-        sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, thumbsDBsize))
+    if (not config.ARGS.quiet):
+        if (thumbsDBsize % 512 ) != 0:
+            sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, thumbsDBsize))
 
     tDB_endian = "<"  # Little Endian
 
@@ -628,6 +828,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     print(" Empty Entry\n" +
                           " --------------------")
                     printBlock(strRawName, oleBlock)
+                    print(STR_SEP)
 
             # Storage Entry processing...
             # =============================================================
@@ -636,6 +837,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     print(" Storage Entry\n" +
                           " --------------------")
                     printBlock(strRawName, oleBlock)
+                    print(STR_SEP)
 
             # Stream Entry processing...
             # =============================================================
@@ -770,7 +972,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     strExt = "jpg"
                     if (len(strRawName) >= 4):
                         # ESEDB Search...
-                        dictESEDB = searchEDB(strRawName[strRawName.find("_")+1:])
+                        dictESEDB = searchEDB(strRawName[strRawName.find("_") + 1: ])
                         if (dictESEDB != None):
                             if (not config.ARGS.quiet):
                                 printESEDBInfo(dictESEDB)
@@ -833,6 +1035,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     print(" Lock Bytes Entry\n" +
                           " --------------------")
                     printBlock(strRawName, oleBlock)
+                    print(STR_SEP)
 
             # Property Entry processing...
             # =============================================================
@@ -841,6 +1044,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     print(" Property Entry\n" +
                           " --------------------")
                     printBlock(strRawName, oleBlock)
+                    print(STR_SEP)
 
             # Root Entry processing...
             # =============================================================
@@ -849,10 +1053,9 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                     print(" Root Entry\n" +
                           " --------------------")
                     printBlock(strRawName, oleBlock)
+                    print(STR_SEP)
                 if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
                     HTTP_REPORT.setOLE(oleBlock)
-                if (not config.ARGS.quiet):
-                    print(STR_SEP)
 
             iStreamCounter += 1
 
@@ -860,10 +1063,12 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
 
     # Process end of file...
     # -----------------------------------------------------------------
-    if (tdbCatalog.isOutOfSequence()):
-        sys.stderr.write(" Info: %s - Catalog index number out of usual sequence\n" % infile)
+    if (config.ARGS.verbose > 0):
+        if (tdbCatalog.isOutOfSequence()):
+            sys.stderr.write(" Info: %s - Catalog index number out of usual sequence\n" % infile)
 
-    if (tdbStreams.isOutOfSequence()):
+    if (config.ARGS.verbose > 0):
+        if (tdbStreams.isOutOfSequence()):
             sys.stderr.write(" Info: %s - Stream index number out of usual sequence\n" % infile)
 
     astrStats = tdbStreams.extractStats()
@@ -882,14 +1087,16 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
           strSubDir = config.THUMBS_SUBDIR
         HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
 
-    if (config.ARGS.outdir != None):
+    if (not config.ARGS.quiet):
         if (len(tdbCatalog) > 0):
             if (tdbCatalog.getCount() != tdbStreams.getCount()):
                 sys.stderr.write(" Warning: %s - Counts (Catalog != Extracted)\n" % infile)
             else:
-                sys.stderr.write(" Info: %s - Counts (Catalog == Extracted)\n" % infile)
+                if (config.ARGS.verbose > 0):
+                    sys.stderr.write(" Info: %s - Counts (Catalog == Extracted)\n" % infile)
         else:
-            sys.stderr.write(" Info: %s - No Catalog\n" % infile)
+            if (config.ARGS.verbose > 0):
+                sys.stderr.write(" Info: %s - No Catalog\n" % infile)
 
 
 def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
@@ -898,7 +1105,8 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
     # tDB_endian = "<" ALWAYS Little???
 
     if (thumbsDBsize < 24):
-        sys.stderr.write(" Warning: %s too small to process header\n" % infile)
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
     # Header...
@@ -943,7 +1151,8 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
     iCacheCounter = 1
     while (True):
         if (thumbsDBsize < (iOffset + 48)):
-            sys.stderr.write(" Warning: Remaining cache entry %d too small to process\n" % iCacheCounter)
+            if (not config.ARGS.quiet):
+                sys.stderr.write(" Warning: Remaining cache entry %d too small to process\n" % iCacheCounter)
             break
 
         thumbsDB.seek(iOffset)
@@ -1044,8 +1253,8 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
                         fileURL.write(strTarget + " => " + strFileName + "\n")
                         fileURL.close()
 
-                # Add a "catalog" entry if Cache ID match in ESEDB...
-                tdbCatalog[iCacheCounter] = (dictESEDB["DATEM"], strFileName)
+                # Add a "catalog" entry...
+                tdbCatalog[iCacheCounter] = (getFormattedWinToPyTimeUTC(dictESEDB["DATEM"]), strFileName)
 
             # Write data to filename...
             if (config.ARGS.outdir != None):
@@ -1087,7 +1296,8 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
     # tDB_endian = "<" ALWAYS
 
     if (thumbsDBsize < 24):
-        sys.stderr.write(" Warning: %s too small to process header\n" % infile)
+        if (not config.ARGS.quiet):
+            sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
     # Header...
@@ -1115,7 +1325,8 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
     iEntryCounter = 1
     while (iEntryCounter < tDB_entryCount):
         if (thumbsDBsize < (iOffset + 32)):
-            sys.stderr.write(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
+            if (not config.ARGS.quiet):
+                sys.stderr.write(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
             return
 
         tDB_hash = unpack("<Q", thumbsDB[iOffset +  0: iOffset + 8])[0]
@@ -1132,11 +1343,17 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
         tDB_tc_1024 = unpack("<l", thumbsDB[iOffFlags + 16: iOffFlags + 20])[0]
         tDB_tc_sr   = unpack("<l", thumbsDB[iOffFlags + 20: iOffFlags + 24])[0]
 
+        if (not config.ARGS.quiet):
+            print(" Cache Entry %d\n --------------------" % iEntryCounter)
+
         # TODO: DO MORE!!!
 
         # End of Loop
         iOffset = iOffFlags + 24
         iEntryCounter += 1
+
+        if (not config.ARGS.quiet):
+            print(STR_SEP)
 
     astrStats = tdbStreams.extractStats()
     if (not config.ARGS.quiet):
@@ -1272,23 +1489,33 @@ def processFileSystem():
     strUserBaseDirVista = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_VISTA)
     strUserBaseDirXP = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP)
     if os.path.isdir(strUserBaseDirVista):
-        sys.stderr.write(" Info: FS - Detected a Windows Vista-like partition\n")
+        if (config.ARGS.verbose > 0):
+            sys.stderr.write(" Info: FS - Detected a Windows Vista-like partition, processing each user's Thumbcache DB files\n")
+        # For Vista+, only process the User's Explorer subdirectory containing Thumbcache DB files...
         with os.scandir(strUserBaseDirVista) as iterDirs:
             for entryUserDir in iterDirs:
                 if not entryUserDir.is_dir():
                     continue
                 userThumbsDir = os.path.join(entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR)
                 if not os.path.exists(userThumbsDir):  # ...NOT exists?
-                    print(" Warning: Skipping %s - does not contain %s\n" % (entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR))
+                    if (not config.ARGS.quiet):
+                        sys.stderr.write(" Warning: Skipping %s - does not contain %s\n" % (entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR))
                 else:
                     processDirectory(userThumbsDir)
-        return
     elif os.path.isdir(strUserBaseDirXP):
-        sys.stderr.write(" Info: FS - Detected a Windows XP-like partition\n")
+        if (config.ARGS.verbose > 0):
+            sys.stderr.write(" Info: FS - Detected a Windows XP-like partition, processing all user subdirectories\n")
+        # For XP, only process each User's subdirectories...
+        with os.scandir(strUserBaseDirXP) as iterDirs:
+            for entryUserDir in iterDirs:
+                if not entryUserDir.is_dir():
+                    continue
+                processDirectory(entryUserDir)
     else:
-        sys.stderr.write(" Info: FS - Unknown partition\n")
+        if (config.ARGS.verbose > 0):
+            sys.stderr.write(" Info: FS - Generic partition, processing all subdirectories (recursive operating mode)\n")
+        processDirectory(config.ARGS.infile)
 
-    processDirectory(config.ARGS.infile)
     return
 
 
@@ -1303,37 +1530,35 @@ def main():
 
     config.ARGS = getArgs()
 
-    if (config.ARGS.mode == None):
-      config.ARGS.mode = "f"
-
     strError = " Error: "
 
     # Test Input File parameter...
-    if not os.path.exists(config.ARGS.infile):  # ...NOT exists?
-        sys.stderr.write("%s%s does not exist\n" % (strError, config.ARGS.infile))
-        sys.exit(10)
-    if (config.ARGS.mode == "f"):  # Traditional Mode...
-        if not os.path.isfile(config.ARGS.infile):  # ...NOT a file?
-            sys.stderr.write("%s%s not a file\n" % (strError, config.ARGS.infile))
+    if (config.ARGS.infile != None):
+        if not os.path.exists(config.ARGS.infile):  # ...NOT exists?
+            sys.stderr.write("%s%s does not exist\n" % (strError, config.ARGS.infile))
             sys.exit(10)
-    else:  # Directory, Recursive Directory, or Automatic Mode...
-        if not os.path.isdir(config.ARGS.infile):  # ...NOT a directory?
-            sys.stderr.write("%s%s not a directory\n" % (strError, config.ARGS.infile))
+        if (config.ARGS.mode == "f"):  # Traditional Mode...
+            if not os.path.isfile(config.ARGS.infile):  # ...NOT a file?
+                sys.stderr.write("%s%s not a file\n" % (strError, config.ARGS.infile))
+                sys.exit(10)
+        else:  # Directory, Recursive Directory, or Automatic Mode...
+            if not os.path.isdir(config.ARGS.infile):  # ...NOT a directory?
+                sys.stderr.write("%s%s not a directory\n" % (strError, config.ARGS.infile))
+                sys.exit(10)
+            # Add ending '/' as needed...
+            if not config.ARGS.infile.endswith('/'):
+                config.ARGS.infile += "/"
+        if not os.access(config.ARGS.infile, os.R_OK):  # ...NOT readable?
+            sys.stderr.write("%s%s not readable\n" % (strError, config.ARGS.infile))
             sys.exit(10)
-        # Add ending '/' as needed...
-        if not config.ARGS.infile.endswith('/'):
-            config.ARGS.infile += "/"
-    if not os.access(config.ARGS.infile, os.R_OK):  # ...NOT readable?
-        sys.stderr.write("%s%s not readable\n" % (strError, config.ARGS.infile))
-        sys.exit(10)
 
     # Test Output Directory parameter...
     if (config.ARGS.outdir != None):
-        # Testing DIR parameter...
         if not os.path.exists(config.ARGS.outdir):  # ...NOT exists?
             try:
                 os.mkdir(config.ARGS.outdir)  # ...make it
-                sys.stderr.write(" Info: %s was created\n" % config.ARGS.outdir)
+                if (config.ARGS.verbose > 0):
+                    sys.stderr.write(" Info: %s was created\n" % config.ARGS.outdir)
             except EnvironmentError as e:
                 sys.stderr.write("%sCannot create %s\n" % (strError, config.ARGS.outdir))
                 sys.exit(11)
@@ -1352,11 +1577,15 @@ def main():
         if os.path.exists(config.ARGS.outdir + config.THUMBS_FILE_URLS):
             os.remove(config.ARGS.outdir + config.THUMBS_FILE_URLS)
 
-    # Correct MD5 Force parameter...
+    # Correct QUIET mode...
+    if (config.ARGS.quiet) and (config.ARGS.verbose > 0):
+        config.ARGS.quiet = False
+
+    # Correct MD5 mode...
     if (config.ARGS.md5force) and (config.ARGS.md5never):
         config.ARGS.md5force = False
 
-    # Test EDB file parameter...
+    # Test EDB File parameter...
     bEDBErrorOut = True
     bEDBFileGood = False
     strEDBFileReport = config.ARGS.edbfile
@@ -1365,31 +1594,37 @@ def main():
         bEDBErrorOut = False
         strErrorReport = " Warning: "
         strEDBFileReport = "Default ESEDB"
-        # Try Vista+ first...
+        # Try Vista+ first (newer ESEDB location)...
         strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_ESEDB_VISTA + config.OS_WIN_COMMON)
         if not os.path.exists(strEDBFile):  # ...NOT exists?
-            # Fallback to XP...
+            # Fallback to XP (older ESEDB location)...
             strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP + config.OS_WIN_ESEDB_XP + config.OS_WIN_COMMON)
         config.ARGS.edbfile = strEDBFile
     if (config.ARGS.edbfile != None):
         # Testing EDBFILE parameter...
         if not os.path.exists(config.ARGS.edbfile):  # ...NOT exists?
-            sys.stderr.write("%s%s does not exist\n" % (strErrorReport, strEDBFileReport))
+            if (bEDBErrorOut or not config.ARGS.quiet):
+                sys.stderr.write("%s%s does not exist\n" % (strErrorReport, strEDBFileReport))
             if bEDBErrorOut: sys.exit(19)
         elif not os.path.isfile(config.ARGS.edbfile):  # ...NOT a file?
-            sys.stderr.write("%s%s is not a file\n" % (strErrorReport, strEDBFileReport))
+            if (bEDBErrorOut or not config.ARGS.quiet):
+                sys.stderr.write("%s%s is not a file\n" % (strErrorReport, strEDBFileReport))
             if bEDBErrorOut: sys.exit(19)
         elif not os.access(config.ARGS.edbfile, os.R_OK):  # ...NOT readable?
-            sys.stderr.write("%s%s not readable\n" % (strErrorReport, strEDBFileReport))
+            if (bEDBErrorOut or not config.ARGS.quiet):
+                sys.stderr.write("%s%s not readable\n" % (strErrorReport, strEDBFileReport))
             if bEDBErrorOut: sys.exit(19)
-        else:
-            bEDBFileGood = True
 
-        if bEDBFileGood:
-            prepareEDB()
-            loadEDB()
-        else:
-            sys.stderr.write(strErrorReport + "Skipping any ESE DB processing\n")
+        bEDBFileGood = prepareESEDB()
+        if (config.EXIT_CODE == 0):
+            if bEDBFileGood:  # ...ESEBD good?...
+                bEDBFileGood = loadESEDB()
+            if not bEDBFileGood:  # ...ESEBD bad?...
+                if (not config.ARGS.quiet):
+                    sys.stderr.write(" Warning: Skipping ESEDB enhanced processing\n")
+        if (config.ESEDB_FILE != None):
+            config.ESEDB_TABLE = None
+            config.ESEDB_FILE.close()
 
     if (config.EXIT_CODE == 0):
         # Initialize processing for output...
@@ -1401,8 +1636,9 @@ def main():
                 from PIL import Image
             except ImportError:
                 PIL_FOUND = False
-                sys.stderr.write(" Warning: Cannot find PIL Package Image module.\n" +
-                                 "          Vinetto will only extract Type 2 thumbnails.\n")
+                if (not config.ARGS.quiet):
+                    sys.stderr.write(" Warning: Cannot find PIL Package Image module.\n" +
+                                     "          Vinetto will only extract Type 2 thumbnails.\n")
             if (PIL_FOUND == True):
                 IMAGE_TYPE_1_HEADER   = open(resource_filename("vinetto", "data/header"), "rb").read()
                 IMAGE_TYPE_1_QUANTIZE = open(resource_filename("vinetto", "data/quantization"), "rb").read()
@@ -1412,7 +1648,9 @@ def main():
             setupSymLink()
 
     if (config.EXIT_CODE == 0):
-        if (config.ARGS.mode == "f"):  # Traditional Mode
+        if (config.ARGS.infile == None and config.ARGS.edbfile != None):
+            examineESEBD()
+        elif (config.ARGS.mode == "f"):  # Traditional Mode
             processThumbFile(config.ARGS.infile)
         elif (config.ARGS.mode == "d"):  # Directory Mode
             processDirectory(config.ARGS.infile)
@@ -1420,12 +1658,9 @@ def main():
             processRecursiveDirectory()
         elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
             processFileSystem()
-        else:  # Unknown Mode
+        else:  # Unknown Mode - should never occur
             sys.stderr.write("%sUnknown mode (%s) to process %s\n" % (strError, config.ARGS.mode, config.ARGS.infile))
             config.EXIT_CODE = 10
-
-    if (config.ESEDB_FILE != None):
-        config.ESEDB_FILE.close()
 
     if (config.EXIT_CODE > 0):
         sys.exit(config.EXIT_CODE)

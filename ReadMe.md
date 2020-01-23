@@ -119,24 +119,26 @@ and Windows(R)(TM) OSes as well. YMMV.
 ## Usage Overview:
 
 ```
-    usage: vinetto [-h] [-e EDBFILE] [-H] [-m {f,d,r,a}] [--md5] [--nomd5]
-                [-o DIR] [-q] [-s] [-U] [--version]
-                infile
+    usage: vinetto [-h] [-e EDBFILE] [-H] [-m [{f,d,r,a}]] [--md5] [--nomd5]
+                [-o DIR] [-q] [-s] [-U] [-v] [--version]
+                [infile]
 
     Vinetto.py - The Thumbnail File Parser
 
     positional arguments:
-    infile                depending on operating mode, either a location to a thumbnail
-                            file ("Thumb.db" or similar) or a directory
+    infile                depending on operating mode (see mode option), either a location
+                            to a thumbnail file ("Thumb.db" or similar) or a directory
 
     optional arguments:
-    -h, --help            show this help message and exit
+    -h, -?, --help        show this help message and exit
     -e EDBFILE, --edb EDBFILE
-                            examine EDBFILE for original thumbnail filenames
+                            examine EDBFILE (Extensible Storage Engine Database) for
+                            original thumbnail filenames
+                            NOTE: -e without an INFILE explores EDBFILE
     -H, --htmlrep         write html report to DIR (requires option -o)
-    -m {f,d,r,a}, --mode {f,d,r,a}
+    -m [{f,d,r,a}], --mode [{f,d,r,a}]
                             operating mode: "f", "d", "r", or "a"
-                            where "f" indicates single file processing
+                            where "f" indicates single file processing (default)
                                     "d" indicates directory processing
                                     "r" indicates recursive directory processing from a
                                         starting directory
@@ -148,13 +150,16 @@ and Windows(R)(TM) OSes as well. YMMV.
                             NOTE: --nomd5 overrides --md5
     --nomd5               skip the MD5 hash value calculation for an input file
     -o DIR, --outdir DIR  write thumbnails to DIR
-    -q, --quiet           quiet output
+    -q, --quiet           quiet output, supress warnings
+                            NOTE: -v overrides -q
     -s, --symlinks        create symlink from the the image realname to the numbered name
                             in DIR/.thumbs (requires option -o)
                             NOTE: A Catalog containing the realname must exist for this
                                 option to produce results OR a Windows.edb must be given
                                 (-e) to find and extract possible file names
     -U, --utf8            use utf8 encodings
+    -v, --verbose         verbose output, print info messages - each use increments output
+                            level
     --version             show program's version number and exit
 
     Operating Mode Notes:
@@ -179,7 +184,7 @@ and Windows(R)(TM) OSes as well. YMMV.
         When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
         location
 
-    --- Vinetto.py 0.8.9 ---
+    --- Vinetto.py 0.9.1 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software

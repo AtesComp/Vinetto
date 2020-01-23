@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "0"
+file_micro = "2"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"
@@ -132,8 +132,9 @@ TC_CACHE_ALL = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1
 #    The Windows.edb stores the ThumbnailCacheID as part of its metadata for indexed files.
 #    Uses ESEDB library pyesedb to read the EDB file.
 #
-ESEDB_FILE      = None  # Windows.edb or equivalent user specified file
-ESEDB_TABLE     = None  # SystemIndex_0A or SystemIndex_PropertyStore
+ESEDB_FILE      = None  # Opened Windows.edb or equivalent user specified file
+ESEDB_TABLE     = None  # Opened SystemIndex_0A or SystemIndex_PropertyStore table from ESEDB_FILE
+ESEDB_REC_LIST  = None  # Image records from ESEDB_TABLE
 
 ESEDB_ICOL_NAMES = {
     # 'x' - bstr  == (Large) Binary Data
@@ -205,8 +206,6 @@ ESEDB_ICOL_NAMES = {
 ESEDB_ICOL = {}
 for key in ESEDB_ICOL_NAMES.keys():
     ESEDB_ICOL[key] = None
-
-ESEDB_REC_LIST = None
 
 ARGS = None
 EXIT_CODE = 0

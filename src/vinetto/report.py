@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "4"
+file_micro = "5"
 
 
 from time import time
