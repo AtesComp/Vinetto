@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.1] - 2020-01-2 (DEVELOPEMENT)
+## [0.9.2] - 2020-01-23 (DEVELOPEMENT)
+
+### Changed
+
+- IMMM files: Corrected processing for Windows 10
+- IMMM Output Verbosity: controlled tabular output based on verbosity Levels 0, 1, 2 or more
+
+## [0.9.1] - 2020-01-22 (DEVELOPEMENT)
 
 ### Added
 

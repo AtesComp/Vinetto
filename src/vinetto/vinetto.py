@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "2"
+file_micro = "3"
 
 
 import sys
@@ -192,27 +192,19 @@ def printBlock(strName, oleBlock):
     return
 
 
-def printDBHead(thumbType, formatVer, strFormatType, cacheType, strCacheType, cacheOff1st, cacheOff1stAvail, cacheCount):
-    print("     Signature: %s" % config.THUMBS_FILE_TYPES[thumbType])
-    if (thumbType == config.THUMBS_TYPE_CMMM):
-        print("        Format: %d (%s)" % (formatVer, strFormatType))
-        print("          Type: %d (%s)" % (cacheType, strCacheType))
-        if (config.ARGS.verbose > 0):
-            print("    Cache Info:")
-            print("          Offset: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
-            print("   1st Available: %s" % ("None" if (cacheOff1stAvail == None) else ("%d" % cacheOff1stAvail)))
-            print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
-    elif (thumbType == config.THUMBS_TYPE_IMMM):
-        print("        Format: %d (%s)" % (formatVer, strFormatType))
-        if (config.ARGS.verbose > 0):
-            print("    Entry Info:")
-            print("            Used: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
-            print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
+def printCMMMHead(formatVer, strFormatType, cacheType, strCacheType, cacheOff1st, cacheOff1stAvail, cacheCount):
+    print("     Signature: %s" % config.THUMBS_FILE_TYPES[config.THUMBS_TYPE_CMMM])
+    print("        Format: %d (%s)" % (formatVer, strFormatType))
+    print("          Type: %d (%s)" % (cacheType, strCacheType))
+    if (config.ARGS.verbose > 0):
+        print("    Cache Info:")
+        print("          Offset: %s" % ("None" if (cacheOff1st == None) else ("%d" % cacheOff1st)))
+        print("   1st Available: %s" % ("None" if (cacheOff1stAvail == None) else ("%d" % cacheOff1stAvail)))
+        print("           Count: %s" % ("None" if (cacheCount == None) else ("%d" % cacheCount)))
     return
 
 
-def printDBCache(iCounter, strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, dictESEDB):
-    print(" Entry Counter: %d" % iCounter)
+def printCMMMCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, strID, dictESEDB):
     print("     Signature: %s" % strSig)
     if (config.ARGS.verbose > 0):
         print("          Size: %d" % iSize)
@@ -228,6 +220,67 @@ def printDBCache(iCounter, strSig, iSize, strHash, strExt, iIdSize, iPadSize, iD
     print("            ID: %s" % strID)
     if (config.ARGS.edbfile != None):
         printESEDBInfo(dictESEDB)
+    return
+
+
+def printIMMMHead(formatVer, strFormatType, iFileSize, iReserved, iCacheUsed, iCacheCount, iCacheTotal):
+    print("     Signature: %s" % config.THUMBS_FILE_TYPES[config.THUMBS_TYPE_IMMM])
+    print("        Format: %d (%s)" % (formatVer, strFormatType))
+    print("          Size: %d" % iFileSize)
+    if (config.ARGS.verbose > 0):
+        print("    Entry Info:")
+        print("      Reserved 1: %s" % ("None" if (iReserved == None) else ("%d" % iReserved)))
+        print("            Used: %s" % ("None" if (iCacheUsed == None) else ("%d" % iCacheUsed)))
+        print("           Count: %s" % ("None" if (iCacheCount == None) else ("%d" % iCacheCount)))
+        print("           Total: %s" % ("None" if (iCacheTotal == None) else ("%d" % iCacheTotal)))
+    return
+
+
+def printIMMMCache(strHash, iFileTime, strFlags,
+                   iOffset_16, iOffset_32, iOffset_48, iOffset_96, iOffset_256, iOffset_1024,
+                   iOffset_1280, iOffset_1600, iOffset_1920, iOffset_2560,
+                   iOffset_sr, iOffset_wide, iOffset_exif, iOffset_wide_alternate,
+                   iOffset_custom_stream):
+    iNegOne = 0xffffffff
+    if (config.ARGS.verbose > 1):
+        iNegOne = None
+    if (strHash != None):
+        print("          Hash: %s" % strHash)
+    if (iFileTime != None):
+        print("        Modify: %s" % getFormattedWinToPyTimeUTC(iFileTime))
+    if (strFlags != None):
+        print("         Flags: %s" % strFlags)
+    if (config.ARGS.verbose > 0):
+        if (iOffset_16 != None and iOffset_16 != iNegOne):
+            print("   Offset   16: %d" % iOffset_16)
+        if (iOffset_32 != None and iOffset_32 != iNegOne):
+            print("   Offset   32: %d" % iOffset_32)
+        if (iOffset_48 != None and iOffset_48 != iNegOne):
+            print("   Offset   48: %d" % iOffset_48)
+        if (iOffset_96 != None and iOffset_96 != iNegOne):
+            print("   Offset   96: %d" % iOffset_96)
+        if (iOffset_256 != None and iOffset_256 != iNegOne):
+            print("   Offset  256: %d" % iOffset_256)
+        if (iOffset_1024 != None and iOffset_1024 != iNegOne):
+            print("   Offset 1024: %d" % iOffset_1024)
+        if (iOffset_1280 != None and iOffset_1280 != iNegOne):
+            print("   Offset 1280: %d" % iOffset_1280)
+        if (iOffset_1600 != None and iOffset_1600 != iNegOne):
+            print("   Offset 1600: %d" % iOffset_1600)
+        if (iOffset_1920 != None and iOffset_1920 != iNegOne):
+            print("   Offset 1920: %d" % iOffset_1920)
+        if (iOffset_2560 != None and iOffset_2560 != iNegOne):
+            print("   Offset 2560: %d" % iOffset_2560)
+        if (iOffset_sr != None and iOffset_sr != iNegOne):
+            print("   Offset   sr: %d" % iOffset_sr)
+        if (iOffset_wide != None and iOffset_wide != iNegOne):
+            print("   Offset wide: %d" % iOffset_wide)
+        if (iOffset_exif != None and iOffset_exif != iNegOne):
+            print("   Offset exif: %d" % iOffset_exif)
+        if (iOffset_wide_alternate != None and iOffset_wide_alternate != iNegOne):
+            print("   Offset walt: %d" % iOffset_wide_alternate)
+        if (iOffset_custom_stream != None and iOffset_custom_stream != iNegOne):
+            print("   Offset cust: %d" % iOffset_custom_stream)
     return
 
 
@@ -422,8 +475,8 @@ def prepareESEDB():
         if (iColCntFound == len(config.ESEDB_ICOL_NAMES)):  # Total Columns searched
             break
 
-    if (not config.ARGS.quiet):
-        sys.stderr.write(" INFO:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
+    if (config.ARGS.verbose > 0):
+        sys.stderr.write(" Info:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
 
     return True
 
@@ -501,8 +554,8 @@ def loadESEDB():
             sys.stderr.write(" Warning: No ESEDB Image data available\n")
         return False
 
-    if (not config.ARGS.quiet):
-        sys.stderr.write(" INFO:        ESEDB Image data loaded\n")
+    if (config.ARGS.verbose > 0):
+        sys.stderr.write(" Info:        ESEDB Image data loaded\n")
 
     return True
 
@@ -867,7 +920,7 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                 if (config.EXIT_CODE > 0):
                     return
 
-                bytesToWrite = oleBlock["SID_sizeDir"]
+                iBytesToWrite = oleBlock["SID_sizeDir"]
                 sr = bytearray(b"")
 
                 if (bRegularBlock):  # ...stream located in the SAT...
@@ -876,11 +929,11 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         iStreamOffset = 512 + iCurrentStreamBlock * 512
                         thumbsDB.seek(iStreamOffset)
 
-                        if (bytesToWrite >= 512):
+                        if (iBytesToWrite >= 512):
                             sr = sr + thumbsDB.read(512)
                         else:
-                            sr = sr + thumbsDB.read(bytesToWrite)
-                        bytesToWrite = bytesToWrite - 512
+                            sr = sr + thumbsDB.read(iBytesToWrite)
+                        iBytesToWrite = iBytesToWrite - 512
                         iCurrentStreamBlock = nextBlock(thumbsDB, listSAT, iCurrentStreamBlock, tDB_endian)
 
                 else:  # ...stream located in the Mini SAT...
@@ -897,11 +950,11 @@ def processThumbsTypeOLE(infile, thumbsDB, thumbsDBsize):
                         iStreamOffset = 512 + bl * 512 + ioffset
                         thumbsDB.seek(iStreamOffset)
 
-                        if (bytesToWrite >= 64):
+                        if (iBytesToWrite >= 64):
                             sr = sr + thumbsDB.read(64)
                         else:
-                            sr = sr + thumbsDB.read(bytesToWrite)
-                        bytesToWrite = bytesToWrite - 64
+                            sr = sr + thumbsDB.read(iBytesToWrite)
+                        iBytesToWrite = iBytesToWrite - 64
                         # Computing next iCurrentStreamMiniBlock
                         iCurrentStreamMiniBlock = nextBlock(thumbsDB, listMiniSAT, iCurrentStreamMiniBlock, tDB_endian)
 
@@ -1114,7 +1167,7 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
     tDB_formatVer        = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheType        = unpack("<L", thumbsDB.read(4))[0]
     if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8")):
-        thumbsDB.read(4)  # Skip an integer size
+        reserved = thumbsDB.read(4)  # Skip an integer size
     tDB_cacheOff1st      = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheOff1stAvail = unpack("<L", thumbsDB.read(4))[0]
     tDB_cacheCount       = None  # Cache Count not available above Windows 8 v2
@@ -1134,8 +1187,8 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
 
     if (not config.ARGS.quiet):
         print(" Header\n --------------------")
-        printDBHead(config.THUMBS_TYPE_CMMM, tDB_formatVer, strFormatType, tDB_cacheType, strCacheType,
-                    tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
+        printCMMMHead(tDB_formatVer, strFormatType, tDB_cacheType, strCacheType,
+                      tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
         print(STR_SEP)
     if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
         HTTP_REPORT.setCMMM(strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail, tDB_cacheCount)
@@ -1230,8 +1283,8 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         dictESEDB = searchEDB(strID)
 
         if (not config.ARGS.quiet):
-            print(" Cache Entry\n --------------------")
-            printDBCache(iCacheCounter, tDB_sig.decode(), tDB_size, strHash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
+            print(" Cache Entry %d\n --------------------" % iCacheCounter)
+            printCMMMCache(tDB_sig.decode(), tDB_size, strHash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
                          tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, strID, dictESEDB)
 
         strCleanFileName = cleanFileName(strID)
@@ -1290,7 +1343,7 @@ def processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize):
         HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
 
 
-def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
+def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize, iInitialOffset = 0):
     global HTTP_REPORT
 
     # tDB_endian = "<" ALWAYS
@@ -1300,12 +1353,50 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
             sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
+    # Setup inital offset for newer IMMM files...
+    iOffset = iInitialOffset + 4
+
     # Header...
-    tDB_formatVer  = unpack("<l", thumbsDB[ 4: 8])[0]
-    reserved       = unpack("<l", thumbsDB[ 8:12])[0]
-    tDB_entryUsed  = unpack("<l", thumbsDB[12:16])[0]
-    tDB_entryCount = unpack("<l", thumbsDB[16:20])[0]
-    reserved       = unpack("<l", thumbsDB[20:24])[0]
+    thumbsDB.seek(iOffset)
+    tDB_formatVer  = unpack("<L", thumbsDB.read(4))[0]
+    iReserved01     = unpack("<L", thumbsDB.read(4))[0]
+    tDB_entryUsed  = unpack("<L", thumbsDB.read(4))[0]
+    tDB_entryCount = unpack("<L", thumbsDB.read(4))[0]
+    tDB_entryTotal = unpack("<L", thumbsDB.read(4))[0]
+    iOffset += 20
+
+    iBlockSize = 24
+    if (tDB_formatVer == config.TC_FORMAT_TYPE.get("Windows 10")):
+        iReserved02 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved03 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved04 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved05 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved06 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved07 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved08 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved09 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved10 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved11 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved12 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved13 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved14 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved15 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved16 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved17 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved18 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved19 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved20 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved21 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved22 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved23 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved24 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved25 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved26 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved27 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved28 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved29 = unpack("<L", thumbsDB.read(4))[0]
+        iReserved30 = unpack("<L", thumbsDB.read(4))[0]
+        iOffset += 116
 
     try:
         strFormatType = list(config.TC_FORMAT_TYPE.keys())[list(config.TC_FORMAT_TYPE.values()).index(tDB_formatVer)]
@@ -1314,46 +1405,156 @@ def processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize):
 
     if (not config.ARGS.quiet):
         print(" Header\n --------------------")
-        printDBHead(config.THUMBS_TYPE_IMMM, tDB_formatVer, strFormatType, None, None,
-                    tDB_entryUsed, None, tDB_entryCount)
+        printIMMMHead(tDB_formatVer, strFormatType, thumbsDBsize, iReserved01, tDB_entryUsed, tDB_entryCount, tDB_entryTotal)
         print(STR_SEP)
     if (config.ARGS.htmlrep):
         HTTP_REPORT.setIMMM(strFormatType, tDB_entryUsed, tDB_entryCount)
 
-    # Cache...
-    iOffset = 24
-    iEntryCounter = 1
-    while (iEntryCounter < tDB_entryCount):
+    # =============================================================
+    # Process Cache Entries...
+    # =============================================================
+
+    tdbStreams = tdb_streams.TDB_Streams()
+    tdbCatalog = tdb_catalog.TDB_Catalog()
+
+    iCacheCounter = 1
+    iPrinted = 0
+    while (True):
         if (thumbsDBsize < (iOffset + 32)):
             if (not config.ARGS.quiet):
                 sys.stderr.write(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
             return
 
-        tDB_hash = unpack("<Q", thumbsDB[iOffset +  0: iOffset + 8])[0]
+        iOffEntry = 0
+        thumbsDB.seek(iOffset)
 
-        iOffFlags = iOffset + 8
+        tDB_hash = unpack("<Q", thumbsDB.read(8))[0]
+        iOffEntry += 8
+
+        tDB_filetime = None
         if (tDB_formatVer == config.TC_FORMAT_TYPE.get("Windows Vista")):
-            tDB_filetime = unpack("<Q", thumbsDB[iOffFlags: iOffFlags + 8])[0]
-            iOffFlags += 8
+            tDB_filetime = unpack("<Q", thumbsDB.read(8))[0]
+            iOffEntry += 8
 
-        tDB_flags   = unpack("<l", thumbsDB[iOffFlags +  0: iOffFlags +  4])[0]
-        tDB_tc_32   = unpack("<l", thumbsDB[iOffFlags +  4: iOffFlags +  8])[0]
-        tDB_tc_96   = unpack("<l", thumbsDB[iOffFlags +  8: iOffFlags + 12])[0]
-        tDB_tc_256  = unpack("<l", thumbsDB[iOffFlags + 12: iOffFlags + 16])[0]
-        tDB_tc_1024 = unpack("<l", thumbsDB[iOffFlags + 16: iOffFlags + 20])[0]
-        tDB_tc_sr   = unpack("<l", thumbsDB[iOffFlags + 20: iOffFlags + 24])[0]
+        tDB_flags = unpack("<L", thumbsDB.read(4))[0]
+        iOffEntry += 4
+
+        tDB_tc_16 = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 7")):
+            tDB_tc_16 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_32   = unpack("<L", thumbsDB.read(4))[0]
+        iOffEntry += 4
+
+        tDB_tc_48 = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 7")):
+            tDB_tc_48 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_96   = unpack("<L", thumbsDB.read(4))[0]
+        iOffEntry += 4
+
+        tDB_tc_256  = unpack("<L", thumbsDB.read(4))[0]
+        iOffEntry += 4
+
+        tDB_tc_768 = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8.1")):
+            tDB_tc_768 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_1024 = unpack("<L", thumbsDB.read(4))[0]
+        iOffEntry += 4
+
+        tDB_tc_1280 = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8.1")):
+            tDB_tc_1280 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_1600 = None
+        if (tDB_formatVer == config.TC_FORMAT_TYPE.get("Windows 8.1")):
+            tDB_tc_1600 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_1920 = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8.1")):
+            tDB_tc_1920 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_2560 = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8.1")):
+            tDB_tc_2560 = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_sr   = unpack("<L", thumbsDB.read(4))[0]
+        iOffEntry += 4
+
+        tDB_tc_wide = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 7")):
+            tDB_tc_wide = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_exif = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 7")):
+            tDB_tc_exif = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_wide_alternate = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8 v3")):
+            tDB_tc_wide_alternate = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        tDB_tc_custom_stream = None
+        if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 8.1")):
+            tDB_tc_custom_stream = unpack("<L", thumbsDB.read(4))[0]
+            iOffEntry += 4
+
+        strHash = format(tDB_hash, '016x')
+        strFlags = format(tDB_flags, "032b")[2:] # bin(tDB_flags)[2:]
 
         if (not config.ARGS.quiet):
-            print(" Cache Entry %d\n --------------------" % iEntryCounter)
+            bPrint = 2  # full print (default)
+            if (config.ARGS.verbose > 2):
+                pass  # full print
+            elif (config.ARGS.verbose > 1):
+                if (tDB_hash == 0x0 and tDB_flags == 0x0):  # ...totally empty...
+                    bPrint = 1  # ...short print
+            elif (config.ARGS.verbose > 0):
+                if (tDB_flags == 0x0 or tDB_flags == 0xffffffff):  # ...empty or unused...
+                    bPrint = 1  # ...short print
+                if (tDB_hash == 0x0 and tDB_flags == 0x0):  # ...totally empty...
+                    bPrint = 0  # ...don't print
+            else: # Standard Print
+                if (tDB_flags == 0x0 or tDB_flags == 0xffffffff):  # ...empty or unused...
+                    bPrint = 0  # ...don't print
+            if (bPrint):
+                print(" Cache Entry %d\n --------------------" % iCacheCounter)
+                if (bPrint == 1):
+                    print("   Empty!")
+                else:  # bPrint > 1
+                    printIMMMCache(strHash, tDB_filetime, strFlags,
+                                   tDB_tc_16, tDB_tc_32, tDB_tc_48, tDB_tc_96, tDB_tc_256, tDB_tc_1024,
+                                   tDB_tc_1280, tDB_tc_1600, tDB_tc_1920, tDB_tc_2560,
+                                   tDB_tc_sr, tDB_tc_wide, tDB_tc_exif, tDB_tc_wide_alternate,
+                                   tDB_tc_custom_stream)
+                print(STR_SEP)
+                iPrinted += 1
 
         # TODO: DO MORE!!!
 
         # End of Loop
-        iOffset = iOffFlags + 24
-        iEntryCounter += 1
+        iCacheCounter += 1
 
-        if (not config.ARGS.quiet):
-            print(STR_SEP)
+        # Check End of File...
+        iOffset += iOffEntry
+        #if (tDB_formatVer > config.TC_FORMAT_TYPE.get("Windows 7")):
+        #    if (iOffEntry < 72):
+        #        iOffset += (72 - iOffEntry)
+        if (thumbsDBsize <= iOffset):
+            break
+
+#    # TEST Print stats on process...
+#    print("  Printed: %d,  Offset: %d,  Diff %d" % (iPrinted, iOffset, thumbsDBsize - iOffset))
 
     astrStats = tdbStreams.extractStats()
     if (not config.ARGS.quiet):
@@ -1405,6 +1606,7 @@ def processThumbFile(infile, bProcessError=True):
     # Analyzing header block...
 
     thumbsDBtype = None
+    iInitialOffset = 0
     thumbsDB.seek(0)
     thumbsDBdata = thumbsDB.read(8)
     if   (thumbsDBdata[0:8] == config.THUMBS_SIG_OLE):
@@ -1415,6 +1617,9 @@ def processThumbFile(infile, bProcessError=True):
         thumbsDBtype = config.THUMBS_TYPE_CMMM
     elif (thumbsDBdata[0:4] == config.THUMBS_SIG_IMMM):
         thumbsDBtype = config.THUMBS_TYPE_IMMM
+    elif (thumbsDBdata[0:8] == bytearray(b"\x0c\x000 ") + config.THUMBS_SIG_IMMM):
+        thumbsDBtype = config.THUMBS_TYPE_IMMM
+        iInitialOffset = 4
     else:  # ...Header Signature not found...
         if (bProcessError):
             sys.stderr.write(" Error: Header Signature not found in %s\n" % infile)
@@ -1431,7 +1636,7 @@ def processThumbFile(infile, bProcessError=True):
     elif (thumbsDBtype == config.THUMBS_TYPE_CMMM):
         processThumbsTypeCMMM(infile, thumbsDB, thumbsDBsize)
     elif (thumbsDBtype == config.THUMBS_TYPE_IMMM):
-        processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize)
+        processThumbsTypeIMMM(infile, thumbsDB, thumbsDBsize, iInitialOffset)
     else:  # ...should never hit this as thumbsDBtype is set in prior "if" block above,
           # ...thumbsDBtype should always be set properly
         if (bProcessError):
