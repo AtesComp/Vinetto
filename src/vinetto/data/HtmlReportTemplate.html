@@ -1,4 +1,5 @@
-<HTML>
+<!DOCTYPE HTML>
+<html lang="en">
 <!--
 Template HtmlReportTemplate.html
 -----------------------------------------------------------------------------
@@ -24,122 +25,207 @@ This file is part of Vinetto.
  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 -----------------------------------------------------------------------------
-
-file_major = "0"
-file_minor = "1"
-file_micro = "0"
-
 -->
-<HEAD>
-<TITLE>Vinetto Report</TITLE>
-<META http-equiv="Content-Type" content="text/html;charset=__CHARSET__">
-</HEAD>
+<head>
+<title>Vinetto Report</title>
+<meta http-equiv="Content-Type" content="text/html;charset=__CHARSET__" version="0.2.1">
+<style>
+  h2 {
+    text-align: center;
+  }
+  td.image,
+  p.tt {
+    font-family: 'Lucidia Console', monospace;
+    font-size: .8em;
+  }
+  p.tt {
+    line-height: 1em;
+    margin: 0px;
+  }
+  p.title {
+    line-height: 1em;
+    font-weight: bold;
+    margin: 2px;
+  }
+  p.meta {
+    line-height: 1em;
+    font-style: italic;
+    margin: 0px;
+  }
+  img {
+    background-color:black;
+    display: block;
+    margin: 0px auto;
+  }
+  table {
+    margin: 0px auto;
+  }
+  table.main,
+  table.sub,
+  table.summary {
+    padding: 0px;
+    border-style: solid;
+    border-color: transparent;
+  }
+  table.sub,
+  table.summary {
+    margin: 0px;
+    border-width: 1px;
+  }
+  table.main {
+    width: 100%;
+    border-width: 0px;
+    border-spacing: 0px;
+  }
+  table.sub {
+    border-collapse: collapse;
+  }
+  td {
+    padding: 0px 2px;
+  }
+  td.title {
+    width: 100px;
+    text-align: right;
+    color: blue;
+  }
+  td.content {
+    border: 1px solid black;
+  }
+  td.image {
+    width: 120px;
+    text-align: center;
+  }
+</style>
+</head>
 
-<BODY>
-<CENTER><H2>Vinetto -- Thumbnails Extraction Report</H2></CENTER>
-<DIV ALIGN="CENTER">
-<P ALIGN="LEFT"><EM>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__DATEREPORT__</EM></P>
+<body>
+<h2>Vinetto -- Thumbnails Extraction Report</h2>
+<p class="meta">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__DATEREPORT__</p>
 
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=720 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD><P><B>File Metadata:</B></P></TD></TR>
-  <TR><TD>
-    <TABLE CELLSPACING=1 CELLPADDING=2 BORDER=1>
-      <TR><TD ALIGN="RIGHT" STYLE="color: blue">   Directory:</TD><TD><TT>__TDBDIRNAME__</TT></TD></TR>
-      <TR><TD ALIGN="RIGHT" STYLE="color: blue">    Filename:</TD><TD><TT>__TDBFNAME__</TT></TD></TR>
-      <TR><TD ALIGN="RIGHT" STYLE="color: blue">Modification:</TD><TD><TT>__TDBMTIME__</TT></TD></TR>
-      <TR><TD ALIGN="RIGHT" STYLE="color: blue">   File Type:</TD><TD><TT>__FILETYPE__</TT></TD></TR>
-      <TR><TD ALIGN="RIGHT" STYLE="color: blue">   File Size:</TD><TD><TT>__FILESIZE__</TT></TD></TR>
-      <TR><TD ALIGN="RIGHT" STYLE="color: blue">  MD5 Digest:</TD><TD><TT>__MD5__</TT></TD></TR>
-    </TABLE>
-  </TD></TR>
-</TABLE>
+<div>
+
+<hr />
+<table class="main">
+  <tr><td><p class="title">File Info:</p></td></tr>
+  <tr><td>
+    <table class="sub">
+      <tr><td class="title">   Directory:</td><td class="content"><p class="tt">__TDBDIRNAME__</p></td></tr>
+      <tr><td class="title">    Filename:</td><td class="content"><p class="tt">__TDBFNAME__</p></td></tr>
+      <tr><td class="title">Modification:</td><td class="content"><p class="tt">__TDBMTIME__</p></td></tr>
+      <tr><td class="title">   File Type:</td><td class="content"><p class="tt">__FILETYPE__</p></td></tr>
+      <tr><td class="title">   File Size:</td><td class="content"><p class="tt">__FILESIZE__</p></td></tr>
+      <tr><td class="title">  MD5 Digest:</td><td class="content"><p class="tt">__MD5__</p></td></tr>
+    </table>
+  </td></tr>
+</table>
 
 <!-- __ITS__ internal template separator 1 -->
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=720 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD><P><B>Root Entry Metadata:</B></P></TD></TR>
-  <TR><TD>
-    <TABLE CELLSPACING=1 CELLPADDING=2 BORDER=1>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">      Color:</TD><TD><TT>__TDBRECOLOR__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">Prev Dir ID:</TD><TD><TT>__TDBREPDID__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">Next Dir ID:</TD><TD><TT>__TDBRENDID__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">Sub  Dir ID:</TD><TD><TT>__TDBRESDID__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">   Class ID:</TD><TD><TT>__TDBRECLASS__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> User Flags:</TD><TD><TT>__TDBREUFLAGS__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">     Create:</TD><TD><TT>__TDBRECTIME__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">     Modify:</TD><TD><TT>__TDBREMTIME__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">    1st Sec:</TD><TD><TT>__TDBRESID1SD__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">       Size:</TD><TD><TT>__TDBRESIDSZD__</TT></TD></TR>
-    </TABLE>
-  </TD></TR>
-</TABLE>
+<hr />
+<table class="main">
+  <tr><td><p class="title">Root Entry:</p></td></tr>
+  <tr><td>
+    <table class="sub">
+    <tr><td class="title">      Color:</td><td class="content"><p class="tt">__TDBRECOLOR__</p></td></tr>
+    <tr><td class="title">Prev Dir ID:</td><td class="content"><p class="tt">__TDBREPDID__</p></td></tr>
+    <tr><td class="title">Next Dir ID:</td><td class="content"><p class="tt">__TDBRENDID__</p></td></tr>
+    <tr><td class="title">Sub  Dir ID:</td><td class="content"><p class="tt">__TDBRESDID__</p></td></tr>
+    <tr><td class="title">   Class ID:</td><td class="content"><p class="tt">__TDBRECLASS__</p></td></tr>
+    <tr><td class="title"> User Flags:</td><td class="content"><p class="tt">__TDBREUFLAGS__</p></td></tr>
+    <tr><td class="title">     Create:</td><td class="content"><p class="tt">__TDBRECTIME__</p></td></tr>
+    <tr><td class="title">     Modify:</td><td class="content"><p class="tt">__TDBREMTIME__</p></td></tr>
+    <tr><td class="title">    1st Sec:</td><td class="content"><p class="tt">__TDBRESID1SD__</p></td></tr>
+    <tr><td class="title">       Size:</td><td class="content"><p class="tt">__TDBRESIDSZD__</p></td></tr>
+    </table>
+  </td></tr>
+</table>
 
 <!-- __ITS__ internal template separator 2 -->
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=720 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD><P><B>Cache Metadata:</B></P></TD></TR>
-  <TR><TD>
-    <TABLE CELLSPACING=1 CELLPADDING=2 BORDER=1>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> Format Ver:</TD><TD><TT>__TDBREFORMATTYPE__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> Cache Type:</TD><TD><TT>__TDBRECACHETYPE__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> 1st Offset:</TD><TD><TT>__TDBRECACHEOFF1ST__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> 1st  Avail:</TD><TD><TT>__TDBRECACHEOFF1STAVAIL__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">      Count:</TD><TD><TT>__TDBRECACHECOUNT__</TT></TD></TR>
-    </TABLE>
-  </TD></TR>
-</TABLE>
+<hr />
+<table class="main">
+  <tr><td><p class="title">Cache Metadata:</p></td></tr>
+  <tr><td>
+    <table class="sub">
+    <tr><td class="title"> Format Ver:</td><td class="content"><p class="tt">__TDBREFORMATTYPE__</p></td></tr>
+    <tr><td class="title"> Cache Type:</td><td class="content"><p class="tt">__TDBRECACHETYPE__</p></td></tr>
+    <tr><td class="title"> 1st Offset:</td><td class="content"><p class="tt">__TDBRECACHEOFF1ST__</p></td></tr>
+    <tr><td class="title"> 1st  Avail:</td><td class="content"><p class="tt">__TDBRECACHEOFF1STAVAIL__</p></td></tr>
+    <tr><td class="title">      Count:</td><td class="content"><p class="tt">__TDBRECACHECOUNT__</p></td></tr>
+    </table>
+  </td></tr>
+</table>
 
 <!-- __ITS__ internal template separator 3 -->
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=720 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD><P><B>Cache Metadata:</B></P></TD></TR>
-  <TR><TD>
-    <TABLE CELLSPACING=1 CELLPADDING=2 BORDER=1>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> Format Ver:</TD><TD><TT>__TDBREFORMATTYPE__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue"> Entry Used:</TD><TD><TT>__TDBREENTRYUSED__</TT></TD></TR>
-    <TR><TD ALIGN="RIGHT" STYLE="color: blue">      Count:</TD><TD><TT>__TDBREENTRYCOUNT__</TT></TD></TR>
-    </TABLE>
-  </TD></TR>
-</TABLE>
+<hr />
+<table class="main">
+  <tr><td><p class="title">Index Metadata:</p></td></tr>
+  <tr><td>
+    <table class="sub">
+    <tr><td class="title"> Format Ver:</td><td class="content"><p class="tt">__TDBREFORMATTYPE__</p></td></tr>
+    <tr><td class="title"> Entry Used:</td><td class="content"><p class="tt">__TDBREENTRYUSED__</p></td></tr>
+    <tr><td class="title">      Count:</td><td class="content"><p class="tt">__TDBREENTRYCOUNT__</p></td></tr>
+    </table>
+  </td></tr>
+</table>
 
 <!-- __ITS__ internal template separator 4 -->
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=880 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD WIDTH=40 ALIGN="CENTER">__ROWNUMBER__</TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__0" CELLPADDING="0"><TR><TD>__IMGTAG__0</TD></TR></TABLE></TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__1" CELLPADDING="0"><TR><TD>__IMGTAG__1</TD></TR></TABLE></TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__2" CELLPADDING="0"><TR><TD>__IMGTAG__2</TD></TR></TABLE></TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__3" CELLPADDING="0"><TR><TD>__IMGTAG__3</TD></TR></TABLE></TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__4" CELLPADDING="0"><TR><TD>__IMGTAG__4</TD></TR></TABLE></TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__5" CELLPADDING="0"><TR><TD>__IMGTAG__5</TD></TR></TABLE></TD>
-    <TD WIDTH=120 ALIGN="CENTER"><TABLE BORDER="__TNFILLED__6" CELLPADDING="0"><TR><TD>__IMGTAG__6</TD></TR></TABLE></TD>
-  </TR>
-  <TR><TD WIDTH=40 ALIGN="CENTER"> </TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__0</TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__1</TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__2</TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__3</TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__4</TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__5</TD>
-    <TD WIDTH=120 ALIGN="CENTER">__TNID__6</TD>
-  </TR>
-</TABLE>
+<hr />
+<table class="main">
+  <tr><td><p class="title">Thumb Image Analysis:</p></td></tr>
+  <tr><td>
+  <table class="sub">
+    <tr><td class="title">__ROWNUMBER__</td>
+        <td class="image">__IMGTAG__0</td>
+        <td class="image">__IMGTAG__1</td>
+        <td class="image">__IMGTAG__2</td>
+        <td class="image">__IMGTAG__3</td>
+        <td class="image">__IMGTAG__4</td>
+        <td class="image">__IMGTAG__5</td>
+        <td class="image">__IMGTAG__6</td>
+    </tr>
+    <tr><td class="title">Catalog ID:</td>
+        <td class="image">__TNID__0</td>
+        <td class="image">__TNID__1</td>
+        <td class="image">__TNID__2</td>
+        <td class="image">__TNID__3</td>
+        <td class="image">__TNID__4</td>
+        <td class="image">__TNID__5</td>
+        <td class="image">__TNID__6</td>
+    </tr>
+    <tr><td class="title">Filename:</td>
+        <td class="image">__TNFNAME__0</td>
+        <td class="image">__TNFNAME__1</td>
+        <td class="image">__TNFNAME__2</td>
+        <td class="image">__TNFNAME__3</td>
+        <td class="image">__TNFNAME__4</td>
+        <td class="image">__TNFNAME__5</td>
+        <td class="image">__TNFNAME__6</td>
+    </tr>
+      __CATALOGTABLE__
+  </table>
+</table>
 
 <!-- __ITS__ internal template separator 5 -->
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=720 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD><P><B>Orphan Catalog Entries:</B></P></TD></TR>
-  <TR><TD>__ORPHANENTRY__</TD></TR>
-</TABLE>
+<hr />
+<table class="main">
+  <tr><td><p class="title">Orphan Catalog Entries:></p></td></tr>
+  <tr><td><p class="tt">__TNORPHAN__</p></td></tr>
+</table>
 
 <!-- __ITS__ internal template separator 6 -->
-<HR ALIGN="CENTER" />
-<TABLE WIDTH=720 CELLSPACING=0 CELLPADDING=0 BORDER=0>
-  <TR><TD><P><B>Summary:</B></P></TD></TR>
-  <TR><TD><TT>__TYPESTATS__</TT></TD></TR>
-</TABLE>
-</DIV>
-<EM>__VERSION__</EM>
-</BODY>
+<hr />
+<table class="summary">
+  <tr><td><p class="title">Summary:</p></td></tr>
+  <tr><td class="title">Totals:</td>
+      <td><p class="tt">__COUNTSTATS__</p></td>
+  <tr><td class="title">Extraction:</td>
+      <td><p class="tt">__TYPESTATS__</p></td>
+  </tr>
+</table>
+
+<hr />
+
+</div>
+
+<p class="meta"><em>__VERSION__</p>
+</body>
 </HTML>

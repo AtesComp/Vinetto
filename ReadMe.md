@@ -199,16 +199,15 @@ certain tasks:
 ```
    0 - Normal termination
    2 - Argument parsing error
-  10 - Input file errors
-  11 - Output directory errors
-  12 - Input file Header Signature error
-  13 - Thumbnail output subdirectory error
-  14 - Expecting JPEG EOI (End of Image)
-  15 - Stream length doesn't match reported Header 1 length
-  16 - Stream length doesn't match reported Header 2 length
-  17 - Header 2 not found
-  18 - Symlink create error
-  19 - EDB Input file errors
+  10 - Input errors
+  11 - Output errors
+  12 - ThumbDB processing errors
+  13 - Install errors
+  14 - Stream errors
+  15 - Symlink errors
+  16 - Mode errors
+  17 - HTML Report errors
+  18 - ESEDB file errors
 ```
 
 ## Installation:

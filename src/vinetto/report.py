@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "5"
+file_micro = "6"
 
 
 from time import time
@@ -48,135 +48,148 @@ HTTP_PIC_ROW = []
 HTTP_ORPHANS = []
 HTTP_FOOTER  = []
 
-IMGTAG = "<IMG SRC=\"__TNFNAME__\" ALT=\"__TNNAME__\" style=\"background-color:black;\" />"
+IMGTAG = "<img src=\"__TNIMAGE__\" alt=\"__TNALT__\" />"
+
+IMGCOLS = 7
 
 
 ###############################################################################
 # Vinetto Report SuperClass
 ###############################################################################
 class Report:
-    def __init__(self, target, outputdir, fileType, fileSize, md5):
+    def __init__(self, strCharSet, strOutputDir, dictHead):
         """ Initialize a new Report instance.  """
-        self.tDBfname   = basename(target)
-        self.tDBdirname = abspath(dirname(target))
-        self.tDBmtime   = getmtime(target)
-        self.outputdir  = outputdir
-        self.fileType   = fileType
-        self.fileSize   = fileSize
-        self.md5        = md5
+        self.strCharSet = strCharSet
 
+        self.strOutputDir = strOutputDir
+
+        self.dictHead = dictHead
+        self.dictHead["Filename"] = basename(dictHead["FilePath"])
+        self.dictHead["Path"] = abspath(dictHead["FilePath"])
+        self.dictHead["ModifyTime"] = getmtime(dictHead["FilePath"])
+
+        self.dictMeta = {}
+
+        self.iStreamCount = 0
+        self.iFileCount = 0
+        self.iIDCount = 0
 
 ###############################################################################
 # Vinetto Html Report (elementary mode) Class
 ###############################################################################
 class HtmlReport(Report):
-    def __init__(self, charset, tDBfname, outputdir, fileType, fileSize, md5):
+    def __init__(self, strCharSet, strOutputDir, dictHead):
         # Initialize a new HtmlReport instance...
-        Report.__init__(self, tDBfname, outputdir, fileType, fileSize, md5)
-        self.rownumber = 0
-        separatorID = 0
+        Report.__init__(self, strCharSet, strOutputDir, dictHead)
+        self.iRow = 0
 
         # Load HTTP sections...
+        iSeparatorID = 0
         for strLine in open(resource_filename('vinetto', 'data/HtmlReportTemplate.html'), "r").readlines():
-            if strLine.find("__CHARSET__") > 0:
-                strLine = strLine.replace("__CHARSET__", charset)
             if strLine.find("__ITS__") >= 0:
-                separatorID += 1
+                iSeparatorID += 1
                 continue
 
-            if (separatorID == 0):
+            if (iSeparatorID == 0):
                 HTTP_HEADER.append(strLine)
-            elif (separatorID == 1 and self.fileType == config.THUMBS_TYPE_OLE):
+            elif (iSeparatorID == 1 and self.dictHead["FileType"] == config.THUMBS_TYPE_OLE):
                 HTTP_TYPE.append(strLine)
-            elif (separatorID == 2 and self.fileType == config.THUMBS_TYPE_CMMM):
+            elif (iSeparatorID == 2 and self.dictHead["FileType"] == config.THUMBS_TYPE_CMMM):
                 HTTP_TYPE.append(strLine)
-            elif (separatorID == 3 and self.fileType == config.THUMBS_TYPE_IMMM):
+            elif (iSeparatorID == 3 and self.dictHead["FileType"] == config.THUMBS_TYPE_IMMM):
                 HTTP_TYPE.append(strLine)
-            elif (separatorID == 4):
+            elif (iSeparatorID == 4):
                 HTTP_PIC_ROW.append(strLine)
-            elif (separatorID == 5):
+            elif (iSeparatorID == 5):
                 HTTP_ORPHANS.append(strLine)
-            elif (separatorID == 6):
+            elif (iSeparatorID == 6):
                 HTTP_FOOTER.append(strLine)
 
-        self.TNidList   = []
-        self.TNtsList   = []
-        self.TNnameList = []
+        self.listIDs        = []
+        self.listFileNames  = []
+        self.listTimestamps = []
+        self.listEntryNames = []
 
 
     #--------------------------------------------------------------------------
     # Public Methods
     #--------------------------------------------------------------------------
 
-    def setOLE(self, oleBlock):
+    def setOLE(self, dictOLEMeta):
+        if (dictOLEMeta == None or not isinstance(dictOLEMeta, dict)):
+            return
         # Initialize Type 1 report (OLE, Thumbs.db) for report type section
-        self.tDBREcolor = oleBlock["color"]
-        self.tDBREpdid  = oleBlock["PDID"]
-        self.tDBREndid  = oleBlock["NDID"]
-        self.tDBREsdid  = oleBlock["SDID"]
-        self.tDBREcid   = oleBlock["CID"]
-        self.tDBREuserflags = oleBlock["userflags"]
-        self.tDBREctime = getFormattedWinToPyTimeUTC(oleBlock["create"])
-        self.tDBREmtime = getFormattedWinToPyTimeUTC(oleBlock["modify"])
-        self.tDBREsid_firstSecDir = oleBlock["SID_firstSecDir"]
-        self.tDBREsid_sizeDir = oleBlock["SID_sizeDir"]
+        self.dictMeta = dictOLEMeta
 
 
-    def setCMMM(self, strFormatType, strCacheType, tDB_cacheOff1st, tDB_cacheOff1stAvail,
-                 tDB_cacheCount):
+    def setCMMM(self, dictCMMMMeta):
+        if (dictCMMMMeta == None or not isinstance(dictCMMMMeta, dict)):
+            return
         # Initialize Type 2 report (CMMM, Thumbcache_*) for report type section
-        self.tDBREformatType = strFormatType
-        self.tDBREcacheType = strCacheType
-        self.tDBREcacheOff1st = tDB_cacheOff1st
-        self.tDBREcacheOff1stAvail = tDB_cacheOff1stAvail
-        self.tDBREcacheCount = tDB_cacheCount
+        self.dictMeta = dictCMMMMeta
 
 
-    def setType3(self, strFormatType, tDB_entryUsed, tDB_entryCount):
+    def setIMMM(self, dictIMMMMeta):
+        if (dictIMMMMeta == None or not isinstance(dictIMMMMeta, dict)):
+            return
         # Initialize Type 3 report (IMMM, Thumbcache_*) for report type section
-        self.tDBREformatType = strFormatType
-        self.tDBREentryUsed = tDB_entryUsed
-        self.tDBREentryCount = tDB_entryCount
+        self.dictMeta = dictIMMMMeta
 
 
     def flush(self, astrStats, strSubDir, tdbStreams = None, tdbCatalog = None):
-        self.__writeHead()
-        self.__writeType()
+        self.__writeHead()  # ...opens HTML file for write
+        if (config.EXIT_CODE > 0):
+            return
+
+        self.__writeMeta()
 
         # Process the report body and the report end...
-        self.rownumber = 0
-        self.tnId    = []
-        self.tnFname = []
-        self.tnTs    = []
-        self.tnName  = []
+        self.iRow = 0
+        self.listIDs        = []
+        self.listFileNames  = []
+        self.listTimestamps = []
+        self.listEntryNames = []
 
         if (tdbStreams != None and len(tdbStreams) > 0):
             for key in tdbStreams:
+                self.iStreamCount += 1
                 bStreamID = tdbStreams[key][1]
-                for (iType, strFileName) in tdbStreams[key][2]:
+                for strFileName in tdbStreams[key][2]:
+                    self.iFileCount += 1
                     if (bStreamID):
-                        strFilePath = strSubDir + "/" + strFileName + "." + tdbStreams[key][0][0]
+                        strFilePath = strSubDir
                     else:
-                        strFilePath = "./" + strFileName + "." + tdbStreams[key][0][0]
+                        strFilePath = "."
+                    strFilePath += "/" + strFileName + "." + tdbStreams[key][0][0]
 
                     if (tdbCatalog == None or len(tdbCatalog) == 0 or not key in tdbCatalog):
                         self.__populateCell(key, strFilePath)
                     else:
                         self.__populateCell(key, strFilePath, tdbCatalog[key])
+                        self.iIDCount += 1
 
-        if (len(self.tnId) > 0):
+        if (len(self.listIDs) > 0):
             self.__rowFlush()
 
         self.__printOrphanCatEnt(tdbStreams, tdbCatalog)
+
+        strCounts = ""
+        if (self.iStreamCount > 0):
+            strCounts = (("Entries: " + str(self.iStreamCount)).replace(" ", "&nbsp;") + "<br />" +
+                         ("  Files: " + str(self.iFileCount)).replace(" ", "&nbsp;")+ "<br />" +
+                         ("  TCIDs: " + str(self.iIDCount)).replace(" ", "&nbsp;"))
+        else:
+            strCounts += "No Counts!".replace(" ", "&nbsp;")
 
         strStats = ""
         if (astrStats != None):
             for strStat in astrStats:
                 strStats += strStat.replace(" ", "&nbsp;") + "<br />"
-            self.__close(strStats[:-6])
+            strStats = strStats[:-6]
         else:
             strStats += "No Stats!".replace(" ", "&nbsp;")
-            self.__close(strStats)
+
+        self.__close(strCounts, strStats)
 
 
     #--------------------------------------------------------------------------
@@ -185,111 +198,124 @@ class HtmlReport(Report):
 
     def __writeHead(self):
         # Write report header...
-        self.repfile = open(self.outputdir + self.tDBfname + ".html", "w")
+        strFileName = self.strOutputDir + self.dictHead["Filename"] + ".html"
+        try:
+            self.repfile = open(strFileName, "w")
+        except:
+            sys.stderr.write(" Error (HTML): Cannot create %s\n" % (strFileName))
+            config.EXIT_CODE = 17
+            return
         for strLine in HTTP_HEADER:
-            strLine = strLine.replace("__DATEREPORT__",  "Report Date: " + getFormattedTimeUTC( time() ))
-            strLine = strLine.replace("__TDBDIRNAME__",  self.tDBdirname)
-            strLine = strLine.replace("__TDBFNAME__",    self.tDBfname)
-            strLine = strLine.replace("__TDBMTIME__",    getFormattedTimeUTC(self.tDBmtime))
-            strLine = strLine.replace("__FILETYPE__",    config.THUMBS_FILE_TYPES[self.fileType])
-            strLine = strLine.replace("__FILESIZE__",    str(self.fileSize))
-            strLine = strLine.replace("__MD5__",         self.md5 if not None else "Not Calculated")
+            strLine = strLine.replace("__CHARSET__",    self.strCharSet)
+            strLine = strLine.replace("__DATEREPORT__", "Report Date: " + getFormattedTimeUTC( time() ))
+            strLine = strLine.replace("__TDBDIRNAME__", self.dictHead["Path"])
+            strLine = strLine.replace("__TDBFNAME__",   self.dictHead["Filename"])
+            strLine = strLine.replace("__TDBMTIME__",   getFormattedTimeUTC(self.dictHead["ModifyTime"]))
+            strLine = strLine.replace("__FILETYPE__",   config.THUMBS_FILE_TYPES[self.dictHead["FileType"]])
+            strLine = strLine.replace("__FILESIZE__",   str(self.dictHead["FileSize"]))
+            strLine = strLine.replace("__MD5__",        self.dictHead["MD5"] if (self.dictHead["MD5"] != None) else "Not Calculated")
 
             self.repfile.write(strLine)
 
 
-    def __writeType(self):
+    def __writeMeta(self):
         # Write report type...
         for strLine in HTTP_TYPE:
             # Adjust Type 1 (OLE, Thumbs.db)...
-            if (self.fileType == config.THUMBS_TYPE_OLE):
-                strLine = strLine.replace("__TDBRECOLOR__",  "%d (%s)" % (self.tDBREcolor, "Black" if self.tDBREcolor else "Red"))
-                strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.tDBREpdid == config.OLE_NONE_BLOCK) else str(self.tDBREpdid)))
-                strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.tDBREndid == config.OLE_NONE_BLOCK) else str(self.tDBREndid)))
-                strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.tDBREsdid == config.OLE_NONE_BLOCK) else str(self.tDBREsdid)))
-                strLine = strLine.replace("__TDBRECLASS__",  self.tDBREcid)
-                strLine = strLine.replace("__TDBREUFLAGS__", self.tDBREuserflags)
-                strLine = strLine.replace("__TDBRECTIME__",  self.tDBREctime)
-                strLine = strLine.replace("__TDBREMTIME__",  self.tDBREmtime)
-                strLine = strLine.replace("__TDBRESID1SD__", str(self.tDBREsid_firstSecDir))
-                strLine = strLine.replace("__TDBRESIDSZD__", str(self.tDBREsid_sizeDir))
+            if (self.dictHead["FileType"] == config.THUMBS_TYPE_OLE):
+                strLine = strLine.replace("__TDBRECOLOR__",  "%d (%s)" % (self.dictMeta["color"], "Black" if self.dictMeta["color"] else "Red"))
+                strLine = strLine.replace("__TDBREPDID__",   ("None" if (self.dictMeta["PDID"] == config.OLE_NONE_BLOCK) else str(self.dictMeta["PDID"])))
+                strLine = strLine.replace("__TDBRENDID__",   ("None" if (self.dictMeta["NDID"] == config.OLE_NONE_BLOCK) else str(self.dictMeta["NDID"])))
+                strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.dictMeta["SDID"] == config.OLE_NONE_BLOCK) else str(self.dictMeta["SDID"])))
+                strLine = strLine.replace("__TDBRECLASS__",  self.dictMeta["CID"])
+                strLine = strLine.replace("__TDBREUFLAGS__", self.dictMeta["userflags"])
+                strLine = strLine.replace("__TDBRECTIME__",  getFormattedWinToPyTimeUTC(self.dictMeta["create"]))
+                strLine = strLine.replace("__TDBREMTIME__",  getFormattedWinToPyTimeUTC(self.dictMeta["modify"]))
+                strLine = strLine.replace("__TDBRESID1SD__", str(self.dictMeta["SID_firstSecDir"]))
+                strLine = strLine.replace("__TDBRESIDSZD__", str(self.dictMeta["SID_sizeDir"]))
 
             # Adjust Type 2 (CMMM, Thumbcache_*)...
-            elif (self.fileType == config.THUMBS_TYPE_CMMM):
-                strLine = strLine.replace("__TDBREFORMATTYPE__",       self.tDBREformatType)
-                strLine = strLine.replace("__TDBRECACHETYPE__",        self.tDBREcacheType)
-                strLine = strLine.replace("__TDBRECACHEOFF1ST__",      str(self.tDBREcacheOff1st))
-                strLine = strLine.replace("__TDBRECACHEOFF1STAVAIL__", str(self.tDBREcacheOff1stAvail))
-                strLine = strLine.replace("__TDBRECACHECOUNT__",       str(self.tDBREcacheCount))
+            elif (self.dictHead["FileType"] == config.THUMBS_TYPE_CMMM):
+                strLine = strLine.replace("__TDBREFORMATTYPE__",       self.dictMeta["FormatTypeStr"])
+                strLine = strLine.replace("__TDBRECACHETYPE__",        self.dictMeta["CacheTypeStr"])
+                strLine = strLine.replace("__TDBRECACHEOFF1ST__",      str(self.dictMeta["CacheOff1st"]))
+                strLine = strLine.replace("__TDBRECACHEOFF1STAVAIL__", str(self.dictMeta["CacheOff1stAvail"]))
+                strLine = strLine.replace("__TDBRECACHECOUNT__",       str(self.dictMeta["CacheCount"]))
 
             # Adjust Type 3 (IMMM, Thumbcache_*)...
-            elif (self.fileType == config.THUMBS_TYPE_IMMM):
-                strLine = strLine.replace("__TDBREFORMATTYPE__", self.tDBREformatType)
-                strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.tDBREentryUsed))
-                strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.tDBREentryCount))
+            elif (self.dictHead["FileType"] == config.THUMBS_TYPE_IMMM):
+                strLine = strLine.replace("__TDBREFORMATTYPE__", self.dictMeta["FormatTypeStr"])
+                strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.dictMeta["EntryUsed"]))
+                strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.dictMeta["EntryCount"]))
 
             self.repfile.write(strLine)
 
 
     def __rowFlush(self):
+        # Calculate Catalog Table to augment Row Images...
+        strCatalogTable = ""
+        if (len(self.listIDs) > 0):
+    #        self.repfile.write("<TABLE WIDTH=\"800\">" +
+            strCatalogTable = ("<tr><td class=\"title\">Catalog:</td>\n"
+                               "<td colspan=\"" + str(IMGCOLS - 1) + "\" style=\"border-top: 6px solid; border-color: transparent;\">\n")
+            strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.dictHead["FileType"] == config.THUMBS_TYPE_OLE else "Cache ID")
+            for i in range(len(self.listIDs)):
+                strCatalogTable += ("<p class=\"tt\">" +
+                                    self.listIDs[i].replace(" ", "&nbsp;") + ":&nbsp;")
+                if (self.listEntryNames[i] != ""):
+                    strCatalogTable += (self.listTimestamps[i].replace(" ", "&nbsp;") + " &nbsp;" +
+                                        self.listEntryNames[i].replace(" ", "&nbsp;"))
+                else:
+                    strCatalogTable += strEntryNotFound
+                strCatalogTable += "</p>\n"
+            strCatalogTable += "</td></tr>\n"
+
         # Process a report line...
-        self.rownumber += 1
+        self.iRow += 1
         for strLine in HTTP_PIC_ROW:
-            strLine = strLine.replace("__ROWNUMBER__", str(self.rownumber))
-            # Fill...
-            for j in range(len(self.tnId)):
-                strLine = strLine.replace("__TNFILLED__" + str(j), "1")
-                buff = IMGTAG.replace("__TNFNAME__", self.tnFname[j])
-                buff = buff.replace("__TNNAME__", (self.tnName[j] if (self.tnName[j] != "") else self.tnId[j]))
-                strLine = strLine.replace("__IMGTAG__" + str(j), buff)
-                #strLine = strLine.replace("__TNID__" + str(j), self.tnId[j])
-                strLine = strLine.replace("__TNID__" + str(j), self.tnFname[j])
-            # Blank...
-            for j in range(len(self.tnId), 7):
-                strLine = strLine.replace("__TNFILLED__" + str(j), "0")
-                strLine = strLine.replace("__IMGTAG__" + str(j), " ")
-                strLine = strLine.replace("__TNID__" + str(j), " ")
+            # Row Number...
+            strLine = strLine.replace("__ROWNUMBER__", str(self.iRow) + ":")
+            # Fill cells in row...
+            for i in range(len(self.listIDs)):
+                # Cell Image Info...
+                strImage = IMGTAG.replace("__TNIMAGE__", self.listFileNames[i]).replace(
+                                          "__TNALT__", (self.listEntryNames[i] if (self.listEntryNames[i] != "") else self.listIDs[i]))
+                strLine = strLine.replace("__IMGTAG__"  + str(i), strImage)
+                # ...related to Catalog Entries...
+                strLine = strLine.replace("__TNID__"    + str(i), self.listIDs[i])
+                # ...related to File Entries...
+                strLine = strLine.replace("__TNFNAME__" + str(i), basename(self.listFileNames[i]))
+            # Any empty cells in row...
+            for i in range(len(self.listIDs), IMGCOLS):
+                strLine = strLine.replace("__IMGTAG__"  + str(i), "")
+                strLine = strLine.replace( "__TNID__"   + str(i), "")
+                strLine = strLine.replace("__TNFNAME__" + str(i), "")
+
+            # Add Catalog Table...
+            strLine = strLine.replace("__CATALOGTABLE__", strCatalogTable)
 
             self.repfile.write(strLine)
 
-        self.repfile.write("<TABLE WIDTH=\"720\">" +
-                           "<TR><TD><P ALIGN=\"LEFT\">\n")
-        #strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.fileType == config.THUMBS_TYPE_OLE else "Cache ID")
-        for i in range(len(self.tnId)):
-            if (self.tnName[i] != ""):
-                self.repfile.write("<TT STYLE=\"color: blue\">" +
-                                   self.tnId[i].replace(" ", "&nbsp;") + ": " +
-                                   self.tnTs[i].replace(" ", "&nbsp;") + " &nbsp;" +
-                                   self.tnName[i].replace(" ", "&nbsp;") +
-                                   "</TT><br />\n")
-            else:
-                #self.repfile.write("<TT STYLE=\"color: blue\">" +
-                #                   self.tnId[i].replace(" ", "&nbsp;") + ": " +
-                #                   strEntryNotFound +
-                #                   "</TT><br />\n")
-                self.repfile.write("<br />\n")
-
-        self.repfile.write("</P></TD></TR></TABLE>")
-
-        self.tnId    = []
-        self.tnFname = []
-        self.tnTs    = []
-        self.tnName  = []
+        self.listIDs        = []
+        self.listFileNames  = []
+        self.listTimestamps = []
+        self.listEntryNames = []
 
 
     def __populateCell(self, key, strFilePath, listCat = [("", "")]):
         for (strTimeStamp, strEntryName) in listCat:
             # Organize the data for a cell in a report line...
-            bFlush = False
+            #bFlush = False
             if isinstance(key, int):
-                self.tnId.append("% 4i" % key)
+                self.listIDs.append("% 4i" % key)
             else:
-                self.tnId.append(key)
-                bFlush = True
-            self.tnFname.append(strFilePath)
-            self.tnTs.append(strTimeStamp)
-            self.tnName.append(strEntryName)
-            if (bFlush or len(self.tnId) >= 7):
+                self.listIDs.append(key)
+                #bFlush = True
+            self.listFileNames.append(strFilePath)
+            self.listTimestamps.append(strTimeStamp)
+            self.listEntryNames.append(strEntryName)
+            #if (bFlush or len(self.listIDs) >= IMGCOLS):
+            if (len(self.listIDs) >= IMGCOLS):
                 self.__rowFlush()
 
     def __printOrphanCatEnt(self, tdbStreams, tdbCatalog):
@@ -297,29 +323,35 @@ class HtmlReport(Report):
             return
 
         # Scan for orphan catalog entries...
+        listOrphans = []
         listOrphanCatIDs = tdbCatalog.getOrphans(tdbStreams)
 
-        # Print orphan catalog entry...
-        if (listOrphanCatIDs != []):
-            for strLine in HTTP_ORPHANS:
-                if strLine.find("__ORPHANENTRY__") < 0:
-                    self.repfile.write(strLine)
-                else:
-                    for iCatID in listOrphanCatIDs:
-                        listCat = tdbCatalog[iCatID]
-                        for (strTimeStamp, strEntryName) in listCat:
-                            strTT = str("<TT>" +
-                                        ("% 4d" % iCatID).replace(" ", "&nbsp;") + ": " +
-                                        strTimeStamp.replace(" ", "&nbsp;") + " &nbsp;" +
-                                        strEntryName.replace(" ", "&nbsp;") +
-                                        "</TT><br />\n")
-                            orphanLine = strLine.replace("__ORPHANENTRY__", strTT)
-                            self.repfile.write(orphanLine)
+        # Gather orphan catalog entries...
+        for key in listOrphanCatIDs:
+            listCat = tdbCatalog[key]
+            for (strTimeStamp, strEntryName) in listCat:
+                strKey = ("% 4d" % key) if isinstance(key, int) else key
+                listOrphans.append(strKey.replace(" ", "&nbsp;") + ": " +
+                                   strTimeStamp.replace(" ", "&nbsp;") + " &nbsp;" +
+                                   strEntryName.replace(" ", "&nbsp;") + "\n")
+        if (len(listOrphans) == 0):
+            return
+
+        # Print orphan catalog entries...
+        for strLine in HTTP_ORPHANS:
+            if "__TNORPHAN__" not in strLine:
+                self.repfile.write(strLine)
+            else:
+                # Reuse this __TNORPHAN__ strLine to populate rows...
+                for strOrphan in listOrphans:
+                    strOrphanLine = strLine.replace("__TNORPHAN__", strOrphan)
+                    self.repfile.write(strOrphanLine)
 
 
-    def __close(self, strStats):
+    def __close(self, strCounts, strStats):
         # Write report footer...
         for strLine in HTTP_FOOTER:
+            strLine = strLine.replace("__COUNTSTATS__", strCounts)
             strLine = strLine.replace("__TYPESTATS__", strStats)
             strLine = strLine.replace("__VERSION__", "Vinetto " + version.STR_VERSION)
 

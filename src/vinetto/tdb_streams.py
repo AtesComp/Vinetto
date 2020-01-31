@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "0"
+file_micro = "3"
 
 
 import vinetto.config as config
@@ -39,14 +39,16 @@ from collections.abc import MutableMapping
 
 ###############################################################################
 # Vinetto Thumb Database Catalog Class
+# Input: iKey/strKey, [strIndexExt, strIndexFileName]
+# Store: {iKey/strKey, [strIndexExt], bStreamID, [strIndexFileName] ] }
 ###############################################################################
 class TDB_Streams(MutableMapping):
     def __init__(self, data=()):
         # Initialize a new TDB_Streams instance...
-        self.__tdbStreams = {}  # {iKey/strKey, [ [strIndexExt], bStreamID, [(iIndexType, strIndexFileName)] ] }
+        self.__tdbStreams = {}  # {iKey/strKey, [ [strIndexExt], bStreamID, [strIndexFileName] ] }
         self.__bOutOfSeq = False
         self.__iPreviousID = None
-        self.__dictCount = {"All": 0, 1: 0, 2: 0}
+        self.__dictCount = 0
         self.update(data)
 
     def __getitem__(self, key):
@@ -55,41 +57,30 @@ class TDB_Streams(MutableMapping):
 
     def __delitem__(self, key):
         for tupleIndex in self[key][2]:
-            self.__dictCount["All"] -= 1
-            self.__dictCount[tupleIndex[0]] -= 1
+            self.__dictCount -= 1
         del self.__tdbStreams[key]
 
 
     def __setitem__(self, key, value):
         # Add or append a Stream entry...
-        # value => [strIndexExt, (iIndexType, strIndexFileName)] }
+        # value => [strIndexExt, strIndexFileName] }
 
-        iStreamID = None
         bStreamID = None
-        strGivenFileName = None
         if isinstance(key, int):
-            iStreamID = key
             bStreamID = True
         elif isinstance(key, str):
-            strGivenFileName = key
             bStreamID = False
         else:
-            raise TypeError("Not invalid: Stream key must be a StreamID integer or a FileName string!")
+            raise TypeError("Invalid: Stream key must be an integer or string representing a thumbnail ID/name!")
 
         if (not isinstance(value, list)):
-            raise TypeError("Not list: Stream value must be a list of 2 items - file extension string and 2-tuple!")
+            raise TypeError("Not list: Stream value must be a list of 2 items - file extension string and file name string!")
         if (len(value) != 2):
-            raise ValueError("Not 2 items: Stream value must be a list of 2 items - file extension string and 2-tuple!")
+            raise ValueError("Not 2 items: Stream value must be a list of 2 items - file extension string and file name string!")
         if not isinstance(value[0], str):
             raise TypeError("Not string: Stream value[0] must be a file extension string!")
-        if not isinstance(value[1], tuple):
-            raise TypeError("Not 2-tuple: Stream value[1] must be a 2-tuple!")
-        if (len(value[1]) != 2):
-            raise ValueError("Not 2-tuple: Stream value[1] must be a 2-tuple!")
-        if not isinstance(value[1][0], int):
-            raise ValueError("Not integer: Stream value[1] 2-tuple must have integer (index type) for index 0!")
-        if not isinstance(value[1][1], str):
-                raise ValueError("Not string: Stream value[1] 2-tuple must have string (filename) for index 1!")
+        if not isinstance(value[1], str):
+            raise TypeError("Not string: Stream value[1] must be a file name string!")
 
         if (key in self.__tdbStreams):  # ...append a Stream entry...
             if (not value[0] in self.__tdbStreams[key][0]):  # ...append ext...
@@ -101,15 +92,13 @@ class TDB_Streams(MutableMapping):
             self.__tdbStreams[key][2].append(value[1])
         else:  # ...add a new Stream entry...
             self.__tdbStreams[key] = [ [ value[0] ], bStreamID, [ value[1] ] ]
-        self.__dictCount["All"] += 1
-        self.__dictCount[value[1][0]] += 1
+        self.__dictCount += 1
 
-        if (bStreamID):  # Stream ID...
+        if (bStreamID):  # Stream ID, key is int...
             if (self.__iPreviousID != None):
                 if (key != self.__iPreviousID + 1):
                     self.__bOutOfSeq = True
             self.__iPreviousID = key
-
 
         return
 
@@ -126,9 +115,9 @@ class TDB_Streams(MutableMapping):
         return f"{type(self).__name__}({self.__tdbStreams})"
 
 
-    def getCount(self, iType = "All"):
+    def getCount(self):
         # Return number of Catalog entries based on type...
-        return self.__dictCount[iType]
+        return self.__dictCount
 
 
     def get(self, key):
@@ -143,33 +132,43 @@ class TDB_Streams(MutableMapping):
         return self.__bOutOfSeq
 
 
-    def getFileName(self, keyStreamName, strExt, bHasSymName, iType):
+    def getFileName(self, key, strExt):
+        bStreamID = None
+        if isinstance(key, int):
+            bStreamID = True
+        elif isinstance(key, str):
+            bStreamID = False
+        else:
+            raise TypeError("Not invalid: Stream key must be an integer or string representing a thumbnail ID/name!")
+
         strPrefix = ""
-        if (bHasSymName and config.ARGS.symlinks):  # ...implies config.ARGS.outdir
+        if (bStreamID and config.ARGS.symlinks):  # ...implies config.ARGS.outdir
+                # Put real file in the thumbnail subdirectory...
+                #  Symlinks in the top dir will point to the real file here
                 strPrefix = config.THUMBS_SUBDIR + "/"
 
-        if bHasSymName:
-            # Compute filename from the Stream ID for a thumbnail...
-            strComputedFileName = "%d" % keyStreamName
-        else:
-            # Compute filename from the given filename for a thumbnail...
-            strComputedFileName = keyStreamName
+        # Default filename from the given filename for a thumbnail...
+        #  NOTE: Filename same as key
+        strComputedFileName = key
+        if bStreamID:
+            # Default older filename from the Stream ID for a thumbnail...
+            strComputedFileName = "%d" % key
 
         # Is the key already indexed?
-        if (keyStreamName in self.__tdbStreams):
+        if (key in self.__tdbStreams):
             # Compute the next valid filename for a given filename...
-            # FORMAT: XXX_# where XXX is either a given filename that may include '_'s
-            #                                or a Stream ID that has no '_'s
+            # FORMAT: XXX_# where XXX is either a given filename (str) that may include '_'s
+            #                                or a Stream ID (int) that has no '_'s
             #                   and # is an increment value for existing filenames
 
-            # Get first stored name without number sequence ("name")...
-            (iIndexType, strIndexFileName) = self.__tdbStreams[keyStreamName][2][0]
-            if (strComputedFileName == strIndexFileName):
-                if (len(self.__tdbStreams[keyStreamName][2]) == 1):
+            # Get first stored name - the clean name without number sequence (XXX)...
+            strIndexFileName = self.__tdbStreams[key][2][0]
+            if (strComputedFileName == strIndexFileName):  # ...same as first (duplicate)?
+                if (len(self.__tdbStreams[key][2]) == 1):  # ...only 1 stored?
                     strComputedFileName = strIndexFileName + "_1"
-                else:
-                    # Get last stored name with highest number sequence ("name_#")...
-                    (iIndexType, strIndexFileName) = self.__tdbStreams[keyStreamName][2][-1]
+                else:  # ...more than 1 stored...
+                    # Get last stored name with highest number sequence ("XXX_#")...
+                    strIndexFileName = self.__tdbStreams[key][2][-1]
                     iMark = strIndexFileName.rfind("_")
                     try:
                         iVal = int(strIndexFileName[iMark + 1: ])
@@ -177,8 +176,8 @@ class TDB_Streams(MutableMapping):
                         raise Value("Stream invalid: Stream names must be extended with _# where # is an integer! Offender: %s" % strIndexFileName)
                     strComputedFileName = strIndexFileName[ :iMark + 1] + str(iVal + 1)
 
-        # Add or append to self...
-        self[keyStreamName] = [strExt, (iType, strComputedFileName)]
+        # Add or append to self -- see __setitem__()...
+        self[key] = [strExt, strComputedFileName]
         # Return filename...
         return strPrefix + strComputedFileName + "." + strExt
 
@@ -188,32 +187,23 @@ class TDB_Streams(MutableMapping):
             return None
 
         # Return extraction statistics...
-        dictStats = {"u": {1: 0, 2: 0}, "e": {1: 0, 2: 0} }
+        dictStats = {"u": 0, "e": 0 }
         for key in self.__tdbStreams:
-            for (iIndexType, strIndexFileName) in self.__tdbStreams[key][2]:
+            for strIndexFileName in self.__tdbStreams[key][2]:
                 if (strIndexFileName == ""):
-                    dictStats["u"][iIndexType] += 1
+                    dictStats["u"] += 1
                 else:
-                    dictStats["e"][iIndexType] += 1
+                    dictStats["e"] += 1
 
         strExtSuffix = ""
         if config.ARGS.outdir != None:
             strExtSuffix = " to " + config.ARGS.outdir
 
         astrStats = []
-        for strExtractType in dictStats:
-            for iType in dictStats[strExtractType]:
-                if (dictStats["u"][iType] == 0 and dictStats["e"][iType] == 0):
-                    continue
-                strStat = ""
-                if (strExtractType == "u"):
-                    strStat += "Unextracted: "
-                else:
-                    strStat += "  Extracted: "
-                strStat += ("%4d" % dictStats[strExtractType][iType]) + " thumbnails of Type " + str(iType)
-                if (strExtractType == "e"):
-                    strStat += strExtSuffix
-                astrStats.append(strStat)
+        strStat = "Unextracted: %4d thumbnails" % dictStats["u"]
+        astrStats.append(strStat)
+        strStat = "  Extracted: %4d thumbnails" % dictStats["e"] + strExtSuffix
+        astrStats.append(strStat)
 
         return astrStats
 

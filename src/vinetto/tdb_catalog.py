@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "2"
+file_micro = "3"
 
 
 from collections.abc import MutableMapping
@@ -41,7 +41,7 @@ from collections.abc import MutableMapping
 class TDB_Catalog(MutableMapping):
     def __init__(self, data=()):
         # Initialize a new TDB_Catalog instance...
-        self.__tdbCatalog = {}  # {iKey, [(strTime, strName)]}
+        self.__tdbCatalog = {}  # {iKey/strKey, [(strTime, strName)]}
         self.__bOutOfSeq = False
         self.__iPreviousID = None
         self.__iCount = 0
@@ -61,8 +61,14 @@ class TDB_Catalog(MutableMapping):
 
     def __setitem__(self, key, value):
         # Add a new Catalog entry...
-        if not isinstance(key, int):
-            raise ValueError("Not integer: Catalog key must be an integer!")
+        bStreamID = None
+        if isinstance(key, int):
+            bStreamID = True
+        elif isinstance(key, str):
+            bStreamID = False
+        else:
+            raise TypeError("Invalid: Catalog key must be an integer or string!")
+
         bList = isinstance(value, list)
         bTuple = isinstance(value, tuple)
         if not (bList or bTuple):
@@ -93,10 +99,11 @@ class TDB_Catalog(MutableMapping):
             self.__tdbCatalog[key] = listVal
             self.__iCount += len(listVal)
 
-        if (self.__iPreviousID != None):
-            if (key != self.__iPreviousID + 1):
-                self.__bOutOfSeq = True
-        self.__iPreviousID = key
+        if (bStreamID):  # Stream ID, key is int...
+            if (self.__iPreviousID != None):
+                if (key != self.__iPreviousID + 1):
+                    self.__bOutOfSeq = True
+            self.__iPreviousID = key
 
         return
 
@@ -118,19 +125,19 @@ class TDB_Catalog(MutableMapping):
         return self.__iCount
 
 
-    def get(self, iCat):
+    def get(self, key):
         # Return iCat Catalog entry...
-        if iCat in self.__tdbCatalog:
-            return self.__tdbCatalog[iCat]
+        if key in self.__tdbCatalog:
+            return self.__tdbCatalog[key]
         return None
 
 
     def getOrphans(self, tdbStreams):
         # Return orphan Catalog entries (not in current stream)...
         listOrphanIDs = []
-        for iID in self.__tdbCatalog:
-            if (not iID in tdbStreams):
-                listOrphanIDs.append(iID)
+        for key in self.__tdbCatalog:
+            if (not key in tdbStreams):
+                listOrphanIDs.append(key)
         return listOrphanIDs
 
 

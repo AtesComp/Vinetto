@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "2"
+file_micro = "3"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"
@@ -47,6 +47,11 @@ THUMBS_FILE_URLS = "urls.txt"
 THUMBS_TYPE_OLE  = 0
 THUMBS_TYPE_CMMM = 1
 THUMBS_TYPE_IMMM = 2
+
+THUMBS_TYPE_OLE_PIL = None  # No attempt to load PIL
+THUMBS_TYPE_OLE_PIL_TYPE1_HEADER   = None
+THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE = None
+THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  = None
 
 THUMBS_SIG_OLE =  bytearray(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1")  # Standard Sig for OLE2 Thumbs.db file
 THUMBS_SIG_OLEB = bytearray(b"\x0e\x11\xfc\x0d\xd0\xcf\x11\xe0")  # Older Beta Sig for OLE2 Thumbs.db file
@@ -76,7 +81,7 @@ THUMBS_FILE_TYPES = ["OLE (Thumb.db)", "CMMM (Thumbcache_*.db)", "IMMM (Thumbcac
 # access.
 OLE_PDIS_BLOCK = 0xFFFFFFFC  # unsigned -4  Marks DISAT Part Sector
 OLE_PART_BLOCK = 0xFFFFFFFD  # unsigned -3  Marks SAT Part Sector
-OLE_LAST_BLOCK = 0xFFFFFFFE  # unsigned -2  Marks Last Sector
+OLE_LAST_BLOCK = 0xFFFFFFFE  # unsigned -2  Marks Last Sector (no more!)
 OLE_NONE_BLOCK = 0xFFFFFFFF  # unsigned -1  Marks Unused Sector
 
 # OLE_BLOCK_TYPES: (Stream Types)
@@ -206,6 +211,8 @@ ESEDB_ICOL_NAMES = {
 ESEDB_ICOL = {}
 for key in ESEDB_ICOL_NAMES.keys():
     ESEDB_ICOL[key] = None
+
+HTTP_REPORT = None
 
 ARGS = None
 EXIT_CODE = 0

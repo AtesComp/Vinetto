@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.3] - 2020-01-31 (DEVELOPEMENT)
+
+### Changed
+
+- Extreme Makeover: More new files to contain Thumbnail File processing (to be converted to classes)
+- Extreme Makeover: Restructured Thumbnail File processing to be consistent between file types
+- Updated code relationship between "catalog", symlink, and HTMLprocessing
+- More IMMM process tweaking for Windows versions
+- Overhauled HTML Report structure and coding
+
 ## [0.9.2] - 2020-01-23 (DEVELOPEMENT)
 
 ### Changed
