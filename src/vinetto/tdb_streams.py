@@ -200,10 +200,14 @@ class TDB_Streams(MutableMapping):
             strExtSuffix = " to " + config.ARGS.outdir
 
         astrStats = []
-        strStat = "Unextracted: %4d thumbnails" % dictStats["u"]
-        astrStats.append(strStat)
-        strStat = "  Extracted: %4d thumbnails" % dictStats["e"] + strExtSuffix
-        astrStats.append(strStat)
+        if (dictStats["u"] > 0):
+            strStat = "Unextracted: %4d thumbnails" % dictStats["u"]
+            astrStats.append(strStat)
+        if (dictStats["e"] > 0):
+            strStat = "  Extracted: %4d thumbnails" % dictStats["e"] + strExtSuffix
+            astrStats.append(strStat)
+        if (len(astrStats) == 0):
+            return None
 
         return astrStats
 

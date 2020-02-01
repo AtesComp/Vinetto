@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "4"
+file_micro = "5"
 
 
 import sys
@@ -40,6 +40,7 @@ import argparse
 
 import vinetto.version as version
 import vinetto.config as config
+import vinetto.error as verror
 import vinetto.thumbfile as thumbfile
 import vinetto.esedb as esedb
 
@@ -71,6 +72,24 @@ def getArgs():
         "        BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb\n" +
         "    When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated\n" +
         "    location\n" +
+        "\n" +
+        "Verbose Mode Notes:\n" +
+        "  Using the verbose switch (-v, --verbose) and the quiet switch cause the\n" +
+        "  terminal output to be treated differently based on the switch usage\n" +
+        "    Level:   Mode:    Switch:   Output:\n"
+        "     -1      Quiet     -q       Errors\n" +
+        "      0      Standard  N/A      output + Errors + Warnings\n" +
+        "      1      Verbose   -v       Standard + Extended + Info\n" +
+        "      2      Enhanced  -vv      Verbose + Unused\n" +
+        "      3      Full      -vvv     Enhanced + Missing\n" +
+        "    where Quiet indicates no output other than error messages\n" +
+        "          Standard indicates normal informative output\n" +
+        "          Verbose adds Extended header, cache, and additional Info messages\n" +
+        "          Enhanced add any data marked Unused or zero state\n" +
+        "          Full expands empty data section output instead of \"Empty\"\n" +
+        "      and Errors are error messages explaining termination\n" +
+        "          Warnings are warning messages indicating processing issues\n" +
+        "          Info are information messages indicating processing states\n" +
         "\n"
         )
     strEpilog = (
@@ -88,7 +107,7 @@ def getArgs():
     parser.add_argument("-e", "--edb", dest="edbfile", metavar="EDBFILE",
                         help=("examine EDBFILE (Extensible Storage Engine Database) for\n" +
                               "original thumbnail filenames\n" +
-                              "NOTE: -e without an INFILE explores EDBFILE"))
+                              "NOTE: -e without an INFILE explores EDBFILE extracted data"))
     parser.add_argument("-H", "--htmlrep", action="store_true", dest="htmlrep",
                         help=("write html report to DIR (requires option -o)"))
     parser.add_argument("-m", "--mode", nargs="?", dest="mode", choices=["f", "d", "r", "a"],
@@ -108,9 +127,10 @@ def getArgs():
     parser.add_argument("--nomd5", action="store_true", dest="md5never",
                         help=("skip the MD5 hash value calculation for an input file"))
     parser.add_argument("-o", "--outdir", dest="outdir", metavar="DIR",
-                        help=("write thumbnails to DIR"))
+                        help=("write thumbnails to DIR\n" +
+                              "NOTE: -o requires INFILE"))
     parser.add_argument("-q", "--quiet", action="store_true", dest="quiet",
-                        help=("quiet output, supress warnings\n" +
+                        help=("quiet output: Errors only\n" +
                               "NOTE: -v overrides -q"))
     parser.add_argument("-s", "--symlinks", action="store_true", dest="symlinks",
                         help=("create symlink from the the image realname to the numbered name\n" +
@@ -122,7 +142,7 @@ def getArgs():
                         help=("use utf8 encodings"))
     parser.add_argument("-v", '--verbose', action='count', default=0,
                         help=("verbose output, print info messages - each use increments output\n" +
-                              "level"))
+                              "level 0 (standard + warnings), 1 (enhanced), 2 (details)"))
     parser.add_argument("--version", action="version", version=strEpilog)
     parser.add_argument("infile", nargs="?",
                         help=("depending on operating mode (see mode option), either a location\n" +
@@ -177,8 +197,6 @@ def processDirectory(thumbDir, filenames=None):
 
     for thumbFile in files:
         thumbfile.processThumbFile(thumbFile)
-        if (config.EXIT_CODE > 0):
-            sys.exit(config.EXIT_CODE)
 
     return
 
@@ -187,8 +205,7 @@ def processRecursiveDirectory():
     # Walk the directories from given directory recursively down...
     for dirpath, dirnames, filenames in os.walk(config.ARGS.infile):
         processDirectory(dirpath, filenames)
-        if (config.EXIT_CODE > 0):
-            sys.exit(config.EXIT_CODE)
+
     return
 
 
@@ -212,12 +229,10 @@ def processFileSystem():
                     continue
                 userThumbsDir = os.path.join(entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR)
                 if not os.path.exists(userThumbsDir):  # ...NOT exists?
-                    if (not config.ARGS.quiet):
+                    if (config.ARGS.verbose >= 0):
                         sys.stderr.write(" Warning: Skipping %s - does not contain %s\n" % (entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR))
                 else:
                     processDirectory(userThumbsDir)
-                    if (config.EXIT_CODE > 0):
-                        sys.exit(config.EXIT_CODE)
 
     # XP
     # ============================================================
@@ -230,8 +245,6 @@ def processFileSystem():
                 if not entryUserDir.is_dir():
                     continue
                 processDirectory(entryUserDir)
-                if (config.EXIT_CODE > 0):
-                    sys.exit(config.EXIT_CODE)
 
     # Other / Unidentified
     # ============================================================
@@ -239,8 +252,6 @@ def processFileSystem():
         if (config.ARGS.verbose > 0):
             sys.stderr.write(" Info: FS - Generic partition, processing all subdirectories (recursive operating mode)\n")
         processDirectory(config.ARGS.infile)
-        if (config.EXIT_CODE > 0):
-            sys.exit(config.EXIT_CODE)
 
     return
 
@@ -257,27 +268,19 @@ def testInput():
     # Test Input File parameter...
     if (config.ARGS.infile != None):
         if not os.path.exists(config.ARGS.infile):  # ...NOT exists?
-            sys.stderr.write(strError + "%s does not exist\n" % (config.ARGS.infile))
-            config.EXIT_CODE = 10
-            return
+            raise verror.InputError(strError + config.ARGS.infile + " does not exist")
         if (config.ARGS.mode == "f"):  # Traditional Mode...
             if not os.path.isfile(config.ARGS.infile):  # ...NOT a file?
-                sys.stderr.write(strError + "%s not a file\n" % (config.ARGS.infile))
-                config.EXIT_CODE = 10
-                return
+                raise verror.InputError(strError + config.ARGS.infile + " not a file")
         else:  # Directory, Recursive Directory, or Automatic Mode...
             if not os.path.isdir(config.ARGS.infile):  # ...NOT a directory?
-                sys.stderr.write(strError + "%s not a directory\n" % (config.ARGS.infile))
-                config.EXIT_CODE = 10
-                return
+                raise verror.InputError(strError + config.ARGS.infile + " not a directory")
             # Add ending '/' as needed...
             if not config.ARGS.infile.endswith('/'):
                 config.ARGS.infile += "/"
 
         if not os.access(config.ARGS.infile, os.R_OK):  # ...NOT readable?
-            sys.stderr.write(strError + "%s not readable\n" % (config.ARGS.infile))
-            config.EXIT_CODE = 10
-            return
+            raise verror.InputError(strError + config.ARGS.infile + " not readable")
     return
 
 
@@ -292,18 +295,12 @@ def testOutput():
                 if (config.ARGS.verbose > 0):
                     sys.stderr.write(" Info: %s was created\n" % (config.ARGS.outdir))
             except EnvironmentError as e:
-                sys.stderr.write(strError + "Cannot create %s\n" % (config.ARGS.outdir))
-                config.EXIT_CODE = 11
-                return
+                raise verror.OutputError(strError + "Cannot create " + config.ARGS.outdir)
         else:  # ...exists...
             if not os.path.isdir(config.ARGS.outdir):  # ...NOT a directory?
-                sys.stderr.write(strError + "%s is not a directory\n" % (config.ARGS.outdir))
-                config.EXIT_CODE = 11
-                return
+                raise verror.OutputError(strError + config.ARGS.outdir + " is not a directory")
             elif not os.access(config.ARGS.outdir, os.W_OK):  # ...NOT writable?
-                sys.stderr.write(strError + "%s not writable\n" % (config.ARGS.outdir))
-                config.EXIT_CODE = 11
-                return
+                raise verror.OutputError(strError + config.ARGS.outdir + " not writable")
         # Add ending '/' as needed...
         if not config.ARGS.outdir.endswith('/'):
             config.ARGS.outdir += "/"
@@ -315,75 +312,79 @@ def testOutput():
 
 
 def testESEDB():
-    strError = " Error"
     strType = " (ESEDB): "
 
-    # Test ESEDB File parameter...
+    # Setup ESEDB File test...
     bEDBErrorOut = True
-    bEDBFileGood = False
+    strReport = " Error"
     strEDBFileReport = config.ARGS.edbfile
-    strErrorReport = strError + strType
     if (config.ARGS.mode == "a" and config.ARGS.edbfile == None):
         bEDBErrorOut = False
-        strErrorReport = " Warning" + strType
-        strEDBFileReport = "Default ESEDB"
+        strReport = " Warning"
+        strEDBFileReport = "Default ESEDB (" + OS_WIN_ESEBD_FILE + ")"
         # Try Vista+ first (newer ESEDB location)...
-        strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_ESEDB_VISTA + config.OS_WIN_COMMON)
+        strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_ESEDB_VISTA +
+                                                      config.OS_WIN_ESEBD_COMMON +
+                                                      OS_WIN_ESEBD_FILE)
         if not os.path.exists(strEDBFile):  # ...NOT exists?
             # Fallback to XP (older ESEDB location)...
-            strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP + config.OS_WIN_ESEDB_XP + config.OS_WIN_COMMON)
+            strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP +
+                                                          config.OS_WIN_ESEDB_XP +
+                                                          config.OS_WIN_ESEBD_COMMON +
+                                                          OS_WIN_ESEBD_FILE)
+            if not os.path.exists(strEDBFile):  # ...NOT exists?
+                # Nothing available...
+                strEDBFile = None
         config.ARGS.edbfile = strEDBFile
-    if (config.ARGS.edbfile != None):
-        # Testing EDBFILE parameter...
-        if not os.path.exists(config.ARGS.edbfile):  # ...NOT exists?
-            if (bEDBErrorOut or not config.ARGS.quiet):
-                sys.stderr.write("%s%s does not exist\n" % (strErrorReport, strEDBFileReport))
-            if bEDBErrorOut:
-                config.EXIT_CODE = 18
-                return
-        elif not os.path.isfile(config.ARGS.edbfile):  # ...NOT a file?
-            if (bEDBErrorOut or not config.ARGS.quiet):
-                sys.stderr.write("%s%s is not a file\n" % (strErrorReport, strEDBFileReport))
-            if bEDBErrorOut:
-                config.EXIT_CODE = 18
-                return
-        elif not os.access(config.ARGS.edbfile, os.R_OK):  # ...NOT readable?
-            if (bEDBErrorOut or not config.ARGS.quiet):
-                sys.stderr.write("%s%s not readable\n" % (strErrorReport, strEDBFileReport))
-            if bEDBErrorOut:
-                config.EXIT_CODE = 18
-                return
 
-        # ESEDB: Prepare (open)...
-        bEDBFileGood = esedb.prepareESEDB()
-        if (config.EXIT_CODE > 0):
-            return
+    if (config.ARGS.edbfile == None):
+        return
 
-        # ESEDB: Load...
-        if bEDBFileGood:  # ...ESEDB good?...
-            bEDBFileGood = esedb.loadESEDB()
+    # Test ESEDB File parameter...
+    bProblem = False
+    # Testing EDBFILE parameter...
+    if not os.path.exists(config.ARGS.edbfile):  # ...NOT exists?
+        bProblem = True
+        strErrorMsg = strReport + strType + strEDBFileReport + " does not exist"
+    elif not os.path.isfile(config.ARGS.edbfile):  # ...NOT a file?
+        bProblem = True
+        strErrorMsg = strReport + strType + strEDBFileReport + " is not a file"
+    elif not os.access(config.ARGS.edbfile, os.R_OK):  # ...NOT readable?
+        bProblem = True
+        strErrorMsg = strReport + strType + strEDBFileReport + " not readable"
 
-        # ESEDB: Check for problems...
-        if not bEDBFileGood:  # ...ESEDB bad?...
-            if (not config.ARGS.quiet):
-                sys.stderr.write(" Warning: Skipping ESEDB enhanced processing\n")
+    if (bProblem):
+        if bEDBErrorOut:
+            raise verror.ESEDBError(strErrorMsg)
+        elif (config.ARGS.verbose >= 0):
+            sys.stderr.write(strErrorMsg + "\n")
 
-        # ESEDB: Close...
-        if (config.ESEDB_FILE != None):
-            config.ESEDB_TABLE = None
-            config.ESEDB_FILE.close()
+    # ESEDB: Prepare (open)...
+    # ESEDB: Load...
+    # ESEDB: Check for problems...
+    if (not ( esedb.prepareESEDB() and esedb.loadESEDB() ) ):  # ...ESEDB bad?...
+        if (config.ARGS.verbose >= 0):
+            sys.stderr.write(" Warning: Skipping ESEDB enhanced processing\n")
+
+    # ESEDB: Close...
+    if (config.ESEDB_FILE != None):
+        config.ESEDB_TABLE = None
+        config.ESEDB_FILE.close()
+        config.ESEDB_FILE = None
+
     return
 
 
 def prepareSymLink():
-    if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-        if not os.path.exists(config.ARGS.outdir + config.THUMBS_SUBDIR):
-            try:
-                os.mkdir(config.ARGS.outdir + config.THUMBS_SUBDIR)
-            except EnvironmentError:
-                sys.stderr.write(" Error (Symlink): Cannot create directory %s\n" % config.ARGS.outdir + config.THUMBS_SUBDIR)
-                config.EXIT_CODE = 15
-                return
+    if (not config.ARGS.symlinks):
+        return
+
+    strSymOut = config.ARGS.outdir + config.THUMBS_SUBDIR
+    if not os.path.exists(strSymOut):
+        try:
+            os.mkdir(strSymOut)
+        except EnvironmentError:
+            raise verror.LinkError(" Error (Symlink): Cannot create directory " + strSymOut)
     return
 
 
@@ -396,45 +397,41 @@ def prepareSymLink():
 def main():
     config.ARGS = getArgs()
 
-    testInput()
-    if (config.EXIT_CODE > 0):
-        sys.exit(config.EXIT_CODE)
+    try:
+        testInput()
 
-    testOutput()
-    if (config.EXIT_CODE > 0):
-        sys.exit(config.EXIT_CODE)
+        testOutput()
 
-    # Correct QUIET mode...
-    if (config.ARGS.quiet) and (config.ARGS.verbose > 0):
-        config.ARGS.quiet = False
+        # Correct QUIET and VERBOSE modes...
+        if (config.ARGS.quiet):
+            if (config.ARGS.verbose > 0):
+                config.ARGS.quiet = False  # ..turn off quiet
+            else:
+                config.ARGS.verbose = -1  # ...store quiet as a verbose setting
 
-    # Correct MD5 mode...
-    if (config.ARGS.md5force) and (config.ARGS.md5never):
-        config.ARGS.md5force = False
 
-    testESEDB()
-    if (config.EXIT_CODE > 0):
-        sys.exit(config.EXIT_CODE)
+        # Correct MD5 mode...
+        if (config.ARGS.md5force) and (config.ARGS.md5never):
+            config.ARGS.md5force = False
 
-    prepareSymLink()
-    if (config.EXIT_CODE > 0):
-        return
+        testESEDB()
 
-    # Process
-    # ============================================================
-    if (config.ARGS.infile == None and config.ARGS.edbfile != None):
-        esedb.examineESEDB()
-    elif (config.ARGS.mode == "f"):  # Traditional Mode
-        thumbfile.processThumbFile(config.ARGS.infile)
-    elif (config.ARGS.mode == "d"):  # Directory Mode
-        processDirectory(config.ARGS.infile)
-    elif (config.ARGS.mode == "r"):  # Recursive Directory Mode
-        processRecursiveDirectory()
-    elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
-        processFileSystem()
-    else:  # Unknown Mode - should never occur
-        sys.stderr.write(" Error (Mode): Unknown mode (%s) to process %s\n" % (config.ARGS.mode, config.ARGS.infile))
-        config.EXIT_CODE = 16
+        prepareSymLink()
 
-    if (config.EXIT_CODE > 0):
-        sys.exit(config.EXIT_CODE)
+        # Process
+        # ============================================================
+        if (config.ARGS.infile == None and config.ARGS.edbfile != None):
+            esedb.examineESEDB()
+        elif (config.ARGS.mode == "f"):  # Traditional Mode
+            thumbfile.processThumbFile(config.ARGS.infile)
+        elif (config.ARGS.mode == "d"):  # Directory Mode
+            processDirectory(config.ARGS.infile)
+        elif (config.ARGS.mode == "r"):  # Recursive Directory Mode
+            processRecursiveDirectory()
+        elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
+            processFileSystem()
+        else:  # Unknown Mode - should never occur
+            raise verror.ModeError(" Error (Mode): Unknown mode (" + config.ARGS.mode + ") to process " + config.ARGS.infile)
+    except verror.VinettoError as ve:
+        ve.printError()
+        sys.exit(ve.iExitCode)

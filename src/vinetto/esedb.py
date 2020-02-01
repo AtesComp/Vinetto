@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "0"
+file_micro = "2"
 
 
 import sys
@@ -37,6 +37,7 @@ from struct import unpack
 from binascii import hexlify, unhexlify
 
 import vinetto.config as config
+import vinetto.error as verror
 
 
 def prepareESEDB():
@@ -46,9 +47,7 @@ def prepareESEDB():
     except:
         # Hard Error!  The "pyesedb" library is installed locally with Vinetto,
         #   so missing "pyesedb" library is bad!
-        sys.stderr.write(" Error (Install): Cannot import local library pyesedb\n")
-        config.EXIT_CODE = 13
-        return False
+        raise verror.InstallError(" Error (Install): Cannot import local library pyesedb")
 
     pyesedb_ver = pyesedb.get_version()
     if (config.ARGS.verbose > 0):
@@ -59,7 +58,7 @@ def prepareESEDB():
         config.ESEDB_FILE = pyesedb.file()
         config.ESEDB_FILE.open(config.ARGS.edbfile)
     except IOError:
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: Cannot opened ESEDB File for enhanced processing\n")
         return False
 
@@ -84,7 +83,7 @@ def prepareESEDB():
         strTableName = "0A"
         config.ESEDB_TABLE = config.ESEDB_FILE.get_table_by_name(strSysIndex + strTableName)
     if (config.ESEDB_TABLE == None):  # ...still no table available?...
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: Cannot opened ESEDB Table for enhanced processing\n")
         return False
 
@@ -114,11 +113,11 @@ def prepareESEDB():
 
 def loadESEDB():
     if (config.ESEDB_ICOL["TCID"] == None):
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: No ESEDB Image column %s available\n" % ESEDB_ICOL_NAMES["TCID"][0])
         return False
     if (config.ESEDB_ICOL["MIME"] == None and config.ESEDB_ICOL["CTYPE"] == None and config.ESEDB_ICOL["ITT"] == None):
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: No ESEDB Image columns %s available\n" %
                              (ESEDB_ICOL_NAMES["MIME"][0] + ", " +
                               ESEDB_ICOL_NAMES["CTYPE"][0] + ", or " +
@@ -181,7 +180,7 @@ def loadESEDB():
 
     if (len(config.ESEDB_REC_LIST) == 0):
         config.ESEDB_REC_LIST = None
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: No ESEDB Image data available\n")
         return False
 
@@ -474,7 +473,7 @@ def searchESEDB(strTCID):
     try:
         bstrTCID = unhexlify(strConvertTCID)
     except:
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: Cannot unhex given Thumbnail Cache ID (%s) for compare\n" % strConvertTCID)
         return None
 

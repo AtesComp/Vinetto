@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "3"
-file_micro = "8"
+file_micro = "9"
 
 
 import sys
@@ -55,6 +55,8 @@ def getFormattedTimeUTC(iTime):
 
 
 def getFormattedWinToPyTimeUTC(iFileTime_Win32):
+    if (iFileTime_Win32 == None):
+        return "None"
     return getFormattedTimeUTC( convertWinToPyTime(iFileTime_Win32) )
 
 

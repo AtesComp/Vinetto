@@ -134,7 +134,7 @@ and Windows(R)(TM) OSes as well. YMMV.
     -e EDBFILE, --edb EDBFILE
                             examine EDBFILE (Extensible Storage Engine Database) for
                             original thumbnail filenames
-                            NOTE: -e without an INFILE explores EDBFILE
+                            NOTE: -e without an INFILE explores EDBFILE extracted data
     -H, --htmlrep         write html report to DIR (requires option -o)
     -m [{f,d,r,a}], --mode [{f,d,r,a}]
                             operating mode: "f", "d", "r", or "a"
@@ -150,7 +150,8 @@ and Windows(R)(TM) OSes as well. YMMV.
                             NOTE: --nomd5 overrides --md5
     --nomd5               skip the MD5 hash value calculation for an input file
     -o DIR, --outdir DIR  write thumbnails to DIR
-    -q, --quiet           quiet output, supress warnings
+                            NOTE: -o requires INFILE
+    -q, --quiet           quiet output: Errors only
                             NOTE: -v overrides -q
     -s, --symlinks        create symlink from the the image realname to the numbered name
                             in DIR/.thumbs (requires option -o)
@@ -159,7 +160,7 @@ and Windows(R)(TM) OSes as well. YMMV.
                                 (-e) to find and extract possible file names
     -U, --utf8            use utf8 encodings
     -v, --verbose         verbose output, print info messages - each use increments output
-                            level
+                            level 0 (standard + warnings), 1 (enhanced), 2 (details)
     --version             show program's version number and exit
 
     Operating Mode Notes:
@@ -184,7 +185,25 @@ and Windows(R)(TM) OSes as well. YMMV.
         When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
         location
 
-    --- Vinetto.py 0.9.1 ---
+    Verbose Mode Notes:
+    Using the verbose switch (-v, --verbose) and the quiet switch cause the
+    terminal output to be treated differently based on the switch usage
+        Level:   Mode:    Switch:   Output:
+         -1      Quiet     -q       Errors
+          0      Standard  N/A      output + Errors + Warnings
+          1      Verbose   -v       Standard + Extended + Info
+          2      Enhanced  -vv      Verbose + Unused
+          3      Full      -vvv     Enhanced + Missing
+        where Quiet indicates no output other than error messages
+            Standard indicates normal informative output
+            Verbose adds Extended header, cache, and additional Info messages
+            Enhanced add any data marked Unused or zero state
+            Full expands empty data section output instead of "Empty"
+        and Errors are error messages explaining termination
+            Warnings are warning messages indicating processing issues
+            Info are information messages indicating processing states
+
+    --- Vinetto.py 0.9.4 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software
@@ -201,12 +220,12 @@ certain tasks:
    2 - Argument parsing error
   10 - Input errors
   11 - Output errors
-  12 - ThumbDB processing errors
+  12 - Processing errors
   13 - Install errors
-  14 - Stream errors
+  14 - Entry errors (Stream, Cache)
   15 - Symlink errors
   16 - Mode errors
-  17 - HTML Report errors
+  17 - Report errors (HTML)
   18 - ESEDB file errors
 ```
 

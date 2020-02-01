@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "3"
+file_micro = "5"
 
 
 import sys
@@ -40,6 +40,7 @@ from struct import unpack
 from binascii import hexlify, unhexlify
 
 import vinetto.config as config
+import vinetto.error as verror
 import vinetto.report as report
 import vinetto.esedb as esedb
 import vinetto.tdb_catalog as tdb_catalog
@@ -60,9 +61,7 @@ def setSymlink(strTarget, strLink):
             os.remove(strLink)
             os.symlink(strTarget, strLink)
         else:
-            sys.stderr.write(" Error (Symlink): Cannot create symlink %s to file %s\n" % (strLink, strTarget))
-            config.EXIT_CODE = 15
-            return
+            raise verror.LinkError(" Error (Symlink): Cannot create symlink " + strLink + " to file " + strTarget)
     return
 
 
@@ -81,7 +80,7 @@ def preparePILOutput():
             if (config.ARGS.verbose > 0):
                 sys.stderr.write(" Info: Imported PIL for possible Type 1 exports\n")
         except ImportError:
-            if (not config.ARGS.quiet):
+            if (config.ARGS.verbose >= 0):
                 sys.stderr.write(" Warning: Cannot find PIL Package Image module.\n" +
                                     "          Vinetto will only extract Type 2 thumbnails.\n")
         if (config.THUMBS_TYPE_OLE_PIL == True):
@@ -92,9 +91,7 @@ def preparePILOutput():
             except:
                 # Hard Error!  The header, quantization, and huffman data files are installed
                 #    locally with Vinetto, so missing missing files are bad!
-                sys.stderr.write(" Error (Install): Cannot load PIL support data files\n")
-                config.EXIT_CODE = 13
-                return
+                raise verror.InstallError(" Error (Install): Cannot load PIL support data files")
     return
 
 
@@ -118,15 +115,24 @@ def printOLEHead(strCLSID, iRevisionNo, iVersionNo, cEndian,
     if (config.ARGS.verbose > 0):
         print("        Endian: %s" % ("Little" if (cEndian == "<") else "Big"))
         print("       DB Info:")
-        print("    SAT  Sec Size: %s" % ("None" if iSectorSize == config.OLE_LAST_BLOCK else ("%d" % iSectorSize)))
-        print("   MSAT  Sec Size: %s" % ("None" if iSectorSizeMini == config.OLE_LAST_BLOCK else ("%d" % iSectorSizeMini)))
-        print("    SAT Total Sec: %s" % ("None" if iSAT_TotalSec == config.OLE_LAST_BLOCK else ("%d" % iSAT_TotalSec)))
-        print("    SAT  1st  Sec: %s" % ("None" if iDir1stSec == config.OLE_LAST_BLOCK else ("%d" % iDir1stSec)))
-        print("      Stream Size: %s" % ("None" if iStreamSizeMini == config.OLE_LAST_BLOCK else ("%d" % iStreamSizeMini)))
-        print("   MSAT  1st  Sec: %s" % ("None" if iMSAT_1stSec == config.OLE_LAST_BLOCK else ("%d" % iMSAT_1stSec)))
-        print("   MSAT Total Sec: %s" % ("None" if iMSAT_TotalSec == config.OLE_LAST_BLOCK else ("%d" % iMSAT_TotalSec)))
-        print(" DirSAT  1st  Sec: %s" % ("None" if iDISAT_1stSec == config.OLE_LAST_BLOCK else ("%d" % iDISAT_1stSec)))
-        print(" DirSAT Total Sec: %s" % ("None" if iDISAT_TotalSec == config.OLE_LAST_BLOCK else ("%d" % iDISAT_TotalSec)))
+        if iSectorSize     == config.OLE_LAST_BLOCK: iSectorSize     = None
+        if iSectorSizeMini == config.OLE_LAST_BLOCK: iSectorSizeMini = None
+        if iSAT_TotalSec   == config.OLE_LAST_BLOCK: iSAT_TotalSec   = None
+        if iDir1stSec      == config.OLE_LAST_BLOCK: iDir1stSec      = None
+        if iStreamSizeMini == config.OLE_LAST_BLOCK: iStreamSizeMini = None
+        if iMSAT_1stSec    == config.OLE_LAST_BLOCK: iMSAT_1stSec    = None
+        if iMSAT_TotalSec  == config.OLE_LAST_BLOCK: iMSAT_TotalSec  = None
+        if iDISAT_1stSec   == config.OLE_LAST_BLOCK: iDISAT_1stSec   = None
+        if iDISAT_TotalSec == config.OLE_LAST_BLOCK: iDISAT_TotalSec = None
+        print("    SAT  Sec Size: %s" % str(iSectorSize))
+        print("   MSAT  Sec Size: %s" % str(iSectorSizeMini))
+        print("    SAT Total Sec: %s" % str(iSAT_TotalSec))
+        print("    SAT  1st  Sec: %s" % str(iDir1stSec))
+        print("      Stream Size: %s" % str(iStreamSizeMini))
+        print("   MSAT  1st  Sec: %s" % str(iMSAT_1stSec))
+        print("   MSAT Total Sec: %s" % str(iMSAT_TotalSec))
+        print(" DirSAT  1st  Sec: %s" % str(iDISAT_1stSec))
+        print(" DirSAT Total Sec: %s" % str(iDISAT_TotalSec))
     return
 
 
@@ -149,10 +155,8 @@ def printOLECache(strName, dictOLECache):
 
 def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
     preparePILOutput()
-    if (config.EXIT_CODE > 0):
-        sys.exit(config.EXIT_CODE)
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         if (iThumbsDBSize % 512 ) != 0:
             sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, iThumbsDBSize))
 
@@ -191,12 +195,12 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
 
     tDB_SectorSize         = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Sector Shift
     tDB_SectorSizeMini     = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Mini Sector Shift
-    reserved               = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # short int reserved
-    reserved               = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # int reserved
-    reserved               = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Sector Count for Directory Chain (4 KB Sectors)
+    reserved01             = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # short int reserved
+    reserved02             = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # int reserved
+    reserved03             = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Sector Count for Directory Chain (4 KB Sectors)
     tDB_SID_SAT_TotalSec   = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Sector Count for SAT Chain (512 B Sectors)
     tDB_SID_SAT_FirstSec   = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Root Directory: 1st Sector in Directory Chain
-    reserved               = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Signature for transactions (0, not implemented)
+    reserved04             = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Signature for transactions (0, not implemented)
     tDB_StreamSize         = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Stream Max Size (typically 4 KB)
     tDB_SID_MSAT_FirstSec  = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # First Sector in the MiniSAT chain
     tDB_SID_MSAT_TotalSec  = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Sector Count in the MiniSAT chain
@@ -204,7 +208,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
     tDB_SID_DISAT_TotalSec = unpack(tDB_endian+"L", fileThumbsDB.read(4))[0]  # Sector Count in the DISAT chain
     iOffset = 76
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         print(" Header\n --------------------")
         printOLEHead(tDB_CLSID, tDB_revisionNo, tDB_versionNo, tDB_endian,
                      tDB_SectorSize, tDB_SectorSizeMini, tDB_SID_SAT_TotalSec, tDB_SID_SAT_FirstSec,
@@ -269,7 +273,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
             # Empty Entry processing...
             # =============================================================
             if (dictOLECache["type"] == 0):
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print(" Empty Entry %d\n --------------------" % iStreamCounter)
                     printOLECache(strRawName, dictOLECache)
                     print(STR_SEP)
@@ -277,7 +281,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
             # Storage Entry processing...
             # =============================================================
             elif (dictOLECache["type"] == 1):
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print(" Storage Entry %d\n --------------------" % iStreamCounter)
                     printOLECache(strRawName, dictOLECache)
                     print(STR_SEP)
@@ -287,7 +291,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
             elif (dictOLECache["type"] == 2):
                 bRegularBlock = (dictOLECache["SID_sizeDir"] >= 4096)
 
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print((" Stream Entry %d (" % iStreamCounter) +
                           ("Standard" if bRegularBlock else "Mini") + ")\n" +
                           " --------------------")
@@ -360,7 +364,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                 # -------------------------------------------------------------
                 #  Catalogs are related to the older Thumbs DB index name convention
                 if (strRawName == "Catalog"):
-                    if (not config.ARGS.quiet):
+                    if (config.ARGS.verbose >= 0):
                         print("       Entries: ---------------------------------------")
 
                     # Get catalog header...
@@ -390,13 +394,11 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                             strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
                             setSymlink(strTarget, config.ARGS.outdir + strCatEntryName)
-                            if (config.EXIT_CODE > 0):
-                                return
 
                         # Add a "catalog" entry...
                         tdbCatalog[iCatEntryID] = (strCatEntryTimestamp, strCatEntryName)
 
-                        if (not config.ARGS.quiet):
+                        if (config.ARGS.verbose >= 0):
                             print("          " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strCatEntryName)
 
                         # Next catalog entry...
@@ -407,9 +409,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                 else:
                     # Is End Of Image (EOI) at end of stream?
                     if (bstrStreamData[iStreamDataLen - 2: iStreamDataLen] != bytearray(b"\xff\xd9")):  # ...Not End Of Image (EOI)
-                        sys.stderr.write(" Error (Stream): Missing End of Image (EOI) marker in stream entry %d\n" % iStreamCounter)
-                        config.EXIT_CODE = 14
-                        return
+                        raise verror.EntryError(" Error (Entry): Missing End of Image (EOI) marker in stream entry " + str(iStreamCounter))
 
                     # --- Header 1: Get file offset...
                     headOffset   = unpack(tDB_endian+"L", bstrStreamData[ 0: 4])[0]
@@ -417,9 +417,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
 
                     # Is length OK?
                     if (unpack(tDB_endian+"H", bstrStreamData[ 8:10])[0] != (iStreamDataLen - headOffset)):
-                        sys.stderr.write(" Error (Stream): Header 1 length mismatch in stream entry %d\n" % iStreamCounter)
-                        config.EXIT_CODE = 14
-                        return
+                        raise verror.EntryError(" Error (Entry): Header 1 length mismatch in stream entry " + str(iStreamCounter))
 
                     strExt = "jpg"
                     if (not bOldNameID):
@@ -434,8 +432,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                                 if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                                     strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strRawName + "." + strExt
                                     setSymlink(strTarget, config.ARGS.outdir + strFileName)
-                                    if (config.EXIT_CODE > 0):
-                                        return
+
                                     fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
                                     fileURL.write(strTarget + " => " + strFileName + "\n")
                                     fileURL.close()
@@ -443,7 +440,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                                 # Add a "catalog" entry...
                                 tdbCatalog[strRawName] = (strCatEntryTimestamp, strFileName)
 
-                            if (not config.ARGS.quiet):
+                            if (config.ARGS.verbose >= 0):
                                 esedb.printESEDBInfo(dictESEDB)
                                 if (strFileName != None):
                                     print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
@@ -462,9 +459,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                     elif (unpack(tDB_endian+"L", bstrStreamData[headOffset: headOffset + 4])[0] == 1):
                         # Is second header OK?
                         if (unpack(tDB_endian+"H", bstrStreamData[headOffset + 4: headOffset + 6])[0] != (iStreamDataLen - headOffset - 16)):
-                            sys.stderr.write(" Error (Stream): Header 2 length mismatch in stream entry %d\n" % iStreamCounter)
-                            config.EXIT_CODE = 14
-                            return
+                            raise verror.EntryError(" Error (Entry): Header 2 length mismatch in stream entry " + str(iStreamCounter))
 
                         if (config.ARGS.outdir != None and config.THUMBS_TYPE_OLE_PIL):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
@@ -482,17 +477,15 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
                         else:  # Cannot extract (PIL not found) or not extracting...
                             tdbStreams[keyStreamName] = LIST_PLACEHOLDER
                     else:
-                        sys.stderr.write(" Error (Stream): Header 2 not found in stream entry %d\n" % iStreamCounter)
-                        config.EXIT_CODE = 14
-                        return
+                        raise verror.EntryError(" Error (Entry): Header 2 not found in stream entry " + str(iStreamCounter))
 
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print(STR_SEP)
 
             # Lock Bytes Entry processing...
             # =============================================================
             elif (dictOLECache["type"] == 3):
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print(" Lock Bytes Entry %d\n --------------------" % iStreamCounter)
                     printOLECache(strRawName, dictOLECache)
                     print(STR_SEP)
@@ -500,7 +493,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
             # Property Entry processing...
             # =============================================================
             elif (dictOLECache["type"] == 4):
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print(" Property Entry %d\n --------------------" % iStreamCounter)
                     printOLECache(strRawName, dictOLECache)
                     print(STR_SEP)
@@ -508,7 +501,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
             # Root Entry processing...
             # =============================================================
             elif (dictOLECache["type"] == 5):  # ...ROOT should always be first entry
-                if (not config.ARGS.quiet):
+                if (config.ARGS.verbose >= 0):
                     print(" Root Entry %d\n --------------------" % iStreamCounter)
                     printOLECache(strRawName, dictOLECache)
                     print(STR_SEP)
@@ -533,7 +526,7 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
 
     astrStats = tdbStreams.extractStats()
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         print(" Summary:")
         if (astrStats != None):
             for strStat in astrStats:
@@ -546,10 +539,8 @@ def processThumbsTypeOLE(infile, fileThumbsDB, iThumbsDBSize):
         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
         config.HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
-        if (config.EXIT_CODE > 0):
-            return
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         if (len(tdbCatalog) > 0):
             if (tdbCatalog.getCount() != tdbStreams.getCount()):
                 sys.stderr.write(" Warning: %s - Counts (Catalog != Extracted)\n" % infile)
@@ -567,9 +558,9 @@ def printCMMMHead(dictCMMMMeta):
     print("          Type: %d (%s)" % (dictCMMMMeta["CacheType"], dictCMMMMeta["CacheTypeStr"]))
     if (config.ARGS.verbose > 0):
         print("    Cache Info:")
-        print("          Offset: %s" % ("None" if (dictCMMMMeta["CacheOff1st"] == None) else ("%d" % dictCMMMMeta["CacheOff1st"])))
-        print("   1st Available: %s" % ("None" if (dictCMMMMeta["CacheOff1stAvail"] == None) else ("%d" % dictCMMMMeta["CacheOff1stAvail"])))
-        print("           Count: %s" % ("None" if (dictCMMMMeta["CacheCount"] == None) else ("%d" % dictCMMMMeta["CacheCount"])))
+        print("          Offset: %s" % str(dictCMMMMeta["CacheOff1st"]))
+        print("   1st Available: %s" % str(dictCMMMMeta["CacheOff1stAvail"]))
+        print("           Count: %s" % str(dictCMMMMeta["CacheCount"]))
     return
 
 
@@ -596,7 +587,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
     # tDB_endian = "<" ALWAYS Little???
 
     if (iThumbsDBSize < 24):
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
@@ -621,7 +612,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
         pass
 
     if (dictCMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8")):
-        reserved = fileThumbsDB.read(4)  # Skip an integer size
+        reserved01 = fileThumbsDB.read(4)  # Skip an integer size
 
     dictCMMMMeta["CacheOff1st"]      = unpack("<L", fileThumbsDB.read(4))[0]
     dictCMMMMeta["CacheOff1stAvail"] = unpack("<L", fileThumbsDB.read(4))[0]
@@ -630,7 +621,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
         dictCMMMMeta["CacheCount"]   = unpack("<L", fileThumbsDB.read(4))[0]
 
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         print(" Header\n --------------------")
         printCMMMHead(dictCMMMMeta)
         print(STR_SEP)
@@ -649,7 +640,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
     iCacheCounter = 1
     while (True):
         if (iThumbsDBSize < (iOffset + 48)):
-            if (not config.ARGS.quiet):
+            if (config.ARGS.verbose >= 0):
                 sys.stderr.write(" Warning: Remaining cache entry %d too small to process\n" % iCacheCounter)
             break
 
@@ -678,7 +669,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
             tDB_height = unpack("<L",  fileThumbsDB.read(4))[0]
             iOffset += 8
 
-        reserved     = unpack("<L",  fileThumbsDB.read(4))[0]
+        reserved02   = unpack("<L",  fileThumbsDB.read(4))[0]
         tDB_chksumD  = unpack("<Q",  fileThumbsDB.read(8))[0]
         tDB_chksumH  = unpack("<Q",  fileThumbsDB.read(8))[0]
         iOffset += 20
@@ -729,7 +720,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
         # ESEDB Search...
         dictESEDB = esedb.searchESEDB(keyStreamName)
 
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             print(" Cache Entry %d\n --------------------" % iCacheCounter)
             printCMMMCache(tDB_sig.decode(), tDB_size, strHash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
                          tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, keyStreamName, dictESEDB)
@@ -747,8 +738,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
                     if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                         strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
                         setSymlink(strTarget, config.ARGS.outdir + strFileName)
-                        if (config.EXIT_CODE > 0):
-                                return
+
                         fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
                         fileURL.write(strTarget + " => " + strFileName + "\n")
                         fileURL.close()
@@ -756,7 +746,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
                     # Add a "catalog" entry...
                     tdbCatalog[strCleanFileName] = (strCatEntryTimestamp, strFileName)
 
-                    if (not config.ARGS.quiet):
+                    if (config.ARGS.verbose >= 0):
                         print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
 
             # Write data to filename...
@@ -771,7 +761,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
         # End of Loop
         iCacheCounter += 1
 
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             print(STR_SEP)
 
         # Check End of File...
@@ -779,20 +769,20 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
             break
 
     astrStats = tdbStreams.extractStats()
-    if (not config.ARGS.quiet):
+
+    if (config.ARGS.verbose >= 0):
         print(" Summary:")
         if (astrStats != None):
             for strStat in astrStats:
                 print("   " + strStat)
         else:
             print("   No Stats!")
+
     if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
         strSubDir = "."
         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
         config.HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
-        if (config.EXIT_CODE > 0):
-            return
 
 
 def printIMMMHead(dictIMMMMeta, iFileSize):
@@ -800,58 +790,43 @@ def printIMMMHead(dictIMMMMeta, iFileSize):
     print("        Format: %d (%s)" % (dictIMMMMeta["FormatType"], dictIMMMMeta["FormatTypeStr"]))
     print("          Size: %d" % iFileSize)
     print("    Entry Info:")
-    print("        Reserved: %s" % ("None" if (dictIMMMMeta["Reserved01"] == None) else ("%d" % dictIMMMMeta["Reserved01"])))
-    print("            Used: %s" % ("None" if (dictIMMMMeta["EntryUsed"] == None) else ("%d" % dictIMMMMeta["EntryUsed"])))
-    print("           Count: %s" % ("None" if (dictIMMMMeta["EntryCount"] == None) else ("%d" % dictIMMMMeta["EntryCount"])))
-    print("           Total: %s" % ("None" if (dictIMMMMeta["EntryTotal"] == None) else ("%d" % dictIMMMMeta["EntryTotal"])))
+    print("        Reserved: %s" % str(dictIMMMMeta["Reserved01"]))
+    print("            Used: %s" % str(dictIMMMMeta["EntryUsed"]))
+    print("           Count: %s" % str(dictIMMMMeta["EntryCount"]))
+    print("           Total: %s" % str(dictIMMMMeta["EntryTotal"]))
+    if (config.ARGS.verbose > 1):
+        strUnknown = "Unknown"
+        for key in  dictIMMMMeta:
+            if strUnknown in key:
+                print("      " + strUnknown + " " + key[-2:] + ": " + str(dictIMMMMeta[key]))
+
     return
 
 
-def printIMMMCache(strHash, iFileTime, strFlags,
-                   iOffset_16, iOffset_32, iOffset_48, iOffset_96, iOffset_256, iOffset_1024,
-                   iOffset_1280, iOffset_1600, iOffset_1920, iOffset_2560,
-                   iOffset_sr, iOffset_wide, iOffset_exif, iOffset_wide_alternate,
-                   iOffset_custom_stream):
+def printIMMMCache(dictThumbDBEntry):
+    strHash = format(dictThumbDBEntry["Hash"], "016x")
+    strFlags = format(dictThumbDBEntry["Flags"], "032b")[2:] # bin(dictThumbDBEntry["Flags"][2:]
+    print("          Hash: %s" % str(strHash))
+    print("        Modify: %s" % getFormattedWinToPyTimeUTC(dictThumbDBEntry["FileTime"]))
+    print("         Flags: %s" % str(strFlags))
+
+    if (config.ARGS.verbose < 1):
+        return
+
     iNegOne = config.OLE_NONE_BLOCK  # ...filter out unused values
     if (config.ARGS.verbose > 1):
-        iNegOne = None  # ...show unused, i.e., remove filter (set to same as first filter)
-    if (strHash != None):
-        print("          Hash: %s" % strHash)
-    if (iFileTime != None):
-        print("        Modify: %s" % getFormattedWinToPyTimeUTC(iFileTime))
-    if (strFlags != None):
-        print("         Flags: %s" % strFlags)
-    if (config.ARGS.verbose > 0):
-        if (iOffset_16 != None and iOffset_16 != iNegOne):
-            print("   Offset   16: %d" % iOffset_16)
-        if (iOffset_32 != None and iOffset_32 != iNegOne):
-            print("   Offset   32: %d" % iOffset_32)
-        if (iOffset_48 != None and iOffset_48 != iNegOne):
-            print("   Offset   48: %d" % iOffset_48)
-        if (iOffset_96 != None and iOffset_96 != iNegOne):
-            print("   Offset   96: %d" % iOffset_96)
-        if (iOffset_256 != None and iOffset_256 != iNegOne):
-            print("   Offset  256: %d" % iOffset_256)
-        if (iOffset_1024 != None and iOffset_1024 != iNegOne):
-            print("   Offset 1024: %d" % iOffset_1024)
-        if (iOffset_1280 != None and iOffset_1280 != iNegOne):
-            print("   Offset 1280: %d" % iOffset_1280)
-        if (iOffset_1600 != None and iOffset_1600 != iNegOne):
-            print("   Offset 1600: %d" % iOffset_1600)
-        if (iOffset_1920 != None and iOffset_1920 != iNegOne):
-            print("   Offset 1920: %d" % iOffset_1920)
-        if (iOffset_2560 != None and iOffset_2560 != iNegOne):
-            print("   Offset 2560: %d" % iOffset_2560)
-        if (iOffset_sr != None and iOffset_sr != iNegOne):
-            print("   Offset   sr: %d" % iOffset_sr)
-        if (iOffset_wide != None and iOffset_wide != iNegOne):
-            print("   Offset wide: %d" % iOffset_wide)
-        if (iOffset_exif != None and iOffset_exif != iNegOne):
-            print("   Offset exif: %d" % iOffset_exif)
-        if (iOffset_wide_alternate != None and iOffset_wide_alternate != iNegOne):
-            print("   Offset walt: %d" % iOffset_wide_alternate)
-        if (iOffset_custom_stream != None and iOffset_custom_stream != iNegOne):
-            print("   Offset cust: %d" % iOffset_custom_stream)
+        iNegOne = None  # ...show unused, i.e., don't filter
+
+    # Check each offset for use (value), unused (-1), or not present (None)
+    for iIndex in range( len(config.TC_CACHE_ALL) ):
+        key = config.TC_CACHE_ALL[iIndex]
+        # Filter uninteresting entries: None == not read from the file
+        #                                -1  == cleared
+        if (dictThumbDBEntry.get(key) != None and dictThumbDBEntry[key] != iNegOne):
+            print("   Offset % 4s: % 11d  [%s]" % (config.TC_CACHE_ALL_DISPLAY[iIndex],
+                                                   dictThumbDBEntry[key],
+                                                   format(dictThumbDBEntry[key], "08x")))
+
     return
 
 
@@ -859,7 +834,7 @@ def processThumbsTypeIMMM(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 
     # tDB_endian = "<" ALWAYS
 
     if (iThumbsDBSize < 24):
-        if (not config.ARGS.quiet):
+        if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: %s too small to process header\n" % infile)
         return
 
@@ -877,46 +852,45 @@ def processThumbsTypeIMMM(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 
     except:
         pass
 
-    dictIMMMMeta["Reserved01"]    = unpack("<L", fileThumbsDB.read(4))[0]
+    dictIMMMMeta["Reserved01"] = unpack("<L", fileThumbsDB.read(4))[0]
     dictIMMMMeta["EntryUsed"]  = unpack("<L", fileThumbsDB.read(4))[0]
     dictIMMMMeta["EntryCount"] = unpack("<L", fileThumbsDB.read(4))[0]
     dictIMMMMeta["EntryTotal"] = unpack("<L", fileThumbsDB.read(4))[0]
     iOffset += 20
 
-    iBlockSize = 24
     if (dictIMMMMeta["FormatType"] == config.TC_FORMAT_TYPE.get("Windows 10")):
-        dictIMMMMeta["Reserved02"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved03"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved04"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved05"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved06"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved07"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved08"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved09"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved10"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved11"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved12"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved13"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved14"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved15"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved16"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved17"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved18"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved19"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved20"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved21"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved22"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved23"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved24"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved25"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved26"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved27"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved28"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved29"] = unpack("<L", fileThumbsDB.read(4))[0]
-        dictIMMMMeta["Reserved30"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown02"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown03"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown04"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown05"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown06"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown07"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown08"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown09"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown10"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown11"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown12"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown13"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown14"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown15"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown16"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown17"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown18"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown19"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown20"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown21"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown22"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown23"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown24"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown25"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown26"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown27"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown28"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown29"] = unpack("<L", fileThumbsDB.read(4))[0]
+        dictIMMMMeta["Unknown30"] = unpack("<L", fileThumbsDB.read(4))[0]
         iOffset += 116
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         print(" Header\n --------------------")
         printIMMMHead(dictIMMMMeta, iThumbsDBSize)
         print(STR_SEP)
@@ -935,124 +909,129 @@ def processThumbsTypeIMMM(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 
     iPrinted = 0
     while (True):
         if (iThumbsDBSize < (iOffset + 32)):
-            if (not config.ARGS.quiet):
+            if (config.ARGS.verbose >= 0):
                 sys.stderr.write(" Warning: %s too small to process cache entry %d\n" % (infile, iCacheCounter))
             return
+
+        dictThumbDBEntry = {}
 
         iOffEntry = 0
         fileThumbsDB.seek(iOffset)
 
-        tDB_hash = unpack("<Q", fileThumbsDB.read(8))[0]
+        dictThumbDBEntry["Hash"] = unpack("<Q", fileThumbsDB.read(8))[0]
         iOffEntry += 8
 
-        tDB_filetime = None
+        dictThumbDBEntry["FileTime"] = None
         if (dictIMMMMeta["FormatType"] == config.TC_FORMAT_TYPE.get("Windows Vista")):
-            tDB_filetime = unpack("<Q", fileThumbsDB.read(8))[0]
+            dictThumbDBEntry["FileTime"] = unpack("<Q", fileThumbsDB.read(8))[0]
             iOffEntry += 8
 
-        tDB_flags = unpack("<L", fileThumbsDB.read(4))[0]
+        dictThumbDBEntry["Flags"] = unpack("<L", fileThumbsDB.read(4))[0]
         iOffEntry += 4
 
-        tDB_tc_16 = None
+        # Parse the Thumbcache File Offsets...
+        # ------------------------------------------------------------
+        dictThumbDBEntry["16"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 7")):
-            tDB_tc_16 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["16"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_32   = unpack("<L", fileThumbsDB.read(4))[0]
+        dictThumbDBEntry["32"]   = unpack("<L", fileThumbsDB.read(4))[0]
         iOffEntry += 4
 
-        tDB_tc_48 = None
+        dictThumbDBEntry["48"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 7")):
-            tDB_tc_48 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["48"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_96   = unpack("<L", fileThumbsDB.read(4))[0]
+        dictThumbDBEntry["96"]   = unpack("<L", fileThumbsDB.read(4))[0]
         iOffEntry += 4
 
-        tDB_tc_256  = unpack("<L", fileThumbsDB.read(4))[0]
+        dictThumbDBEntry["256"]  = unpack("<L", fileThumbsDB.read(4))[0]
         iOffEntry += 4
 
-        tDB_tc_768 = None
+        dictThumbDBEntry["768"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8.1")):
-            tDB_tc_768 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["768"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_1024 = unpack("<L", fileThumbsDB.read(4))[0]
+        dictThumbDBEntry["1024"] = unpack("<L", fileThumbsDB.read(4))[0]
         iOffEntry += 4
 
-        tDB_tc_1280 = None
+        dictThumbDBEntry["1280"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8.1")):
-            tDB_tc_1280 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["1280"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_1600 = None
+        dictThumbDBEntry["1600"] = None
         if (dictIMMMMeta["FormatType"] == config.TC_FORMAT_TYPE.get("Windows 8.1")):
-            tDB_tc_1600 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["1600"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_1920 = None
+        dictThumbDBEntry["1920"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8.1")):
-            tDB_tc_1920 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["1920"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_2560 = None
+        dictThumbDBEntry["2560"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8.1")):
-            tDB_tc_2560 = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["2560"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_sr   = unpack("<L", fileThumbsDB.read(4))[0]
+        dictThumbDBEntry["sr"]   = unpack("<L", fileThumbsDB.read(4))[0]
         iOffEntry += 4
 
-        tDB_tc_wide = None
+        dictThumbDBEntry["wide"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 7")):
-            tDB_tc_wide = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["wide"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_exif = None
+        dictThumbDBEntry["exif"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 7")):
-            tDB_tc_exif = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["exif"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_wide_alternate = None
+        dictThumbDBEntry["wide_alternate"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8 v3")):
-            tDB_tc_wide_alternate = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["wide_alternate"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        tDB_tc_custom_stream = None
+        dictThumbDBEntry["custom_stream"] = None
         if (dictIMMMMeta["FormatType"] > config.TC_FORMAT_TYPE.get("Windows 8.1")):
-            tDB_tc_custom_stream = unpack("<L", fileThumbsDB.read(4))[0]
+            dictThumbDBEntry["custom_stream"] = unpack("<L", fileThumbsDB.read(4))[0]
             iOffEntry += 4
 
-        strHash = format(tDB_hash, '016x')
-        strFlags = format(tDB_flags, "032b")[2:] # bin(tDB_flags)[2:]
+        # Decide how to print the current Cache Entry...
+        bPrint = 2  # Full Print (DEFAULT)
+        bEmptyOrUnused = (dictThumbDBEntry["Flags"] == 0x0 or dictThumbDBEntry["Flags"] == 0xffffffff)
+        bCompleteEmpty = (dictThumbDBEntry["Hash"] == 0x0 and dictThumbDBEntry["Flags"] == 0x0)
+        if (config.ARGS.verbose < 0):
+            bPrint = 0  # No Print
+        elif (config.ARGS.verbose == 0):
+            if (bEmptyOrUnused):
+                bPrint = 0  # No Print
+            # Otherwise, Full Print
+        elif (config.ARGS.verbose == 1):
+            if (bCompleteEmpty):
+                bPrint = 0  # No Print
+            elif (bEmptyOrUnused):
+                bPrint = 1  # Empty Print
+            # Otherwise, Full Print
+        elif (config.ARGS.verbose == 2):
+            if (bCompleteEmpty):
+                bPrint = 1  # Empty Print
+            # Otherwise, Full Print
+        elif (config.ARGS.verbose > 2):
+            bPrint = 2  # Full Print
 
-        if (not config.ARGS.quiet):
-            bPrint = 2  # full print (default)
-            if (config.ARGS.verbose > 2):
-                pass  # full print
-            elif (config.ARGS.verbose > 1):
-                if (tDB_hash == 0x0 and tDB_flags == 0x0):  # ...totally empty...
-                    bPrint = 1  # ...short print
-            elif (config.ARGS.verbose > 0):
-                if (tDB_flags == 0x0 or tDB_flags == 0xffffffff):  # ...empty or unused...
-                    bPrint = 1  # ...short print
-                if (tDB_hash == 0x0 and tDB_flags == 0x0):  # ...totally empty...
-                    bPrint = 0  # ...don't print
-            else: # Standard Print
-                if (tDB_flags == 0x0 or tDB_flags == 0xffffffff):  # ...empty or unused...
-                    bPrint = 0  # ...don't print
-            if (bPrint):
-                print(" Cache Entry %d\n --------------------" % iCacheCounter)
-                if (bPrint == 1):
-                    print("   Empty!")
-                else:  # bPrint > 1
-                    printIMMMCache(strHash, tDB_filetime, strFlags,
-                                   tDB_tc_16, tDB_tc_32, tDB_tc_48, tDB_tc_96, tDB_tc_256, tDB_tc_1024,
-                                   tDB_tc_1280, tDB_tc_1600, tDB_tc_1920, tDB_tc_2560,
-                                   tDB_tc_sr, tDB_tc_wide, tDB_tc_exif, tDB_tc_wide_alternate,
-                                   tDB_tc_custom_stream)
-                print(STR_SEP)
-                iPrinted += 1
+        if (bPrint):  # ...not 0
+            print(" Cache Entry %d\n --------------------" % iCacheCounter)
+            if (bPrint == 1):
+                print("   Empty!")
+            else:  # bPrint > 1
+                printIMMMCache(dictThumbDBEntry)
+            print(STR_SEP)
+            iPrinted += 1
 
         # TODO: DO MORE!!!
 
@@ -1071,7 +1050,7 @@ def processThumbsTypeIMMM(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 
 #    print("  Printed: %d,  Offset: %d,  Diff %d" % (iPrinted, iOffset, iThumbsDBSize - iOffset))
 
     astrStats = tdbStreams.extractStats()
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         print(" Summary:")
         if (astrStats != None):
             for strStat in astrStats:
@@ -1083,8 +1062,6 @@ def processThumbsTypeIMMM(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 
         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
         config.HTTP_REPORT.flush(astrStats, strSubDir)
-        if (config.EXIT_CODE > 0):
-            return
 
 
 def processThumbFile(infile):
@@ -1092,11 +1069,11 @@ def processThumbFile(infile):
     try:
         fileThumbsDB = open(infile, "rb")
     except:
+        strMsg = "Cannot open file " + infile
         if (config.ARGS.mode == "f"):  # ...only processing a single file, error
-            sys.stderr.write(" Error (ThumbDB): Cannot open file %s\n" % infile)
-            config.EXIT_CODE = 12
-        elif (not config.ARGS.quiet):  # ...for modes "d", "r", and "a", continue
-            sys.stderr.write(" Warning: Cannot open file %s\n" % infile)
+            raise verror.ProcessError(" Error (Process): " + strMsg)
+        elif (config.ARGS.verbose >= 0):  # ...for modes "d", "r", and "a", continue
+            sys.stderr.write(" Warning: " + strMsg + "\n")
         return
 
     # Setup file Header information...
@@ -1110,11 +1087,11 @@ def processThumbFile(infile):
     try:
         dictHead["FileSize"] = os.stat(infile).st_size
     except:
+        strMsg = "Cannot get size of file " + infile
         if (config.ARGS.mode == "f"):  # ...only processing a single file, error
-            sys.stderr.write(" Error (ThumbDB): Cannot get size of file %s\n" % infile)
-            config.EXIT_CODE = 12
-        elif (not config.ARGS.quiet):  # ...for modes "d", "r", and "a", continue
-            sys.stderr.write(" Warning: Cannot get size of file %s\n" % infile)
+            raise verror.ProcessError(" Error (Process): " + strMsg)
+        elif (config.ARGS.verbose >= 0):  # ...for modes "d", "r", and "a", continue
+            sys.stderr.write(" Warning: " + strMsg + "\n")
         return
 
     # Get MD5 of file...
@@ -1132,7 +1109,7 @@ def processThumbFile(infile):
     # -----------------------------------------------------------------------------
     # Begin analysis output...
 
-    if (not config.ARGS.quiet):
+    if (config.ARGS.verbose >= 0):
         print(STR_SEP)
         print(" File: %s" % dictHead["FilePath"])
         if (dictHead["MD5"] != None):
@@ -1157,11 +1134,11 @@ def processThumbFile(infile):
         dictHead["FileType"] = config.THUMBS_TYPE_IMMM
         iInitialOffset = 4
     else:  # ...Header Signature not found...
+        strMsg = "Header Signature not found in " + dictHead["FilePath"]
         if (config.ARGS.mode == "f"):
-            sys.stderr.write(" Error (ThumbDB): Header Signature not found in %s\n" % dictHead["FilePath"])
-            config.EXIT_CODE = 12
-        elif (not config.ARGS.quiet):
-            sys.stderr.write(" Warning: Header Signature not found in %s\n" % dictHead["FilePath"])
+            raise verror.ProcessError(" Error (Process): " + strMsg)
+        elif (config.ARGS.verbose >= 0):
+            sys.stderr.write(" Warning: " + strMsg + "\n")
         return  # ..always return
 
     # Initialize optional HTML report...
@@ -1176,11 +1153,11 @@ def processThumbFile(infile):
         processThumbsTypeIMMM(dictHead["FilePath"], fileThumbsDB, dictHead["FileSize"], iInitialOffset)
     else:  # ...should never hit this as dictHead["FileType"] is set in prior "if" block above,
            # ...dictHead["FileType"] should always be set properly
+        strMsg = "No process for Header Signature in " + dictHead["FilePath"]
         if (config.ARGS.mode == "f"):
-            sys.stderr.write(" Error (ThumbDB): No process for Header Signature in %s\n" % dictHead["FilePath"])
-            config.EXIT_CODE = 12
-        elif (not config.ARGS.quiet):
-            sys.stderr.write(" Warning: No process for Header Signature in %s\n" % dictHead["FilePath"])
+            raise verror.ProcessError(" Error (Process): " + strMsg)
+        elif (config.ARGS.verbose >= 0):
+            sys.stderr.write(" Warning: " + strMsg + "\n")
 
     return
 

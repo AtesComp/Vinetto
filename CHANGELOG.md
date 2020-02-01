@@ -2,13 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.3] - 2020-01-31 (DEVELOPEMENT)
+## [0.9.4] - 2020-01-31 (DEVELOPEMENT)
+
+### Added
+
+- Extreme Makeover: Added Error Classes
+- Documented Verbose Modes (including Quiet) in help
 
 ### Changed
 
+- Extreme Makeover: changed error coding to raise errors managed at main for exit status
+- Updated exit codes -- consolidated and renamed
+- Tweaked verbosity code; previously added Level -1 for -q option
+
+## [0.9.3] - 2020-01-31 (DEVELOPEMENT)
+
+### Added
+
 - Extreme Makeover: More new files to contain Thumbnail File processing (to be converted to classes)
+
+### Changed
+
 - Extreme Makeover: Restructured Thumbnail File processing to be consistent between file types
-- Updated code relationship between "catalog", symlink, and HTMLprocessing
+- Updated code relationship between "catalog", symlink, and HTML processing
 - More IMMM process tweaking for Windows versions
 - Overhauled HTML Report structure and coding
 

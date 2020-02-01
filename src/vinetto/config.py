@@ -29,12 +29,13 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "3"
+file_micro = "5"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"
 OS_WIN_ESEDB_XP     = "All Users/Application Data/"
-OS_WIN_ESEBD_COMMON = "Microsoft/Search/Data/Applications/Windows/Windows.edb"
+OS_WIN_ESEBD_COMMON = "Microsoft/Search/Data/Applications/Windows/"
+OS_WIN_ESEBD_FILE   = "Windows.edb"
 
 OS_WIN_USERS_XP       = "Documents and Settings/"
 OS_WIN_USERS_VISTA    = "Users/"
@@ -124,6 +125,7 @@ TC_CACHE_TYPE = (
                   (   "16",   "32",   "48",   "96",  "256",  "768", "1280", "1920", "2560",   "sr", "wide", "exif", "wide_alternate", "custom_stream" ),
                 )
 TC_CACHE_ALL = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1600", "1920", "2560",   "sr",  "idx", "wide", "exif", "wide_alternate", "custom_stream" )
+TC_CACHE_ALL_DISPLAY = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1600", "1920", "2560",   "sr",  "idx", "wide", "exif", "walt", "cust" )
 
 #
 #  Windows Thumbcache location:
@@ -215,6 +217,3 @@ for key in ESEDB_ICOL_NAMES.keys():
 HTTP_REPORT = None
 
 ARGS = None
-EXIT_CODE = 0
-
-

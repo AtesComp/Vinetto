@@ -29,14 +29,15 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "6"
+file_micro = "7"
 
 
 from time import time
 from os.path import dirname, basename, abspath, getmtime
 
-import vinetto.config as config
 import vinetto.version as version
+import vinetto.config as config
+import vinetto.error as verror
 from vinetto.utils import getFormattedWinToPyTimeUTC, getFormattedTimeUTC
 
 from pkg_resources import resource_filename
@@ -138,8 +139,6 @@ class HtmlReport(Report):
 
     def flush(self, astrStats, strSubDir, tdbStreams = None, tdbCatalog = None):
         self.__writeHead()  # ...opens HTML file for write
-        if (config.EXIT_CODE > 0):
-            return
 
         self.__writeMeta()
 
@@ -202,9 +201,7 @@ class HtmlReport(Report):
         try:
             self.repfile = open(strFileName, "w")
         except:
-            sys.stderr.write(" Error (HTML): Cannot create %s\n" % (strFileName))
-            config.EXIT_CODE = 17
-            return
+            raise verror.ReportError(" Error (Report): Cannot create " + strFileName)
         for strLine in HTTP_HEADER:
             strLine = strLine.replace("__CHARSET__",    self.strCharSet)
             strLine = strLine.replace("__DATEREPORT__", "Report Date: " + getFormattedTimeUTC( time() ))
