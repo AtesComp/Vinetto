@@ -39,14 +39,14 @@ defaults or specified ESEDB (Windows.edb) file.  This process uses the python
 libraries from "libesedb" to find and extract the relevant file metadata.
 Vinetto will function according to four modes:
    1. *file* : Vinetto extracts thumbnail images and metadata from specified
-   cache files.  **This is the current default operating mode.**
+   cache files.  **This is the default operating mode.**
       - Local directory Thumbs.db are processed.
       - User Thumbcache_\*.db files are processed.
       - Thumb Cache IDs are cross checked to extract any relevant metadata
       from a specified ESEDB file.
 
-   2. *directory* : **TODO** Vinetto processes any found \*.db files in the
-   specified BASE directory.
+   2. *directory* : Vinetto processes any found \*.db files in the specified
+   BASE directory.
       - It checks for consistency between the specified directory's content and
       its related Thumbs.db file (i.e., it reports thumbnails that have a
       missing associated file in the directory).
@@ -54,8 +54,8 @@ Vinetto will function according to four modes:
       - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
       metadata from a specified ESEDB file.
 
-   3. *recursive* : **TODO** Vinetto processes any found \*.db files from the
-   specified  BASE directory recursively down its directory tree.
+   3. *recursive* : Vinetto processes any found \*.db files from the specified
+   BASE directory recursively down its directory tree.
       - As per *directory*, it check for consistency between a subdirectory's
       content and its related Thumbs.db file (i.e., it reports thumbnails that
       have a missing associated file in the directory).
@@ -63,8 +63,8 @@ Vinetto will function according to four modes:
       - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
       metadata from a specified ESEDB file.
 
-   4. *automatic* : **TODO:** Vinetto will process the specified BASE
-   directory as a Windows OS partition.
+   4. *automatic* : Vinetto will process the specified BASE directory as a
+   Windows OS partition.
       - It checks the BASE directory to be consistent with Vista+ OS version.
       If less than Vista, it processes as per *recursive*.  If Vista+, it
       processes Thumbcache_\*.db files from each User directory:
@@ -91,25 +91,25 @@ thumbnails (see Limitations below).
 
 ## Limitations
 
-Windows(R)(TM) uses at least two format types to store thumbnails in its
-***Thumbs.db*** files.  Vinetto categorizes these formats as Type 1 and Type 2:
+1. For ***Thumbs.db*** files, Windows(R)(TM) uses at least two format types to
+store these thumbnails:
+   1. An older format that seems to consist of jpeg-like images with special
+   header, huffman, and quantization data.  As such,
+   ***Vinetto may not reconstitute some Type 1 thumbnails correctly.***
+   The PIL Image library is used to attempt proper reconstitution, but may fail
+   in certain circumstances.
 
-1. Type 1 is an older format that seems to consist of jpeg-like images with
-special header, huffman, and quantization data.  As such,
-***Vinetto may not reconstitute some Type 1 thumbnails correctly.***
-The PIL Image library is used to attempt proper reconstitution, but may fail
-in certain circumstances.
+   2. A newer format fully compliant with the JPEG format.  Vinetto writes this
+   type to file directly.
 
-2. Type 2 is a newer format and is fully compliant with the JPEG format.
-Vinetto writes this type to file directly.  Additionally, the newer
-***thumbcache*** files embed fully compliant JPEG, PNG, and BMP formats
-which Vinetto also writes directly.
+2. The current ***thumbcache*** files embed fully compliant JPEG, PNG, and BMP
+formats which Vinetto writes directly.
 
 3. The Windows.edb and other ESEDB files can become corrupt.  If there are
 problems with Vinetto reading the file, it may need to be fixed.  To fix this
 issue, use the Windows built-in command ***esentutil***  with the ***/p*** option
 and point it at the ESEDB file you want to fix.  It may need to be run several
-time to fix the file.
+times to fix the file.
 
 Vinetto has been tested on a modern Linux distribution.  The code has been
 modified to use common Python packages and methods not specific to the Linux
@@ -135,6 +135,7 @@ and Windows(R)(TM) OSes as well. YMMV.
                             examine EDBFILE (Extensible Storage Engine Database) for
                             original thumbnail filenames
                             NOTE: -e without an INFILE explores EDBFILE extracted data
+                            NOTE: Automatic mode will attempt to use ESEDB without -e
     -H, --htmlrep         write html report to DIR (requires option -o)
     -m [{f,d,r,a}], --mode [{f,d,r,a}]
                             operating mode: "f", "d", "r", or "a"
@@ -159,8 +160,8 @@ and Windows(R)(TM) OSes as well. YMMV.
                                 option to produce results OR a Windows.edb must be given
                                 (-e) to find and extract possible file names
     -U, --utf8            use utf8 encodings
-    -v, --verbose         verbose output, print info messages - each use increments output
-                            level 0 (standard + warnings), 1 (enhanced), 2 (details)
+    -v, --verbose         verbose output, each use increments output level: 0 (Standard)
+                            1 (Verbose), 2 (Enhanced), 3 (Full)
     --version             show program's version number and exit
 
     Operating Mode Notes:
@@ -189,11 +190,11 @@ and Windows(R)(TM) OSes as well. YMMV.
     Using the verbose switch (-v, --verbose) and the quiet switch cause the
     terminal output to be treated differently based on the switch usage
         Level:   Mode:    Switch:   Output:
-         -1      Quiet     -q       Errors
-          0      Standard  N/A      output + Errors + Warnings
-          1      Verbose   -v       Standard + Extended + Info
-          2      Enhanced  -vv      Verbose + Unused
-          3      Full      -vvv     Enhanced + Missing
+        -1      Quiet     -q       Errors
+        0      Standard  N/A      output + Errors + Warnings
+        1      Verbose   -v       Standard + Extended + Info
+        2      Enhanced  -vv      Verbose + Unused
+        3      Full      -vvv     Enhanced + Missing
         where Quiet indicates no output other than error messages
             Standard indicates normal informative output
             Verbose adds Extended header, cache, and additional Info messages
@@ -203,7 +204,7 @@ and Windows(R)(TM) OSes as well. YMMV.
             Warnings are warning messages indicating processing issues
             Info are information messages indicating processing states
 
-    --- Vinetto.py 0.9.4 ---
+    --- Vinetto.py 0.9.5 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software

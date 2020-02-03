@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "5"
+file_micro = "6"
 
 
 import sys
@@ -567,16 +567,16 @@ def printCMMMHead(dictCMMMMeta):
 def printCMMMCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, keyStreamName, dictESEDB):
     print("     Signature: %s" % strSig)
     if (config.ARGS.verbose > 0):
-        print("          Size: %d" % iSize)
-        print("          Hash: %s" % strHash)
-        print("     Extension: %s" % strExt)
-        print("       ID Size: %d" % iIdSize)
-        print("      Pad Size: %d" % iPadSize)
-        print("     Data Size: %d" % iDataSize)
-        print("  Image  Width: %d" % iWidth)
-        print("  Image Height: %d" % iHeight)
-        print(" Data Checksum: %d" % iChkSumD)
-        print(" Head Checksum: %d" % iChkSumH)
+        print("          Size: %s" % str(iSize))
+        print("          Hash: %s" % str(strHash))
+        print("     Extension: %s" % str(strExt))
+        print("       ID Size: %s" % str(iIdSize))
+        print("      Pad Size: %s" % str(iPadSize))
+        print("     Data Size: %s" % str(iDataSize))
+        print("  Image  Width: %s" % str(iWidth))
+        print("  Image Height: %s" % str(iHeight))
+        print(" Data Checksum: %s" % str(iChkSumD))
+        print(" Head Checksum: %s" % str(iChkSumH))
     print("            ID: %s" % keyStreamName)
     if (dictESEDB != None):
         esedb.printESEDBInfo(dictESEDB)
@@ -747,7 +747,7 @@ def processThumbsTypeCMMM(infile, fileThumbsDB, iThumbsDBSize):
                     tdbCatalog[strCleanFileName] = (strCatEntryTimestamp, strFileName)
 
                     if (config.ARGS.verbose >= 0):
-                        print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
+                        print("  CATALOG " + strCleanFileName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
 
             # Write data to filename...
             if (config.ARGS.outdir != None):

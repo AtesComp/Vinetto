@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "2"
+file_micro = "4"
 
 
 import sys
@@ -92,7 +92,7 @@ def prepareESEDB():
 
     iColCnt = config.ESEDB_TABLE.get_number_of_columns()
     if (config.ARGS.verbose > 1):
-        sys.stderr.write(" Info:     Got %d columns\n" % iColCnt)
+        sys.stderr.write(" Info:     ESEDB %d avaliable columns\n" % iColCnt)
     iColCntFound = 0
     for iCol in range(iColCnt):
         column = config.ESEDB_TABLE.get_column(iCol)
@@ -106,9 +106,59 @@ def prepareESEDB():
             break
 
     if (config.ARGS.verbose > 0):
-        sys.stderr.write(" Info:        ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
+        sys.stderr.write(" Info:     ESEDB %d columns of %d possible\n" % (iColCntFound, len(config.ESEDB_ICOL_NAMES)))
+        if (config.ARGS.verbose > 1):
+            for strKey in config.ESEDB_ICOL_NAMES:
+                if (config.ESEDB_ICOL[strKey] != None):
+                    sys.stderr.write(" Info:         Found column \"" + strKey + "\"\n")
 
     return True
+
+
+def processESEDBRecord(recordESEDB, strKey):
+    rawESEDB = None
+    iCol = config.ESEDB_ICOL[strKey]
+    if (iCol == None):
+        return rawESEDB
+
+    cTest = config.ESEDB_ICOL_NAMES[strKey][1]
+    # Format the key's value for output...
+    # 'x' - bstr  == (Large) Binary Data
+    # 's' - str   == (Large) Text
+    # 'i' - int   == Integer (32/16/8)-bit (un)signed
+    # 'b' - bool  == Boolean or Boolean Flags (Integer)
+    # 'f' - float == Floating Point (Double Precision) (64/32-bit)
+    # 'd' - date  == Binary Data converted to Formatted UTC Time
+    if   (cTest == 'x'):
+        rawESEDB = recordESEDB.get_value_data(iCol)
+    elif (cTest == 's'):
+        rawESEDB = recordESEDB.get_value_data_as_string(iCol)
+    elif (cTest == 'i'):
+        rawESEDB = recordESEDB.get_value_data_as_integer(iCol)
+    elif (cTest == 'b'):
+        rawESEDB = recordESEDB.get_value_data_as_integer(iCol)
+        if (rawESEDB == None or rawESEDB == 0):  # ...convert integer to boolean False
+            rawESEDB = False
+        elif (rawESEDB == 1 or rawESEDB == -1):  # ...convert integer to boolean True
+            rawESEDB = True
+        else:  # Setup Flag Display for integer flags
+            if (rawESEDB < -2147483648):     # ...convert negative 64 bit integer to positive
+                rawESEDB = rawESEDB & 0xffffffffffffffff
+            if (rawESEDB < -32768):          # ...convert negative 32 bit integer to positive
+                rawESEDB = rawESEDB & 0xffffffff
+            if (rawESEDB < -128):            # ...convert negative 16 bit integer to positive
+                rawESEDB = rawESEDB & 0xffff
+            if (rawESEDB < 0):               # ...convert negative 8 bit integer to positive
+                rawESEDB = rawESEDB & 0xff
+    elif (cTest == 'f'):
+        rawESEDB = recordESEDB.get_value_data_as_floating_point(iCol)
+    elif (cTest == 'd'):
+        rawESEDB = recordESEDB.get_value_data(iCol)
+        if (rawESEDB == None):
+            rawESEDB = 0
+        else:
+            rawESEDB = unpack("<Q", rawESEDB)[0]
+    return rawESEDB
 
 
 def loadESEDB():
@@ -126,11 +176,26 @@ def loadESEDB():
 
     config.ESEDB_REC_LIST = []
 
+    if (config.ARGS.verbose > 1):
+        sys.stderr.write(" Info:     ESEDB Getting record count...\n")
     iRecCnt = config.ESEDB_TABLE.get_number_of_records()
+
+    if (config.ARGS.verbose > 1):
+        sys.stderr.write(" Info:     ESEDB Processing records...\n")
+
     strRecIPD = None
     strRecIU = None
+    iRecAdded = 0
+    strRecOut = " Info:         Record #: %d Added: %d\r"
+
+    # Read all the records...
     for iRec in range(iRecCnt):
         record = config.ESEDB_TABLE.get_record(iRec)
+        if (record == None):
+            break
+        if (config.ARGS.verbose > 1 and (iRec + 1) % 1000 == 0):
+            sys.stderr.write(strRecOut % (iRec + 1, iRecAdded))
+            sys.stderr.flush()
 
         # Test for ThumbnailCacheId exists...
         bstrRecTCID = record.get_value_data(config.ESEDB_ICOL["TCID"])
@@ -157,7 +222,7 @@ def loadESEDB():
 #            if (strKey == "TCID"):
 #                continue
 #            sys.stdout.write(strKey + ": ")
-#            rawESEDB = processESEDBInfo(record, strKey, True)
+#            rawESEDB = processESEDBRecord(record, strKey)
 #            print(rawESEDB)
 
         dictRecord = {}
@@ -169,9 +234,17 @@ def loadESEDB():
         for strKey in config.ESEDB_ICOL_NAMES:
             if (strKey == "TCID" or strKey == "MIME" or strKey == "CTYPE" or strKey == "ITT"):
                 continue
-            dictRecord[strKey] = processESEDBInfo(record, strKey, True)
+            dictRecord[strKey] = processESEDBRecord(record, strKey)
 
         config.ESEDB_REC_LIST.append(dictRecord)
+        iRecAdded += 1
+        if (config.ARGS.verbose > 1):
+            sys.stderr.write(strRecOut % (iRec + 1, iRecAdded))
+            sys.stderr.flush()
+
+    if (config.ARGS.verbose > 1):
+        sys.stderr.write(strRecOut % (iRec + 1, iRecAdded))
+        sys.stderr.write("\n")
 
 #    # TEST: Print ESEDB Image Records...
 #    for dictRecord in config.ESEDB_REC_LIST:
@@ -185,14 +258,13 @@ def loadESEDB():
         return False
 
     if (config.ARGS.verbose > 0):
-        sys.stderr.write(" Info:        ESEDB Image data loaded\n")
+        sys.stderr.write(" Info:     ESEDB Image data loaded\n")
 
     return True
 
 
-def processESEDBInfo(recordESEDB, strKey, bRaw = False):
+def getESEDBStr(dictESEDB, strKey):
     strESEDB = None
-    rawESEDB = None
     dataESEDB = None
     iCol = config.ESEDB_ICOL[strKey]
     if (iCol != None):
@@ -204,66 +276,30 @@ def processESEDBInfo(recordESEDB, strKey, bRaw = False):
         # 'b' - bool  == Boolean or Boolean Flags (Integer)
         # 'f' - float == Floating Point (Double Precision) (64/32-bit)
         # 'd' - date  == Binary Data converted to Formatted UTC Time
-        if not bRaw:
-            dataESEDB = recordESEDB[strKey]
 
         if   (cTest == 'x'):
-            if bRaw:
-                rawESEDB = recordESEDB.get_value_data(iCol)
-            else:
-                strESEDB = str( hexlify( dataESEDB ))[2:-1]  # ...stript off start b' and end '
+            strESEDB = str( hexlify( dictESEDB[strKey] ))[2:-1]  # ...stript off start b' and end '
         elif (cTest == 's'):
-            if bRaw:
-                rawESEDB = recordESEDB.get_value_data_as_string(iCol)
-            else:
-                strESEDB = dataESEDB
+            strESEDB = dictESEDB[strKey]
         elif (cTest == 'i'):
-            if bRaw:
-                rawESEDB = recordESEDB.get_value_data_as_integer(iCol)
-            else:
-                strESEDB = format(dataESEDB, "d")
+            strESEDB = format(dictESEDB[strKey], "d")
         elif (cTest == 'b'):
-            if bRaw:
-                rawESEDB = recordESEDB.get_value_data_as_integer(iCol)
-                if (rawESEDB == None or rawESEDB == 0):  # ...convert integer to boolean False
-                    rawESEDB = False
-                elif (rawESEDB == 1 or rawESEDB == -1):  # ...convert integer to boolean True
-                    rawESEDB = True
-                else:  # Setup Flag Display for integer flags
-                    if (rawESEDB < -2147483648):     # ...convert negative 64 bit integer to positive
-                        rawESEDB = rawESEDB & 0xffffffffffffffff
-                    if (rawESEDB < -32768):          # ...convert negative 32 bit integer to positive
-                        rawESEDB = rawESEDB & 0xffffffff
-                    if (rawESEDB < -128):            # ...convert negative 16 bit integer to positive
-                        rawESEDB = rawESEDB & 0xffff
-                    if (rawESEDB < 0):               # ...convert negative 8 bit integer to positive
-                        rawESEDB = rawESEDB & 0xff
-            else:
-                if (isinstance(dataESEDB, bool)):
-                    strESEDB = format(dataESEDB, "")
-                else:  # ..Integer
-                    strFmt = "08b"               # ...setup flag format for 8 bit integer
-                    if (dataESEDB > 255):
-                        strFmt = "016b"          # ...setup flag format for 16 bit integer format
-                    if (dataESEDB > 65535):
-                        strFmt = "032b"          # ...setup flag format for 32 bit integer format
-                    if (dataESEDB > 4294967295):
-                        strFmt = "064b"          # ...setup flag format for 64 bit integer format
-                    strESEDB = format(dataESEDB, strFmt)
+            if (isinstance(dictESEDB[strKey], bool)):
+                strESEDB = format(dictESEDB[strKey], "")
+            else:  # ..Integer
+                strFmt = "08b"               # ...setup flag format for 8 bit integer
+                if (dictESEDB[strKey] > 255):
+                    strFmt = "016b"          # ...setup flag format for 16 bit integer format
+                if (dictESEDB[strKey] > 65535):
+                    strFmt = "032b"          # ...setup flag format for 32 bit integer format
+                if (dictESEDB[strKey] > 4294967295):
+                    strFmt = "064b"          # ...setup flag format for 64 bit integer format
+                strESEDB = format(dictESEDB[strKey], strFmt)
         elif (cTest == 'f'):
-            if bRaw:
-                rawESEDB = recordESEDB.get_value_data_as_floating_point(iCol)
-            else:
-                strESEDB = format(dataESEDB, "G")
+            strESEDB = format(dictESEDB[strKey], "G")
         elif (cTest == 'd'):
-            if bRaw:
-                rawESEDB = unpack("<Q", recordESEDB.get_value_data(iCol))[0]
-            else:
-                strESEDB = getFormattedWinToPyTimeUTC(dataESEDB)
-    if bRaw:
-        return rawESEDB
-    else:
-        return strESEDB
+            strESEDB = getFormattedWinToPyTimeUTC(dictESEDB[strKey])
+    return strESEDB
 
 
 def printESEDBInfo(dictESEDB, bHead = True):
@@ -279,11 +315,11 @@ def printESEDBInfo(dictESEDB, bHead = True):
         print(strEnhance)
     if (config.ARGS.verbose > 0):
         for strKey in config.ESEDB_ICOL_NAMES:
-            strESEDB = processESEDBInfo(dictESEDB, strKey)
+            strESEDB = getESEDBStr(dictESEDB, strKey)
             if (strESEDB != None):
                 print("%s%s" % (config.ESEDB_ICOL_NAMES[strKey][2], strESEDB))
     else:
-        strESEDB = processESEDBInfo(dictESEDB, "TCID")
+        strESEDB = getESEDBStr(dictESEDB, "TCID")
         print("%s%s" % (config.ESEDB_ICOL_NAMES["TCID"][2], strESEDB))
     return
 
@@ -294,8 +330,10 @@ def examineESEDBRecord(strCmd):
     if (strCmd[2:] == ""):
         print(strValidRecord)
     else:
+        # Store and modify verbosity...
         iVerboseOld = config.ARGS.verbose
-        config.ARGS.verbose = 1
+        if (iVerboseOld < 1):
+            config.ARGS.verbose = 1
 
         try:
             iRec = int(strCmd[2:])
@@ -309,6 +347,7 @@ def examineESEDBRecord(strCmd):
         except:
             print(strValidRecord)
 
+        # Restore verbosity...
         config.ARGS.verbose = iVerboseOld
 
     return
@@ -343,11 +382,14 @@ def examineESEDB():
     strRecordsFound = "Records Found: %d\n"
     strMessage = "ESEDB Explorer"
     strErrorMessage = "A valid command must be provided. Try 'h'."
+    reIsValid = re.compile(r"^[ehlqs]$|^l .+$")
+    isValid = lambda v : reIsValid.search(v)
+    reIsValidSearch = re.compile(r"^[ehlq]$|^[clv] .*$")
+    isValidSearch = lambda v : reIsValidSearch.search(v)
     while (True):
-        strCmd = prompt(
-            strMessage,
-            strErrorMessage,
-            isValid = lambda v : re.search(r"^[ehlqs]$|^l .+$", v))
+        strCmd = prompt(strMessage,
+                        strErrorMessage,
+                        isValid)
 
         if (strCmd == "h"):  # Help
             print("Help")
@@ -378,10 +420,10 @@ def examineESEDB():
             strRegEx = None
 
             while (True):
-                strCmd = prompt(
-                    (strMessage + ": Search " + ( "All Columns" if (strColKey == None) else ("Column %d (%s)" % (iCol, strColKey)) )),
-                    strErrorMessage,
-                    isValid = lambda v : re.search(r"^[ehlq]$|^[clv] .*$", v))
+                strSearchMsg = "All Columns" if (strColKey == None) else ("Column %d (%s)" % (iCol, strColKey))
+                strCmd = prompt(strMessage + ": Search " + strSearchMsg,
+                                strErrorMessage,
+                                isValidSearch)
 
                 if (strCmd == "h"):  # Help
                     print("Help")
@@ -421,22 +463,22 @@ def examineESEDB():
                 elif (strCmd[:2] == "v "):  # Value RegEx
                     print("Searching columns in records...")
                     iCount = 0
-                    iRec = 0
                     if (strCmd[2:] == ""):
                         strRegEx = None
                     else:
                         strRegEx = strCmd[2:]
                         reObj = re.compile(strRegEx)
                         isFound = lambda v : reObj.search(v) if (v != None) else False
+                        iRec = 0
                         for dictRecord in config.ESEDB_REC_LIST:
                             iRec += 1
                             bFound = False
                             if (strColKey == None):
                                 for strKey in dictRecord:
-                                    if isFound(processESEDBInfo(dictRecord, strKey)):
+                                    if isFound(getESEDBStr(dictRecord, strKey)):
                                         bFound = True
                                         break
-                            elif isFound(processESEDBInfo(dictRecord, strColKey)):
+                            elif isFound(getESEDBStr(dictRecord, strColKey)):
                                 bFound = True
 
                             if (bFound):

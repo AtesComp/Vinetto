@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.5] - 2020-02-03 (DEVELOPEMENT)
+
+### Changed
+
+- Tested Automatic Mode: various bug fixes
+- Updated verbosity output for ESEDB processing
+- Updated help
+
 ## [0.9.4] - 2020-01-31 (DEVELOPEMENT)
 
 ### Added

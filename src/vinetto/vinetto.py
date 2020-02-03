@@ -30,13 +30,14 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "5"
+file_micro = "6"
 
 
 import sys
 import os
 import fnmatch
 import argparse
+import signal
 
 import vinetto.version as version
 import vinetto.config as config
@@ -99,15 +100,17 @@ def getArgs():
         strProg + " is open source software\n" +
         "  See: " + version.location
         )
+    strNotVerbose = "\nFor extended help, use -v"
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description=strDesc,
-                                     epilog=(strNote + strEpilog), add_help=False)
-    parser.add_argument("-h", "-?", "--help", action='help',
-                        help=('show this help message and exit'))
+                                     epilog=strEpilog + strNotVerbose, add_help=False)
+    parser.add_argument("-h", "-?", "--help", action="store_true", dest="arg_help",
+                        help=("show this help message and exit"))
     parser.add_argument("-e", "--edb", dest="edbfile", metavar="EDBFILE",
                         help=("examine EDBFILE (Extensible Storage Engine Database) for\n" +
                               "original thumbnail filenames\n" +
-                              "NOTE: -e without an INFILE explores EDBFILE extracted data"))
+                              "NOTE: -e without an INFILE explores EDBFILE extracted data\n" +
+                              "NOTE: Automatic mode will attempt to use ESEDB without -e"))
     parser.add_argument("-H", "--htmlrep", action="store_true", dest="htmlrep",
                         help=("write html report to DIR (requires option -o)"))
     parser.add_argument("-m", "--mode", nargs="?", dest="mode", choices=["f", "d", "r", "a"],
@@ -141,13 +144,19 @@ def getArgs():
     parser.add_argument("-U", "--utf8", action="store_true", dest="utf8",
                         help=("use utf8 encodings"))
     parser.add_argument("-v", '--verbose', action='count', default=0,
-                        help=("verbose output, print info messages - each use increments output\n" +
-                              "level 0 (standard + warnings), 1 (enhanced), 2 (details)"))
+                        help=("verbose output, each use increments output level: 0 (Standard)\n" +
+                              "1 (Verbose), 2 (Enhanced), 3 (Full)"))
     parser.add_argument("--version", action="version", version=strEpilog)
     parser.add_argument("infile", nargs="?",
                         help=("depending on operating mode (see mode option), either a location\n" +
                               "to a thumbnail file (\"Thumb.db\" or similar) or a directory"))
     pargs = parser.parse_args()
+
+    if (pargs.arg_help):
+        if (pargs.verbose > 0):
+            parser.epilog = strNote + strEpilog
+        parser.print_help()
+        parser.exit(0)
 
     if (pargs.outdir == None):  # ...output NOT given...
         if (pargs.htmlrep):
@@ -317,21 +326,21 @@ def testESEDB():
     # Setup ESEDB File test...
     bEDBErrorOut = True
     strReport = " Error"
-    strEDBFileReport = config.ARGS.edbfile
+    strEDBFileReport = "Given ESEDB ("
     if (config.ARGS.mode == "a" and config.ARGS.edbfile == None):
         bEDBErrorOut = False
         strReport = " Warning"
-        strEDBFileReport = "Default ESEDB (" + OS_WIN_ESEBD_FILE + ")"
+        strEDBFileReport = "Default ESEDB ("
         # Try Vista+ first (newer ESEDB location)...
         strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_ESEDB_VISTA +
                                                       config.OS_WIN_ESEBD_COMMON +
-                                                      OS_WIN_ESEBD_FILE)
+                                                      config.OS_WIN_ESEBD_FILE)
         if not os.path.exists(strEDBFile):  # ...NOT exists?
             # Fallback to XP (older ESEDB location)...
             strEDBFile = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP +
                                                           config.OS_WIN_ESEDB_XP +
                                                           config.OS_WIN_ESEBD_COMMON +
-                                                          OS_WIN_ESEBD_FILE)
+                                                          config.OS_WIN_ESEBD_FILE)
             if not os.path.exists(strEDBFile):  # ...NOT exists?
                 # Nothing available...
                 strEDBFile = None
@@ -339,6 +348,7 @@ def testESEDB():
 
     if (config.ARGS.edbfile == None):
         return
+    strEDBFileReport += config.ARGS.edbfile + ")"
 
     # Test ESEDB File parameter...
     bProblem = False
@@ -395,6 +405,15 @@ def prepareSymLink():
 # ================================================================================
 
 def main():
+#    def signal_handler(sig, frame):
+#        #signal.signal(sig, signal.SIG_IGN)  # ...ignore additional signals
+#        sys.stderr.write("Exiting Vinetto...\n")
+#        sys.exit(0)
+#
+#    signal.signal(signal.SIGINT,  signal_handler)
+#    signal.signal(signal.SIGTERM, signal_handler)
+#    signal.signal(signal.SIGQUIT, signal_handler)
+
     config.ARGS = getArgs()
 
     try:
