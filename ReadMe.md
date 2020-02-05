@@ -35,39 +35,39 @@ thumb cache system for each user.
 2. **Intention** : Vinetto extracts thumbnails and associated metadata from
 thumb cache files.  Additionally, a thumbnail's Thumb Cache ID is cross checked
 to extract file metadata, including possible original file name, from a
-defaults or specified ESEDB (Windows.edb) file.  This process uses the python
+default or specified ESEDB (Windows.edb) file.  This process uses the python
 libraries from "libesedb" to find and extract the relevant file metadata.
 Vinetto will function according to four modes:
    1. *file* : Vinetto extracts thumbnail images and metadata from specified
    cache files.  **This is the default operating mode.**
-      - Local directory Thumbs.db are processed.
-      - User Thumbcache_\*.db files are processed.
+      - Specifed "Thumbs.db" type files are processed.
+      - Specifed "Thumbcache_\*.db" type files are processed.
       - Thumb Cache IDs are cross checked to extract any relevant metadata
-      from a specified ESEDB file.
+      When a specified ESEDB file is given.
 
-   2. *directory* : Vinetto processes any found \*.db files in the specified
+   2. *directory* : Vinetto processes any found "\*.db" files in the specified
    BASE directory.
-      - It checks for consistency between the specified directory's content and
+      - [TODO] It checks for consistency between the specified directory's content and
       its related Thumbs.db file (i.e., it reports thumbnails that have a
       missing associated file in the directory).
-      - It processes any Thumbcache_\*.db files.
+      - It processes any "Thumbcache_\*.db" files.
       - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
-      metadata from a specified ESEDB file.
+      metadata when a specified ESEDB file is given.
 
-   3. *recursive* : Vinetto processes any found \*.db files from the specified
+   3. *recursive* : Vinetto processes any found "\*.db" files from the specified
    BASE directory recursively down its directory tree.
       - As per *directory*, it check for consistency between a subdirectory's
       content and its related Thumbs.db file (i.e., it reports thumbnails that
       have a missing associated file in the directory).
       - It processes any Thumbcache_\*.db files.
       - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
-      metadata from a specified ESEDB file.
+      metadata when a specified ESEDB file is given.
 
    4. *automatic* : Vinetto will process the specified BASE directory as a
    Windows OS partition.
       - It checks the BASE directory to be consistent with Vista+ OS version.
       If less than Vista, it processes as per *recursive*.  If Vista+, it
-      processes Thumbcache_\*.db files from each User directory:
+      processes "Thumbcache_\*.db" type files from each User directory:
         "Users/*/AppData/Local/Microsoft/Windows/Explorer/"
       - It attempts to cross check Thumb Cache IDs from the Windows.edb file in
       the **default location** or in a specified "ESEDB" file.
