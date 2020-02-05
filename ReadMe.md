@@ -34,7 +34,7 @@ thumb cache system for each user.
 
 2. **Intention** : Vinetto extracts thumbnails and associated metadata from
 thumb cache files.  Additionally, a thumbnail's Thumb Cache ID is cross checked
-to extract file matadata, including possible original file name, from a
+to extract file metadata, including possible original file name, from a
 defaults or specified ESEDB (Windows.edb) file.  This process uses the python
 libraries from "libesedb" to find and extract the relevant file metadata.
 Vinetto will function according to four modes:
