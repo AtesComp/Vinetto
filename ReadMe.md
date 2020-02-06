@@ -102,7 +102,7 @@ store these thumbnails:
    2. A newer format fully compliant with the JPEG format.  Vinetto writes this
    type to file directly.
 
-2. For ***Thumbcache_\*.db***, thumbnail files are embed as fully compliant JPEG, PNG, and BMP
+2. For ***Thumbcache_\*.db*** files, thumbnail images are embed as fully compliant JPEG, PNG, and BMP
 formats which Vinetto writes directly.  Vinetto recognizes the index db file, Thumbcache_idx.db,
 but currently does not use this file for anything particular.
 
