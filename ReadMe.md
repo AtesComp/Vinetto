@@ -56,7 +56,7 @@ Vinetto will function according to four modes:
 
    3. *recursive* : Vinetto processes any found "\*.db" files from the specified
    BASE directory recursively down its directory tree.
-      - As per *directory*, it check for consistency between a subdirectory's
+      - [TODO] As per *directory*, it check for consistency between a subdirectory's
       content and its related Thumbs.db file (i.e., it reports thumbnails that
       have a missing associated file in the directory).
       - It processes any Thumbcache_\*.db files.
