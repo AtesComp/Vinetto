@@ -43,7 +43,7 @@ Vinetto will function according to four modes:
       - Specifed "Thumbs.db" type files are processed.
       - Specifed "Thumbcache_\*.db" type files are processed.
       - Thumb Cache IDs are cross checked to extract any relevant metadata
-      When a specified ESEDB file is given.
+      when a specified ESEDB file is given.
 
    2. *directory* : Vinetto processes any found "\*.db" files in the specified
    BASE directory.
