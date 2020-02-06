@@ -102,8 +102,9 @@ store these thumbnails:
    2. A newer format fully compliant with the JPEG format.  Vinetto writes this
    type to file directly.
 
-2. The current ***thumbcache*** files embed fully compliant JPEG, PNG, and BMP
-formats which Vinetto writes directly.
+2. For ***Thumbcache_\*.db***, thumbnail files are embed as fully compliant JPEG, PNG, and BMP
+formats which Vinetto writes directly.  Vinetto recognizes the index db file, Thumbcache_idx.db,
+but currently does not use this file for anything particular.
 
 3. The Windows.edb and other ESEDB files can become corrupt.  If there are
 problems with Vinetto reading the file, it may need to be fixed.  To fix this
