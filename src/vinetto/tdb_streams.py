@@ -29,12 +29,16 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "3"
+file_micro = "4"
 
+try:
+    from collections.abc import MutableMapping
+    import vinetto.config as config
+    unicode = str
+except ImportError:
+    from collections import MutableMapping
+    import config
 
-import vinetto.config as config
-
-from collections.abc import MutableMapping
 
 
 ###############################################################################
@@ -61,25 +65,30 @@ class TDB_Streams(MutableMapping):
         del self.__tdbStreams[key]
 
 
+    def __testStreamID__(self, key):
+        bStreamID = None
+        if isinstance(key, int):
+            bStreamID = True
+        elif isinstance(key, unicode):
+            bStreamID = False
+        else:
+            raise TypeError("Invalid: Stream key must be an integer or string representing a thumbnail ID/name!")
+        return bStreamID
+
+
     def __setitem__(self, key, value):
         # Add or append a Stream entry...
         # value => [strIndexExt, strIndexFileName] }
 
-        bStreamID = None
-        if isinstance(key, int):
-            bStreamID = True
-        elif isinstance(key, str):
-            bStreamID = False
-        else:
-            raise TypeError("Invalid: Stream key must be an integer or string representing a thumbnail ID/name!")
+        bStreamID = self.__testStreamID__(key)
 
         if (not isinstance(value, list)):
             raise TypeError("Not list: Stream value must be a list of 2 items - file extension string and file name string!")
         if (len(value) != 2):
             raise ValueError("Not 2 items: Stream value must be a list of 2 items - file extension string and file name string!")
-        if not isinstance(value[0], str):
+        if not (isinstance(value[0], str) or isinstance(value[0], unicode)):
             raise TypeError("Not string: Stream value[0] must be a file extension string!")
-        if not isinstance(value[1], str):
+        if not (isinstance(value[1], str) or isinstance(value[1], unicode)):
             raise TypeError("Not string: Stream value[1] must be a file name string!")
 
         if (key in self.__tdbStreams):  # ...append a Stream entry...
@@ -112,7 +121,7 @@ class TDB_Streams(MutableMapping):
 
 
     def __repr__(self):
-        return f"{type(self).__name__}({self.__tdbStreams})"
+        return "%s(%s)" % (type(self).__name__, self.__tdbStreams)
 
 
     def getCount(self):
@@ -133,13 +142,7 @@ class TDB_Streams(MutableMapping):
 
 
     def getFileName(self, key, strExt):
-        bStreamID = None
-        if isinstance(key, int):
-            bStreamID = True
-        elif isinstance(key, str):
-            bStreamID = False
-        else:
-            raise TypeError("Not invalid: Stream key must be an integer or string representing a thumbnail ID/name!")
+        bStreamID = self.__testStreamID__(key)
 
         strPrefix = ""
         if (bStreamID and config.ARGS.symlinks):  # ...implies config.ARGS.outdir

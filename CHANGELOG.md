@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.6] - 2020-02-07 (DEVELOPEMENT)
+
+### Changed
+
+- Extreme Makeover: Split thumb file processing into multiple files
+- Updated install for DEPRECATED pip2, python2 -- because some people still use Python2 :(
+- Modified and tested code to properly operate under DEPRECATED python2
+
 ## [0.9.5] - 2020-02-03 (DEVELOPEMENT)
 
 ### Changed

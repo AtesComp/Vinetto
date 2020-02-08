@@ -205,7 +205,7 @@ and Windows(R)(TM) OSes as well. YMMV.
             Warnings are warning messages indicating processing issues
             Info are information messages indicating processing states
 
-    --- Vinetto.py 0.9.5 ---
+    --- Vinetto.py 0.9.6 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software

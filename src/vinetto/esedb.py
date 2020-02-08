@@ -25,24 +25,36 @@ This file is part of Vinetto.
 
 -----------------------------------------------------------------------------
 """
+from __future__ import print_function
 
 
 file_major = "0"
 file_minor = "1"
-file_micro = "4"
+file_micro = "5"
 
 
 import sys
 from struct import unpack
 from binascii import hexlify, unhexlify
 
-import vinetto.config as config
-import vinetto.error as verror
+try:
+    import vinetto.config as config
+    import vinetto.utils as utils
+    import vinetto.error as verror
+    bLib3 = True
+except ImportError:
+    import config
+    import utils
+    import error as verror
+    bLib3 = False
 
 
 def prepareESEDB():
     try:
-        from vinetto.lib import pyesedb
+        if (bLib3):
+            from vinetto.lib import pyesedb
+        else:
+            from lib import pyesedb
         bEDBFileGood = True
     except:
         # Hard Error!  The "pyesedb" library is installed locally with Vinetto,
@@ -298,14 +310,14 @@ def getESEDBStr(dictESEDB, strKey):
         elif (cTest == 'f'):
             strESEDB = format(dictESEDB[strKey], "G")
         elif (cTest == 'd'):
-            strESEDB = getFormattedWinToPyTimeUTC(dictESEDB[strKey])
+            strESEDB = utils.getFormattedWinToPyTimeUTC(dictESEDB[strKey])
     return strESEDB
 
 
 def printESEDBInfo(dictESEDB, bHead = True):
     strEnhance = " ESEDB Enhance:"
     # If there is no output...
-    if (config.ESEDB_FILE == None or dictESEDB == None):
+    if (dictESEDB == None):
         if bHead:
             print(strEnhance + " None")
         return
@@ -484,7 +496,7 @@ def examineESEDB():
                             if (bFound):
                                 iCount += 1
                                 print("Record: %d" % iRec)
-                                printESEDBInfo(dictRecord)
+                                printESEDBInfo(dictRecord, False)
                                 print()
                     print(strRecordsFound % iCount)
 

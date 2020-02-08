@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "5"
+file_micro = "6"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"
@@ -213,6 +213,10 @@ ESEDB_ICOL_NAMES = {
 ESEDB_ICOL = {}
 for key in ESEDB_ICOL_NAMES.keys():
     ESEDB_ICOL[key] = None
+
+LIST_PLACEHOLDER = ["", ""]
+
+STR_SEP = " ------------------------------------------------------"
 
 HTTP_REPORT = None
 

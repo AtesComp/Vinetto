@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "6"
+file_micro = "8"
 
 
 import sys
@@ -39,12 +39,20 @@ import fnmatch
 import argparse
 import signal
 
-import vinetto.version as version
-import vinetto.config as config
-import vinetto.error as verror
-import vinetto.thumbfile as thumbfile
-import vinetto.esedb as esedb
-
+try:
+    import vinetto.version as version
+    import vinetto.config as config
+    import vinetto.error as verror
+    import vinetto.processor as processor
+    import vinetto.esedb as esedb
+    import vinetto.utils as utils
+except ImportError:
+    import version
+    import config
+    import error as verror
+    import processor
+    import esedb
+    import utils
 
 def getArgs():
     # Return arguments passed to vinetto on the command line...
@@ -177,94 +185,6 @@ def getArgs():
     return (pargs)
 
 
-def processDirectory(thumbDir, filenames=None):
-    # Search for thumbnail cache files:
-    #  Thumbs.db, ehthumbs.db, ehthumbs_vista.db, Image.db, Video.db, TVThumb.db, and musicThumbs.db
-    #
-    #  thumbcache_*.db (2560, 1920, 1600, 1280, 1024, 768, 256, 96, 48, 32, 16, sr, wide, exif, wide_alternate, custom_stream)
-    #  iconcache_*.db
-
-    #includes = ['*humbs.db', '*humbs_*.db', 'Image.db', 'Video.db', 'TVThumb.db', 'thumbcache_*.db', 'iconcache_*.db']
-    includes = ['*.db']
-
-    if (filenames == None):
-        filenames = []
-        with os.scandir(thumbDir) as iterFiles:
-            for fileEntry in iterFiles:
-                if fileEntry.is_file():
-                    filenames.append(fileEntry.name)
-
-    # Include files...
-    files = []
-    for pattern in includes:
-        for filename in fnmatch.filter(filenames, pattern):
-            files.append(os.path.join(thumbDir, filename))
-
-    # TODO: Check for "Thumbs.db" file and related image files in current directory
-    # TODO: This may involve passing info into processThumbFile() and following functionality
-    # TODO: to check existing image file names against stored thumbnail IDs
-
-    for thumbFile in files:
-        thumbfile.processThumbFile(thumbFile)
-
-    return
-
-
-def processRecursiveDirectory():
-    # Walk the directories from given directory recursively down...
-    for dirpath, dirnames, filenames in os.walk(config.ARGS.infile):
-        processDirectory(dirpath, filenames)
-
-    return
-
-
-def processFileSystem():
-    #
-    # Process well known Thumb Cache DB files with ESE DB enhancement (if available)
-    #
-
-    strUserBaseDirVista = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_VISTA)
-    strUserBaseDirXP = os.path.join(config.ARGS.infile, config.OS_WIN_USERS_XP)
-
-    # Vista+
-    # ============================================================
-    if os.path.isdir(strUserBaseDirVista):
-        if (config.ARGS.verbose > 0):
-            sys.stderr.write(" Info: FS - Detected a Windows Vista-like partition, processing each user's Thumbcache DB files\n")
-        # For Vista+, only process the User's Explorer subdirectory containing Thumbcache DB files...
-        with os.scandir(strUserBaseDirVista) as iterDirs:
-            for entryUserDir in iterDirs:
-                if not entryUserDir.is_dir():
-                    continue
-                userThumbsDir = os.path.join(entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR)
-                if not os.path.exists(userThumbsDir):  # ...NOT exists?
-                    if (config.ARGS.verbose >= 0):
-                        sys.stderr.write(" Warning: Skipping %s - does not contain %s\n" % (entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR))
-                else:
-                    processDirectory(userThumbsDir)
-
-    # XP
-    # ============================================================
-    elif os.path.isdir(strUserBaseDirXP):
-        if (config.ARGS.verbose > 0):
-            sys.stderr.write(" Info: FS - Detected a Windows XP-like partition, processing all user subdirectories\n")
-        # For XP, only process each User's subdirectories...
-        with os.scandir(strUserBaseDirXP) as iterDirs:
-            for entryUserDir in iterDirs:
-                if not entryUserDir.is_dir():
-                    continue
-                processDirectory(entryUserDir)
-
-    # Other / Unidentified
-    # ============================================================
-    else:
-        if (config.ARGS.verbose > 0):
-            sys.stderr.write(" Info: FS - Generic partition, processing all subdirectories (recursive operating mode)\n")
-        processDirectory(config.ARGS.infile)
-
-    return
-
-
 # ================================================================================
 #
 # MAIN Support Functions
@@ -380,21 +300,8 @@ def testESEDB():
     if (config.ESEDB_FILE != None):
         config.ESEDB_TABLE = None
         config.ESEDB_FILE.close()
-        config.ESEDB_FILE = None
+        config.ESEDB_FILE = "Done"
 
-    return
-
-
-def prepareSymLink():
-    if (not config.ARGS.symlinks):
-        return
-
-    strSymOut = config.ARGS.outdir + config.THUMBS_SUBDIR
-    if not os.path.exists(strSymOut):
-        try:
-            os.mkdir(strSymOut)
-        except EnvironmentError:
-            raise verror.LinkError(" Error (Symlink): Cannot create directory " + strSymOut)
     return
 
 
@@ -421,7 +328,7 @@ def main():
 
         testOutput()
 
-        # Correct QUIET and VERBOSE modes...
+        # Unify QUIET and VERBOSE modes...
         if (config.ARGS.quiet):
             if (config.ARGS.verbose > 0):
                 config.ARGS.quiet = False  # ..turn off quiet
@@ -435,20 +342,20 @@ def main():
 
         testESEDB()
 
-        prepareSymLink()
+        utils.prepareSymLink()
 
         # Process
         # ============================================================
         if (config.ARGS.infile == None and config.ARGS.edbfile != None):
             esedb.examineESEDB()
         elif (config.ARGS.mode == "f"):  # Traditional Mode
-            thumbfile.processThumbFile(config.ARGS.infile)
+            processor.processThumbFile(config.ARGS.infile)
         elif (config.ARGS.mode == "d"):  # Directory Mode
-            processDirectory(config.ARGS.infile)
+            processor.processDirectory(config.ARGS.infile)
         elif (config.ARGS.mode == "r"):  # Recursive Directory Mode
-            processRecursiveDirectory()
+            processor.processRecursiveDirectory()
         elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
-            processFileSystem()
+            processor.processFileSystem()
         else:  # Unknown Mode - should never occur
             raise verror.ModeError(" Error (Mode): Unknown mode (" + config.ARGS.mode + ") to process " + config.ARGS.infile)
     except verror.VinettoError as ve:

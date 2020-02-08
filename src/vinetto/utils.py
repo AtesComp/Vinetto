@@ -28,14 +28,21 @@ This file is part of Vinetto.
 
 
 file_major = "0"
-file_minor = "3"
-file_micro = "9"
+file_minor = "4"
+file_micro = "0"
 
 
-import sys
+from sys import version_info as py_version_info
+import os
+import errno
 from time import strftime, gmtime
 
-import vinetto.config as config
+try:
+    import vinetto.config as config
+    import vinetto.error as verror
+except ImportError:
+    import config
+    import error as verror
 
 
 def convertWinToPyTime(iFileTime_Win32):
@@ -61,22 +68,16 @@ def getFormattedWinToPyTimeUTC(iFileTime_Win32):
 
 
 def cleanFileName(strFileName):
-    try:
-        # Python < 3
-        from string import maketrans
-        bMakeTtransOld = True
-    except:
-        # Python >= 3
-        bMakeTtransOld = False
-
     strInChars = "\\/:*?\"<>|"
     strOutChars = "_________"
-    if (bMakeTtransOld):
-        dictTransTab = maketrans(strInChars, strOutChars)
-    else:
+    try:
+        # Python >= 3
         dictTransTab = str.maketrans(strInChars, strOutChars)
-
-    return strFileName.translate(dictTransTab)
+        return strFileName.translate(dictTransTab)
+    except:
+        # Python < 3
+        dictTransTab = {ord(c): ord(t) for c, t in zip(unicode(strInChars), unicode(strOutChars))}
+        return strFileName.translate(dictTransTab)
 
 
 def getEncoding():
@@ -89,17 +90,42 @@ def getEncoding():
 
 #def reencodeBytes(bytesString):
 #    # Convert bytes encoded as utf-16-le to the global encoding...
-#    if (sys.version_info[0] < 3):
+#    if (py_version_info[0] < 3):
 #        return unicode(bytesString, "utf-16-le").encode(getEncoding(), "replace")
 #    else:
 #        return str(bytesString, "utf-16-le").encode(getEncoding(), "replace")
 
 
-def decodeBytes(bytesString):
+def decodeBytes(byteString):
     # Convert bytes encoded as utf-16-le to standard unicode...
-    if (sys.version_info[0] < 3):
-        return unicode(bytesString, "utf-16-le")
+    if (py_version_info[0] < 3):
+        return unicode(str(byteString), "utf-16-le")
     else:
-        return str(bytesString, "utf-16-le")
+        return str(byteString, "utf-16-le")
+
+
+def prepareSymLink():
+    if (not config.ARGS.symlinks):
+        return
+
+    strSymOut = config.ARGS.outdir + config.THUMBS_SUBDIR
+    if not os.path.exists(strSymOut):
+        try:
+            os.mkdir(strSymOut)
+        except EnvironmentError:
+            raise verror.LinkError(" Error (Symlink): Cannot create directory " + strSymOut)
+    return
+
+
+def setSymlink(strTarget, strLink):
+    try:
+        os.symlink(strTarget, strLink)
+    except OSError as e:
+        if e.errno == errno.EEXIST:
+            os.remove(strLink)
+            os.symlink(strTarget, strLink)
+        else:
+            raise verror.LinkError(" Error (Symlink): Cannot create symlink " + strLink + " to file " + strTarget)
+    return
 
 

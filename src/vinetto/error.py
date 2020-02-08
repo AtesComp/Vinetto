@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 
 file_major = "0"
-file_minor = "0"
+file_minor = "1"
 file_micro = "0"
 
 """

@@ -29,18 +29,23 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "7"
+file_micro = "8"
 
 
 from time import time
 from os.path import dirname, basename, abspath, getmtime
-
-import vinetto.version as version
-import vinetto.config as config
-import vinetto.error as verror
-from vinetto.utils import getFormattedWinToPyTimeUTC, getFormattedTimeUTC
-
 from pkg_resources import resource_filename
+
+try:
+    import vinetto.version as version
+    import vinetto.config as config
+    import vinetto.error as verror
+    import vinetto.utils as utils
+except ImportError:
+    import version
+    import config
+    import error as verror
+    import utils
 
 
 HTTP_HEADER  = []
@@ -204,10 +209,10 @@ class HtmlReport(Report):
             raise verror.ReportError(" Error (Report): Cannot create " + strFileName)
         for strLine in HTTP_HEADER:
             strLine = strLine.replace("__CHARSET__",    self.strCharSet)
-            strLine = strLine.replace("__DATEREPORT__", "Report Date: " + getFormattedTimeUTC( time() ))
+            strLine = strLine.replace("__DATEREPORT__", "Report Date: " + utils.getFormattedTimeUTC( time() ))
             strLine = strLine.replace("__TDBDIRNAME__", self.dictHead["Path"])
             strLine = strLine.replace("__TDBFNAME__",   self.dictHead["Filename"])
-            strLine = strLine.replace("__TDBMTIME__",   getFormattedTimeUTC(self.dictHead["ModifyTime"]))
+            strLine = strLine.replace("__TDBMTIME__",   utils.getFormattedTimeUTC(self.dictHead["ModifyTime"]))
             strLine = strLine.replace("__FILETYPE__",   config.THUMBS_FILE_TYPES[self.dictHead["FileType"]])
             strLine = strLine.replace("__FILESIZE__",   str(self.dictHead["FileSize"]))
             strLine = strLine.replace("__MD5__",        self.dictHead["MD5"] if (self.dictHead["MD5"] != None) else "Not Calculated")
@@ -226,8 +231,8 @@ class HtmlReport(Report):
                 strLine = strLine.replace("__TDBRESDID__",   ("None" if (self.dictMeta["SDID"] == config.OLE_NONE_BLOCK) else str(self.dictMeta["SDID"])))
                 strLine = strLine.replace("__TDBRECLASS__",  self.dictMeta["CID"])
                 strLine = strLine.replace("__TDBREUFLAGS__", self.dictMeta["userflags"])
-                strLine = strLine.replace("__TDBRECTIME__",  getFormattedWinToPyTimeUTC(self.dictMeta["create"]))
-                strLine = strLine.replace("__TDBREMTIME__",  getFormattedWinToPyTimeUTC(self.dictMeta["modify"]))
+                strLine = strLine.replace("__TDBRECTIME__",  utils.getFormattedWinToPyTimeUTC(self.dictMeta["create"]))
+                strLine = strLine.replace("__TDBREMTIME__",  utils.getFormattedWinToPyTimeUTC(self.dictMeta["modify"]))
                 strLine = strLine.replace("__TDBRESID1SD__", str(self.dictMeta["SID_firstSecDir"]))
                 strLine = strLine.replace("__TDBRESIDSZD__", str(self.dictMeta["SID_sizeDir"]))
 
