@@ -1,4 +1,4 @@
-import os, sys
+import os
 from setuptools import setup
 from src.vinetto import version
 
