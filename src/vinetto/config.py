@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "6"
+file_micro = "7"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"
@@ -132,87 +132,8 @@ TC_CACHE_ALL_DISPLAY = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1
 #    Windows 7, 8, 10:
 #      C:\Users\*\AppData\Local\Microsoft\Windows\Explorer
 #
-#  Windows Search (Windows.edb) Extensible Storage Engine (ESE) database:
-#    Windows 7:
-#      C:\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb
-#
-#    The Windows.edb stores the ThumbnailCacheID as part of its metadata for indexed files.
-#    Uses ESEDB library pyesedb to read the EDB file.
-#
-ESEDB_FILE      = None  # Opened Windows.edb or equivalent user specified file
-ESEDB_TABLE     = None  # Opened SystemIndex_0A or SystemIndex_PropertyStore table from ESEDB_FILE
-ESEDB_REC_LIST  = None  # Image records from ESEDB_TABLE
 
-ESEDB_ICOL_NAMES = {
-    # 'x' - bstr  == (Large) Binary Data
-    # 's' - str   == (Large) Text
-    # 'i' - int   == Integer (32/16/8)-bit (un)signed
-    # 'b' - bool  == Boolean or Boolean Flags
-    # 'f' - float == Floating Point (Double Precision) (64/32-bit)
-    # 'd' - date  == Binary Data converted to Formatted UTC Time
-
-    # ESEDB Data Types:
-    # BINARY_DATA = 9
-    # BOOLEAN = 1
-    # CURRENCY = 5
-    # DATE_TIME = 8
-    # DOUBLE_64BIT = 7
-    # FLOAT_32BIT = 6
-    # GUID = 16
-    # INTEGER_16BIT_SIGNED = 3
-    # INTEGER_16BIT_UNSIGNED = 17
-    # INTEGER_32BIT_SIGNED = 4
-    # INTEGER_32BIT_UNSIGNED = 14
-    # INTEGER_64BIT_SIGNED = 15
-    # INTEGER_8BIT_UNSIGNED = 2
-    # LARGE_BINARY_DATA = 11
-    # LARGE_TEXT = 12
-    # NULL = 0
-    # SUPER_LARGE_VALUE = 13
-    # TEXT = 10
-
-    # Key:   (Column Text,                             Type,      Display Text   )
-    "TCID":  ("System_ThumbnailCacheId",                'x', "    ThumbCacheID: "),  # 4670-System_ThumbnailCacheId
-    "MIME":  ("System_MIMEType",                        's', "        MimeType: "),  # 4468-System_MIMEType
-    "CTYPE": ("System_ContentType",                     's', "     ContentType: "),  # 4349-System_ContentType
-    "ITT":   ("System_ItemTypeText",                    's', "    ItemTypeText: "),  # 5-System_ItemTypeText
-    "ITYPE": ("System_ItemType",                        's', "        ItemType: "),  # 4446-System_ItemType
-    "FEXT":  ("System_FileExtension",                   's', "         FileExt: "),  # 4388-System_FileExtension
-    "FNAME": ("System_FileName",                        's', "        FileName: "),  # 11-System_FileName
-    "INAME": ("System_ItemName",                        's', "        ItemName: "),  # 4438-System_ItemName
-    "IND":   ("System_ItemNameDisplay",                 's', " ItemNameDisplay: "),  # 4439-System_ItemNameDisplay
-    "PNAME": ("System_ParsingName",                     's', "       ParseType: "),  # 4561-System_ParsingName
-    "INDWE": ("System_ItemNameDisplayWithoutExtension", 's', "   ItemNameWOExt: "),  # 4440-System_ItemNameDisplayWithoutExtension
-    "IPD":   ("System_ItemPathDisplay",                 's', "        ItemPath: "),  # 4443-System_ItemPathDisplay
-    "IURL":  ("System_ItemUrl",                         's', "         ItemUrl: "),  # 33-System_ItemUrl
-    "IPDN":  ("System_ItemPathDisplayNarrow",           's', "       ItemPathN: "),  # 4444-System_ItemPathDisplayNarrow
-    "IFPD":  ("System_ItemFolderPathDisplay",           's', "  ItemFolderPath: "),  # 4436-System_ItemFolderPathDisplay
-    "IFND":  ("System_ItemFolderNameDisplay",           's', "  ItemFolderName: "),  # 3-System_ItemFolderNameDisplay
-    "IFPDN": ("System_ItemFolderPathDisplayNarrow",     's', " ItemFolderPathN: "),  # 4437-System_ItemFolderPathDisplayNarrow
-    "DATEM": ("System_DateModified",                    'd', "    DateModified: "),  # 15F-System_DateModified
-    "DATEC": ("System_DateCreated",                     'd', "     DateCreated: "),  # 16F-System_DateCreated
-    "DATEA": ("System_DateAccessed",                    'd', "    DateAccessed: "),  # 17F-System_DateAccessed
-    "DATEI": ("System_DateImported",                    'd', "    DateImported: "),  # 4361-System_DateImported
-    "IDATE": ("System_ItemDate",                        'd', "        ItemDate: "),  # 4434-System_ItemDate
-    "DDC":   ("System_Document_DateCreated",            'd', "  DateDocCreated: "),  # 4367-System_Document_DateCreated
-    "DDS":   ("System_Document_DateSaved",              'd', "    DateDocSaved: "),  # 4369-System_Document_DateSaved
-    "KIND":  ("System_Kind",                            'x', "           Kind#: "),  # 4452-System_Kind
-    "KINDT": ("System_KindText",                        's', "        KindText: "),  # 4453-System_KindText
-    "IDIM":  ("System_Image_Dimensions",                's', "       ImageDims: "),  # 4416-System_Image_Dimensions
-    "IHSZ":  ("System_Image_HorizontalSize",            'i', "   ImageHorzSize: "),  # 4418-System_Image_HorizontalSize
-    "IVSZ":  ("System_Image_VerticalSize",              'i', "   ImageVertSize: "),  # 4420-System_Image_VerticalSize
-    "IHRES": ("System_Image_HorizontalResolution",      'f', "    ImageHorzRes: "),  # 4417-System_Image_HorizontalResolution
-    "IVRES": ("System_Image_VerticalResolution",        'f', "    ImageVertRes: "),  # 4419-System_Image_VerticalResolution
-    "IBITD": ("System_Image_BitDepth",                  'i', "   ImageBitDepth: "),  # 4413-System_Image_BitDepth
-
-    "FOWN":  ("System_FileOwner",                       's', "       FileOwner: "),  # 4392-System_FileOwner
-    "SIZE":  ("System_Size",                            'x', "        FileSize: "),  # 13F-System_Size
-    "IOMD5": ("InvertedOnlyMD5",                        'x', " InvertedOnlyMD5: "),  # 0F-InvertedOnlyMD5
-}
-
-ESEDB_ICOL = {}
-for key in ESEDB_ICOL_NAMES.keys():
-    ESEDB_ICOL[key] = None
+ESEDB = None
 
 LIST_PLACEHOLDER = ["", ""]
 

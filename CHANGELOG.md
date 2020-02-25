@@ -2,7 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.9.6] - 2020-02-07 (DEVELOPEMENT)
+## [0.9.7] - 2020-02-25 (DEVELOPEMENT)
+
+### Changed
+
+- Extreme Makeover: Class-ified ESEDB and Processor functions
+
+## [0.9.6] - 2020-02-07 (RELEASED)
 
 ### Changed
 

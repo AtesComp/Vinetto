@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "8"
+file_micro = "10"
 
 
 import sys
@@ -108,12 +108,12 @@ def getArgs():
         strProg + " is open source software\n" +
         "  See: " + version.location
         )
-    strNotVerbose = "\nFor extended help, use -v"
+    strNotVerbose = "\nFor more detailed help notes, use -v"
 
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter, description=strDesc,
                                      epilog=strEpilog + strNotVerbose, add_help=False)
     parser.add_argument("-h", "-?", "--help", action="store_true", dest="arg_help",
-                        help=("show this help message and exit"))
+                        help=("show this help message and exit, use -v for more details"))
     parser.add_argument("-e", "--edb", dest="edbfile", metavar="EDBFILE",
                         help=("examine EDBFILE (Extensible Storage Engine Database) for\n" +
                               "original thumbnail filenames\n" +
@@ -240,7 +240,7 @@ def testOutput():
     return
 
 
-def testESEDB():
+def getESEDB():
     strType = " (ESEDB): "
 
     # Setup ESEDB File test...
@@ -267,12 +267,12 @@ def testESEDB():
         config.ARGS.edbfile = strEDBFile
 
     if (config.ARGS.edbfile == None):
-        return
+        return False
+
     strEDBFileReport += config.ARGS.edbfile + ")"
 
     # Test ESEDB File parameter...
     bProblem = False
-    # Testing EDBFILE parameter...
     if not os.path.exists(config.ARGS.edbfile):  # ...NOT exists?
         bProblem = True
         strErrorMsg = strReport + strType + strEDBFileReport + " does not exist"
@@ -289,20 +289,15 @@ def testESEDB():
         elif (config.ARGS.verbose >= 0):
             sys.stderr.write(strErrorMsg + "\n")
 
-    # ESEDB: Prepare (open)...
-    # ESEDB: Load...
-    # ESEDB: Check for problems...
-    if (not ( esedb.prepareESEDB() and esedb.loadESEDB() ) ):  # ...ESEDB bad?...
+    # ESEDB: Process data...
+    config.ESEDB = esedb.ESEDB()
+    if ( config.ESEDB.prepare() ):  # ...open...
+        config.ESEDB.load()         # ...read, close...
+    if (not config.ESEDB.isLoaded()):   # ...not loaded?...
         if (config.ARGS.verbose >= 0):
             sys.stderr.write(" Warning: Skipping ESEDB enhanced processing\n")
 
-    # ESEDB: Close...
-    if (config.ESEDB_FILE != None):
-        config.ESEDB_TABLE = None
-        config.ESEDB_FILE.close()
-        config.ESEDB_FILE = "Done"
-
-    return
+    return config.ESEDB.isLoaded()
 
 
 # ================================================================================
@@ -340,24 +335,27 @@ def main():
         if (config.ARGS.md5force) and (config.ARGS.md5never):
             config.ARGS.md5force = False
 
-        testESEDB()
+        if (config.ARGS.edbfile != None or config.ARGS.mode == "a"):
+            getESEDB()
 
         utils.prepareSymLink()
 
         # Process
         # ============================================================
         if (config.ARGS.infile == None and config.ARGS.edbfile != None):
-            esedb.examineESEDB()
-        elif (config.ARGS.mode == "f"):  # Traditional Mode
-            processor.processThumbFile(config.ARGS.infile)
-        elif (config.ARGS.mode == "d"):  # Directory Mode
-            processor.processDirectory(config.ARGS.infile)
-        elif (config.ARGS.mode == "r"):  # Recursive Directory Mode
-            processor.processRecursiveDirectory()
-        elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
-            processor.processFileSystem()
-        else:  # Unknown Mode - should never occur
-            raise verror.ModeError(" Error (Mode): Unknown mode (" + config.ARGS.mode + ") to process " + config.ARGS.infile)
+            config.ESEDB.examine()
+        else:
+            vProcessor = processor.Processor()
+            if (config.ARGS.mode == "f"):  # Traditional Mode
+                vProcessor.processThumbFile(config.ARGS.infile)
+            elif (config.ARGS.mode == "d"):  # Directory Mode
+                vProcessor.processDirectory(config.ARGS.infile)
+            elif (config.ARGS.mode == "r"):  # Recursive Directory Mode
+                vProcessor.processRecursiveDirectory()
+            elif (config.ARGS.mode == "a"):  # Automatic Mode - File System
+                vProcessor.processFileSystem()
+            else:  # Unknown Mode - should never occur
+                raise verror.ModeError(" Error (Mode): Unknown mode (" + config.ARGS.mode + ") to process " + config.ARGS.infile)
     except verror.VinettoError as ve:
         ve.printError()
         sys.exit(ve.iExitCode)

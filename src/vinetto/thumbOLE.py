@@ -30,7 +30,7 @@ from __future__ import print_function
 
 file_major = "0"
 file_minor = "1"
-file_micro = "8"
+file_micro = "9"
 
 
 import sys
@@ -414,12 +414,12 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                     strExt = "jpg"
                     if (not bOldNameID):
                         # ESEDB Search...
-                        dictESEDB = esedb.searchESEDB(strRawName[strRawName.find("_") + 1: ])  # Raw Name is structured SIZE_THUMBCACHEID
-                        if (dictESEDB != None):
+                        isESEDBRecFound = config.ESEDB.search(strRawName[strRawName.find("_") + 1: ])  # Raw Name is structured SIZE_THUMBCACHEID
+                        if (isESEDBRecFound):
                             strFileName = None
-                            strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(dictESEDB["DATEM"])
-                            if (dictESEDB["IURL"] != None):
-                                strFileName = dictESEDB["IURL"].split("/")[-1].split("?")[0]
+                            strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
+                            if (config.ESEDB.dictRecord["IURL"] != None):
+                                strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
                             if (strFileName != None):
                                 if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                                     strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strRawName + "." + strExt
@@ -433,7 +433,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                                 tdbCatalog[strRawName] = (strCatEntryTimestamp, strFileName)
 
                             if (config.ARGS.verbose >= 0):
-                                esedb.printESEDBInfo(dictESEDB)
+                                config.ESEDB.printInfo()
                                 if (strFileName != None):
                                     print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
 

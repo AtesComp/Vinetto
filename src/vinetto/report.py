@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "8"
+file_micro = "9"
 
 
 from time import time
@@ -81,7 +81,7 @@ class Report:
         self.iIDCount = 0
 
 ###############################################################################
-# Vinetto Html Report (elementary mode) Class
+# Vinetto HTML Report (elementary mode) Class
 ###############################################################################
 class HtmlReport(Report):
     def __init__(self, strCharSet, strOutputDir, dictHead):

@@ -47,8 +47,8 @@ Vinetto will function according to four modes:
 
    2. *directory* : Vinetto processes any found "\*.db" files in the specified
    BASE directory.
-      - [TODO] It checks for consistency between the specified directory's content and
-      its related Thumbs.db file (i.e., it reports thumbnails that have a
+      - [TODO] It checks for consistency between the specified directory's content
+      and its related Thumbs.db file (i.e., it reports thumbnails that have a
       missing associated file in the directory).
       - It processes any "Thumbcache_\*.db" files.
       - As per *file*, Thumb Cache IDs are cross checked to extract any relevant
@@ -102,9 +102,10 @@ store these thumbnails:
    2. A newer format fully compliant with the JPEG format.  Vinetto writes this
    type to file directly.
 
-2. For ***Thumbcache_\*.db*** files, thumbnail images are embed as fully compliant JPEG, PNG, and BMP
-formats which Vinetto writes directly.  Vinetto recognizes the index db file, Thumbcache_idx.db,
-but currently does not use this file for anything particular.
+2. For ***Thumbcache_\*.db*** files, thumbnail images are embed as fully compliant
+JPEG, PNG, and BMP formats which Vinetto writes directly.  Vinetto recognizes the
+index db file, Thumbcache_idx.db, but currently does not use this file for anything
+particular.
 
 3. The Windows.edb and other ESEDB files can become corrupt.  If there are
 problems with Vinetto reading the file, it may need to be fixed.  To fix this

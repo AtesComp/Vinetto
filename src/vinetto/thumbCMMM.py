@@ -30,7 +30,7 @@ from __future__ import print_function
 
 file_major = "0"
 file_minor = "1"
-file_micro = "8"
+file_micro = "9"
 
 
 import sys
@@ -63,7 +63,7 @@ def printHead(dictCMMMMeta):
     return
 
 
-def printCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, keyStreamName, dictESEDB):
+def printCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWidth, iHeight, iChkSumD, iChkSumH, keyStreamName):
     print("     Signature: %s" % strSig)
     if (config.ARGS.verbose > 0):
         print("          Size: %s" % str(iSize))
@@ -78,7 +78,7 @@ def printCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWi
         print(" Head Checksum: %s" % str(iChkSumH))
     print("            ID: %s" % keyStreamName)
     if (config.ARGS.verbose > 0):
-        esedb.printESEDBInfo(dictESEDB)
+        config.ESEDB.printInfo()
     return
 
 
@@ -217,22 +217,22 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
         #    No Data, no Ext!
 
         # ESEDB Search...
-        dictESEDB = esedb.searchESEDB(keyStreamName)
+        isESEDBRecFound = config.ESEDB.search(keyStreamName)
 
         if (config.ARGS.verbose >= 0):
             print(" Cache Entry %d\n --------------------" % iCacheCounter)
             printCache(tDB_sig.decode(), tDB_size, strHash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
-                         tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, keyStreamName, dictESEDB)
+                         tDB_width, tDB_height, tDB_chksumD, tDB_chksumH, keyStreamName)
 
         strCleanFileName = utils.cleanFileName(keyStreamName)
 
         if (tDB_dataSize > 0):
             # Setup symbolic link to filename...
-            if (dictESEDB != None):
+            if (isESEDBRecFound):
                 strFileName = None
-                strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(dictESEDB["DATEM"])
-                if (dictESEDB["IURL"] != None):
-                    strFileName = dictESEDB["IURL"].split("/")[-1].split("?")[0]
+                strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
+                if (config.ESEDB.dictRecord["IURL"] != None):
+                    strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
                 if (strFileName != None):
                     if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                         strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
