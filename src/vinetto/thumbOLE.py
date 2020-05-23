@@ -384,7 +384,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                         strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(iCatEntryTimestamp)
                         strCatEntryName      = utils.decodeBytes(bstrCatEntryName)
                         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                            strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
+                            strTarget = config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
                             utils.setSymlink(strTarget, config.ARGS.outdir + strCatEntryName)
 
                         # Add a "catalog" entry...
