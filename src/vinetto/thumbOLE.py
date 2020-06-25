@@ -142,6 +142,8 @@ def printCache(strName, dictOLECache):
         print("        Modify: " + utils.getFormattedWinToPyTimeUTC(dictOLECache["modify"]))
         print("       1st Sec: %d" % dictOLECache["SID_firstSecDir"])
         print("          Size: %d" % dictOLECache["SID_sizeDir"])
+        if (config.ARGS.edbfile != None):  # ...ESEDB available...
+            config.ESEDB.printInfo()
     return
 
 
@@ -387,6 +389,10 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                             strTarget = config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
                             utils.setSymlink(strTarget, config.ARGS.outdir + strCatEntryName)
 
+                            fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
+                            fileURL.write(strTarget + " => " + strCatEntryName + "\n")
+                            fileURL.close()
+
                         # Add a "catalog" entry...
                         tdbCatalog[iCatEntryID] = (strCatEntryTimestamp, strCatEntryName)
 
@@ -413,29 +419,29 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
 
                     strExt = "jpg"
                     if (not bOldNameID):
-                        # ESEDB Search...
-                        isESEDBRecFound = config.ESEDB.search(strRawName[strRawName.find("_") + 1: ])  # Raw Name is structured SIZE_THUMBCACHEID
-                        if (isESEDBRecFound):
-                            strFileName = None
-                            strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
-                            if (config.ESEDB.dictRecord["IURL"] != None):
-                                strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
-                            if (strFileName != None):
-                                if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                                    strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strRawName + "." + strExt
-                                    utils.setSymlink(strTarget, config.ARGS.outdir + strFileName)
+                        strFileName = None
+                        if (config.ARGS.edbfile != None):  # ...ESEDB available...
+                            # ESEDB Search...
+                            isESEDBRecFound = config.ESEDB.search(strRawName[strRawName.find("_") + 1: ])  # Raw Name is structured SIZE_THUMBCACHEID
+                            if (isESEDBRecFound):
+                                strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
+                                if (config.ESEDB.dictRecord["IURL"] != None):
+                                    strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
 
-                                    fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
-                                    fileURL.write(strTarget + " => " + strFileName + "\n")
-                                    fileURL.close()
+                        if (strFileName != None):
+                            if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
+                                strTarget = config.THUMBS_SUBDIR + "/" + strRawName + "." + strExt
+                                utils.setSymlink(strTarget, config.ARGS.outdir + strFileName)
 
-                                # Add a "catalog" entry...
-                                tdbCatalog[strRawName] = (strCatEntryTimestamp, strFileName)
+                                fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
+                                fileURL.write(strTarget + " => " + strFileName + "\n")
+                                fileURL.close()
+
+                            # Add a "catalog" entry...
+                            tdbCatalog[strRawName] = (strCatEntryTimestamp, strFileName)
 
                             if (config.ARGS.verbose >= 0):
-                                config.ESEDB.printInfo()
-                                if (strFileName != None):
-                                    print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
+                                print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
 
                     # --- Header 2: Type 2 Thumbnail Image? (Full JPEG)...
                     if (bstrStreamData[headOffset: headOffset + 4] == bytearray(b"\xff\xd8\xff\xe0")):

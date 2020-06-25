@@ -78,7 +78,8 @@ def printCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWi
         print(" Head Checksum: %s" % str(iChkSumH))
     print("            ID: %s" % keyStreamName)
     if (config.ARGS.verbose > 0):
-        config.ESEDB.printInfo()
+        if (config.ARGS.edbfile != None):  # ...ESEDB available...
+            config.ESEDB.printInfo()
     return
 
 
@@ -216,9 +217,6 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
         # Otherwise,
         #    No Data, no Ext!
 
-        # ESEDB Search...
-        isESEDBRecFound = config.ESEDB.search(keyStreamName)
-
         if (config.ARGS.verbose >= 0):
             print(" Cache Entry %d\n --------------------" % iCacheCounter)
             printCache(tDB_sig.decode(), tDB_size, strHash, strExt, tDB_idSize, tDB_padSize, tDB_dataSize,
@@ -227,26 +225,29 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
         strCleanFileName = utils.cleanFileName(keyStreamName)
 
         if (tDB_dataSize > 0):
-            # Setup symbolic link to filename...
-            if (isESEDBRecFound):
-                strFileName = None
-                strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
-                if (config.ESEDB.dictRecord["IURL"] != None):
-                    strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
-                if (strFileName != None):
-                    if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                        strTarget = config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
-                        setSymlink(strTarget, config.ARGS.outdir + strFileName)
+            strFileName = None
+            if (config.ARGS.edbfile != None):  # ...ESEDB available...
+                # ESEDB Search...
+                isESEDBRecFound = config.ESEDB.search(keyStreamName)
+                if (isESEDBRecFound):
+                    strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
+                    if (config.ESEDB.dictRecord["IURL"] != None):
+                        strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
+            if (strFileName != None):
+                # Setup symbolic link to filename...
+                if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
+                    strTarget = config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
+                    setSymlink(strTarget, config.ARGS.outdir + strFileName)
 
-                        fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
-                        fileURL.write(strTarget + " => " + strFileName + "\n")
-                        fileURL.close()
+                    fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
+                    fileURL.write(strTarget + " => " + strFileName + "\n")
+                    fileURL.close()
 
-                    # Add a "catalog" entry...
-                    tdbCatalog[strCleanFileName] = (strCatEntryTimestamp, strFileName)
+                # Add a "catalog" entry...
+                tdbCatalog[strCleanFileName] = (strCatEntryTimestamp, strFileName)
 
-                    if (config.ARGS.verbose >= 0):
-                        print("  CATALOG " + strCleanFileName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
+                if (config.ARGS.verbose >= 0):
+                    print("  CATALOG " + strCleanFileName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
 
             # Write data to filename...
             if (config.ARGS.outdir != None):
