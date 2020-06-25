@@ -43,7 +43,7 @@ OS_WIN_THUMBCACHE_DIR = "AppData/Local/Microsoft/Windows/Explorer/"
 
 
 THUMBS_SUBDIR    = ".thumbs"
-THUMBS_FILE_URLS = "urls.txt"
+THUMBS_FILE_SYMS = "symlinks.log"
 
 THUMBS_TYPE_OLE  = 0
 THUMBS_TYPE_CMMM = 1

@@ -235,8 +235,8 @@ def testOutput():
             config.ARGS.outdir += "/"
 
         # Remove existing URL file...
-        if os.path.exists(config.ARGS.outdir + config.THUMBS_FILE_URLS):
-            os.remove(config.ARGS.outdir + config.THUMBS_FILE_URLS)
+        if os.path.exists(config.ARGS.outdir + config.THUMBS_FILE_SYMS):
+            os.remove(config.ARGS.outdir + config.THUMBS_FILE_SYMS)
     return
 
 

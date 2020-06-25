@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.8] - 2020-06-25 (DEVELOPEMENT)
+
+### Changed
+
+- Fixed symlink targets (auscompgeek)
+- Fixed processing when ESEDB is NOT used
+- Fixed symlink logging
+
 ## [0.9.7] - 2020-02-25 (DEVELOPEMENT)
 
 ### Changed
