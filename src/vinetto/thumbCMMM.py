@@ -235,7 +235,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                     strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
                 if (strFileName != None):
                     if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                        strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
+                        strTarget = config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
                         setSymlink(strTarget, config.ARGS.outdir + strFileName)
 
                         fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_URLS, "a+")
