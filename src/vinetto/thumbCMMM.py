@@ -30,7 +30,7 @@ from __future__ import print_function
 
 file_major = "0"
 file_minor = "1"
-file_micro = "9"
+file_micro = "10"
 
 
 import sys

@@ -122,95 +122,95 @@ and Windows(R)(TM) OSes as well. YMMV.
 
 ```
     usage: vinetto [-h] [-e EDBFILE] [-H] [-m [{f,d,r,a}]] [--md5] [--nomd5]
-                [-o DIR] [-q] [-s] [-U] [-v] [--version]
-                [infile]
+                   [-o DIR] [-q] [-s] [-U] [-v] [--version]
+                   [infile]
 
     Vinetto.py - The Thumbnail File Parser
 
     positional arguments:
-    infile                depending on operating mode (see mode option), either a location
+      infile                depending on operating mode (see mode option), either a location
                             to a thumbnail file ("Thumb.db" or similar) or a directory
 
     optional arguments:
-    -h, -?, --help        show this help message and exit
-    -e EDBFILE, --edb EDBFILE
+      -h, -?, --help        show this help message and exit, use -v for more details
+      -e EDBFILE, --edb EDBFILE
                             examine EDBFILE (Extensible Storage Engine Database) for
                             original thumbnail filenames
                             NOTE: -e without an INFILE explores EDBFILE extracted data
                             NOTE: Automatic mode will attempt to use ESEDB without -e
-    -H, --htmlrep         write html report to DIR (requires option -o)
-    -m [{f,d,r,a}], --mode [{f,d,r,a}]
+      -H, --htmlrep         write html report to DIR (requires option -o)
+      -m [{f,d,r,a}], --mode [{f,d,r,a}]
                             operating mode: "f", "d", "r", or "a"
-                            where "f" indicates single file processing (default)
+                              where "f" indicates single file processing (default)
                                     "d" indicates directory processing
                                     "r" indicates recursive directory processing from a
-                                        starting directory
+                                          starting directory
                                     "a" indicates automatic processing using well known
-                                        directories starting from a base directory
-    --md5                 force the MD5 hash value calculation for an input file
+                                          directories starting from a base directory
+      --md5                 force the MD5 hash value calculation for an input file
                             Normally, the MD5 is calculated when a file is less than
                             0.5 GiB in size
                             NOTE: --nomd5 overrides --md5
-    --nomd5               skip the MD5 hash value calculation for an input file
-    -o DIR, --outdir DIR  write thumbnails to DIR
+      --nomd5               skip the MD5 hash value calculation for an input file
+      -o DIR, --outdir DIR  write thumbnails to DIR
                             NOTE: -o requires INFILE
-    -q, --quiet           quiet output: Errors only
+      -q, --quiet           quiet output: Errors only
                             NOTE: -v overrides -q
-    -s, --symlinks        create symlink from the the image realname to the numbered name
+      -s, --symlinks        create symlink from the the image realname to the numbered name
                             in DIR/.thumbs (requires option -o)
                             NOTE: A Catalog containing the realname must exist for this
-                                option to produce results OR a Windows.edb must be given
-                                (-e) to find and extract possible file names
-    -U, --utf8            use utf8 encodings
-    -v, --verbose         verbose output, each use increments output level: 0 (Standard)
+                                  option to produce results OR a Windows.edb must be given
+                                  (-e) to find and extract possible file names
+      -U, --utf8            use utf8 encodings
+      -v, --verbose         verbose output, each use increments output level: 0 (Standard)
                             1 (Verbose), 2 (Enhanced), 3 (Full)
-    --version             show program's version number and exit
+      --version             show program's version number and exit
 
     Operating Mode Notes:
-    Using the mode switch (-m, --mode) causes the input to be treated differently
-    based on the mode selected
-    File      (f): DEFAULT
+      Using the mode switch (-m, --mode) causes the input to be treated differently
+      based on the mode selected
+      File      (f): DEFAULT
         Use the input as a location to an individual thumbnail file to process
-    Directory (d):
+      Directory (d):
         Use the input as a directory containing individual thumbnail files where
         each file is automatically iterated for processing
-    Recursive (r):
+      Recursive (r):
         Use the input as a BASE directory from which it and subdirectories are
         recursively searched for individual thumbnail files for processing
-    Automatic (a):
+      Automatic (a):
         Use the input as a BASE directory of a partition to examine default
         locations for relevant thumbnail files to process
-        Thumbcache Files:
+          Thumbcache Files:
             BASE/Users/*/AppData/Local/Microsoft/Windows/Explorer
-            where '*' are user directories iterated automatically
-        Windows.edb File:
+              where '*' are user directories iterated automatically
+          Windows.edb File:
             BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb
         When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
         location
 
     Verbose Mode Notes:
-    Using the verbose switch (-v, --verbose) and the quiet switch cause the
-    terminal output to be treated differently based on the switch usage
+      Using the verbose switch (-v, --verbose) and the quiet switch cause the
+      terminal output to be treated differently based on the switch usage
         Level:   Mode:    Switch:   Output:
-        -1      Quiet     -q       Errors
-        0      Standard  N/A      output + Errors + Warnings
-        1      Verbose   -v       Standard + Extended + Info
-        2      Enhanced  -vv      Verbose + Unused
-        3      Full      -vvv     Enhanced + Missing
+         -1      Quiet     -q       Errors
+          0      Standard  N/A      output + Errors + Warnings
+          1      Verbose   -v       Standard + Extended + Info
+          2      Enhanced  -vv      Verbose + Unused
+          3      Full      -vvv     Enhanced + Missing
         where Quiet indicates no output other than error messages
-            Standard indicates normal informative output
-            Verbose adds Extended header, cache, and additional Info messages
-            Enhanced add any data marked Unused or zero state
-            Full expands empty data section output instead of "Empty"
-        and Errors are error messages explaining termination
-            Warnings are warning messages indicating processing issues
-            Info are information messages indicating processing states
+              Standard indicates normal informative output
+              Verbose adds Extended header, cache, and additional Info messages
+              Enhanced add any data marked Unused or zero state
+              Full expands empty data section output instead of "Empty"
+          and Errors are error messages explaining termination
+              Warnings are warning messages indicating processing issues
+              Info are information messages indicating processing states
 
-    --- Vinetto.py 0.9.6 ---
+    --- Vinetto.py 0.9.8 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software
-    See: https://github.com/AtesComp/Vinetto
+      See: https://github.com/AtesComp/Vinetto
 ```
 
 ## Exit Codes
