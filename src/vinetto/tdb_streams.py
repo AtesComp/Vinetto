@@ -5,7 +5,7 @@ module tdb_streams.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -29,15 +29,15 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "4"
+file_micro = "5"
 
-try:
-    from collections.abc import MutableMapping
-    import vinetto.config as config
-    unicode = str
-except ImportError:
-    from collections import MutableMapping
-    import config
+
+import sys
+
+from collections.abc import MutableMapping
+import vinetto.config as config
+
+unicode = str
 
 
 
@@ -176,7 +176,9 @@ class TDB_Streams(MutableMapping):
                     try:
                         iVal = int(strIndexFileName[iMark + 1: ])
                     except ValueError:
-                        raise Value("Stream invalid: Stream names must be extended with _# where # is an integer! Offender: %s" % strIndexFileName)
+                        tb = sys.exc_info()[2]
+                        strError = "Invalid Stream: Stream names must be extended with _# where # is an integer! Offender: {}".format(strIndexFileName)
+                        raise ValueError(strError).with_traceback(tb)
                     strComputedFileName = strIndexFileName[ :iMark + 1] + str(iVal + 1)
 
         # Add or append to self -- see __setitem__()...

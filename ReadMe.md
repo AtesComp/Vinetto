@@ -5,15 +5,17 @@ these files.  Based on the original Vinetto by Michel Roukine.
 
 This is a much needed update to the last original Vinetto (version 0.7).
 
-This version should be compatible with Python 2 and 3.  It should work on
+This version should be compatible with Python 3.  It should work on
 Linux, Mac, and Windows.  Testing has currently been limited to Linux.
+
+NOTE: Python 2 compatible code has been removed since version 0.9.9.
 
 ## Project Overview
 
 1. **Context** : Older Windows systems (98, ME, 2000, XP, and Server 2003) can
 store a thumb cache containing thumbnails and metadata of image files found in
 the directories of its FAT32 or NTFS filesystems.  Newer Windows systems
-(Vista, 7, 8, 10, other related Editions, and Server versions) use a unified
+(Vista, 7, 8, 10, 11, other related Editions, and Server versions) use a unified
 thumb cache system for each user.
    1. For older OS systems, thumbnails and associated metadata are stored in
    Thumbs.db files in each directory.  Thumbs.db files are undocumented OLE
@@ -83,11 +85,13 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 
 ## Requirements
 
-1. Python-2.3 or later including standard libraries.
+1. Python 3.7 or later including standard libraries.
 
-2. PIL or Pillow.  PIL (Python Imaging Library) 1.1.5 or later.  Pillow is used
-by the maintainer.  PIL is used to attempt correct reconstitution of Type 1
-thumbnails (see Limitations below).
+2. Pillow 9.0.0 or later.  Based on PIL (Python Imaging Library).  Used to attempt
+correct reconstitution of Type 1 thumbnails (see Limitations below).
+
+3. PyESEDB.  The author suppiles a late model version, but the program checks for a
+system installed version first.  If not found, it uses the supplied version.
 
 ## Limitations
 
@@ -116,14 +120,17 @@ times to fix the file.
 Vinetto has been tested on a modern Linux distribution.  The code has been
 modified to use common Python packages and methods not specific to the Linux
 OS.  Therefore, it should operate on BSD deriviatives, such as Darwin(R)(TM),
-and Windows(R)(TM) OSes as well. YMMV.
+and Windows(R)(TM) OSes as well. However, the supplied ESEDB Python library is
+compiled on a Linux system.  Compile and/or install the ESEDB Python lib for
+your OS.  YMMV.
 
 ## Usage Overview:
 
 ```
-    usage: vinetto [-h] [-e EDBFILE] [-H] [-m [{f,d,r,a}]] [--md5] [--nomd5]
-                   [-o DIR] [-q] [-s] [-U] [-v] [--version]
-                   [infile]
+    Vinetto: Version 0.9.9
+    usage: vinetto [-h] [-e EDBFILE] [-H] [-i] [-m [{f,d,r,a}]] [--md5] [--nomd5]
+                  [-o DIR] [-q] [-s] [-U] [-v] [--version]
+                  [infile]
 
     Vinetto.py - The Thumbnail File Parser
 
@@ -139,6 +146,9 @@ and Windows(R)(TM) OSes as well. YMMV.
                             NOTE: -e without an INFILE explores EDBFILE extracted data
                             NOTE: Automatic mode will attempt to use ESEDB without -e
       -H, --htmlrep         write html report to DIR (requires option -o)
+      -i, --invert          Color invert Type 1 images.  Some test Thumbs.db files showed
+                            color negative images.  If your Type 1 files need color inverting,
+                            use this option.
       -m [{f,d,r,a}], --mode [{f,d,r,a}]
                             operating mode: "f", "d", "r", or "a"
                               where "f" indicates single file processing (default)
@@ -206,7 +216,7 @@ and Windows(R)(TM) OSes as well. YMMV.
               Warnings are warning messages indicating processing issues
               Info are information messages indicating processing states
 
-    --- Vinetto.py 0.9.8 ---
+    --- Vinetto.py 0.9.9 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software

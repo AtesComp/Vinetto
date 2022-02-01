@@ -5,7 +5,7 @@ module utils.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "8"
+file_micro = "9"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"

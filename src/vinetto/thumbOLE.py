@@ -5,7 +5,7 @@ module thumbOLE.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,36 +25,27 @@ This file is part of Vinetto.
 
 -----------------------------------------------------------------------------
 """
-from __future__ import print_function
 
 
 file_major = "0"
 file_minor = "1"
-file_micro = "10"
+file_micro = "11"
 
 
 import sys
 import os
 import errno
-from io import StringIO
+from io import BytesIO
 from struct import unpack
-from binascii import hexlify, unhexlify
+from binascii import hexlify
 from pkg_resources import resource_filename
 
-try:
-    import vinetto.config as config
-    import vinetto.esedb as esedb
-    import vinetto.tdb_catalog as tdb_catalog
-    import vinetto.tdb_streams as tdb_streams
-    import vinetto.utils as utils
-    import vinetto.error as verror
-except ImportError:
-    import config
-    import esedb
-    import tdb_catalog
-    import tdb_streams
-    import utils
-    import error as verror
+import vinetto.config as config
+import vinetto.esedb as esedb
+import vinetto.tdb_catalog as tdb_catalog
+import vinetto.tdb_streams as tdb_streams
+import vinetto.utils as utils
+import vinetto.error as verror
 
 
 def preparePILOutput():
@@ -67,7 +58,7 @@ def preparePILOutput():
         # Initializing PIL library for Type 1 image extraction...
         config.THUMBS_TYPE_OLE_PIL = False  # ...attempting to load PIL..
         try:
-            from PIL import Image
+            from PIL import Image, ImageOps
             config.THUMBS_TYPE_OLE_PIL = True  # ...loaded PIL
             if (config.ARGS.verbose > 0):
                 sys.stderr.write(" Info: Imported PIL for possible Type 1 exports\n")
@@ -83,7 +74,7 @@ def preparePILOutput():
             except:
                 # Hard Error!  The header, quantization, and huffman data files are installed
                 #    locally with Vinetto, so missing missing files are bad!
-                raise verror.InstallError(" Error (Install): Cannot load PIL support data files")
+                raise verror.InstallError(" Error: Cannot load PIL support data files!")
     return
 
 
@@ -149,12 +140,11 @@ def printCache(strName, dictOLECache):
 
 def process(infile, fileThumbsDB, iThumbsDBSize):
     preparePILOutput()
+    from PIL import Image, ImageOps
 
     if (config.ARGS.verbose >= 0):
         if (iThumbsDBSize % 512 ) != 0:
             sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, iThumbsDBSize))
-
-    tDB_endian = "<"  # Little Endian
 
     # Structure:
     # --------------------
@@ -176,6 +166,8 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
     # * Stream Sector – contains arbitrary file data
     # * Range Lock Sector – contains the byte-range locking area of a large file
 
+    tDB_endian = "<"  # Little Endian
+
     fileThumbsDB.seek(8)  # ...skip magic bytes                              # File Signature: 0xD0CF11E0A1B11AE1 for current version
     tDB_CLSID             = str(hexlify( fileThumbsDB.read(16) ))[2:-1]      # CLSID
     tDB_revisionNo        = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Minor Version
@@ -184,8 +176,9 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
     tDB_endianOrder       = fileThumbsDB.read(2)  # 0xFFFE OR 0xFEFF         # Byte Order, 0xFFFE (Intel)
     if (tDB_endianOrder == bytearray(b"\xff\xfe")):
         tDB_endian = ">"  # Big Endian
-    #elif (tDB_endianOrder == bytearray(b"\xfe\xff")):
-    #    tDB_endian = "<"
+    # Otherwise, it's Little Endian:
+    #     (tDB_endianOrder == bytearray(b"\xfe\xff"))
+    # which was initialized above.
 
     tDB_SectorSize         = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Sector Shift
     tDB_SectorSizeMini     = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Mini Sector Shift
@@ -450,6 +443,12 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                             fileImg = open(config.ARGS.outdir + strFileName, "wb")
                             fileImg.write(bstrStreamData[headOffset:])
                             fileImg.close()
+
+                            if (config.ARGS.verbose > 0):
+                                print("     File Info: ---------------------------------------")
+                                print("          Type: 2 (Full JPEG)")
+                                print("          Name: %s" % strFileName)
+
                         else:  # Not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER
 
@@ -461,17 +460,68 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
 
                         if (config.ARGS.outdir != None and config.THUMBS_TYPE_OLE_PIL):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
+                            # DEBUG
+                            #imageRaw = open(config.ARGS.outdir + strFileName + ".bin", "wb")
+                            #imageRaw.write(bstrStreamData)
+                            #imageRaw.close()
 
+                            # --------------------------------------------------------------------------------
                             # Construct thumbnail image from standard blocks and stored image data...
-                            bstrImage = ( config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER[:20] +
-                                          config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE + bstrStreamData[30:52] +
-                                          config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  + bstrStreamData[52:] )
+                            # --------------------------------------------------------------------------------
+                            #
+                            # [ 0: 8] Marker [0C 00 00 00 : 01 00 00 00]
+                            # [ 8:12] Size of File 1 (SF1) from [12] to End Of File (little-endian)
+                            # [12:16] Marker [01 00 00 00]
+                            # [16:20] Size of File 2 (SF2) from [28] to End Of File (little-endian)
+                            # [20:24] Frame Samples per Line (little-endian)
+                            # [24:28] Frame Line Count (little-endian)
+                            # [28:30] SOI [FF D8]
+                            # [30:32] SOF [FF C0] (8 + 3*FCC Bytes)
+                            #   [32:34] Frame Length (FL)
+                            #   [34]    Frame Precision
+                            #   [35:37] Frame Line Count
+                            #   [37:39] Frame Samples per Line
+                            #   [39]    Frame Component Count (FCC: 3 Bytes Each)
+                            #     [40]    FC1: Component ID
+                            #     [41H]   FC1: Horiz Sample Factor: (bstrStreamData[41] >> 4) & 15
+                            #     [41L]   FC1: Vert  Sample Factor: bstrStreamData[41] & 15
+                            #     [42]    FC1: Quantization Table Selector
+                            #     ...     FC2-FCN
+                            # [32+FL:34+FL] SOS [FF DA]
+                            # [32+FL:34+FL] SOS [FF DA]
+                            # [12+SF1-2:12+SF1-1] EOI [FF D9]
 
-                            image = Image.open(StringIO.StringIO(bstrImage))
-                            #r, g, b, a = image.split()
-                            #image = Image.merge("RGB", (r, g, b))
+                            iFileSize1 = int.from_bytes(bstrStreamData[ 8:12], 'little')
+                            iFileSize2 = int.from_bytes(bstrStreamData[16:20], 'little')
+                            iFileDiff = iFileSize1 - iFileSize2
+                            iFrameIndex = 30
+                            iFrameSize = int.from_bytes(bstrStreamData[32:34], 'big')
+                            iScanIndex = iFrameIndex + 2 + iFrameSize
+
+                            bstrImage = ( config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER[:20] +
+                                          config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE + bstrStreamData[iFrameIndex:iScanIndex] +
+                                          config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  + bstrStreamData[iScanIndex:] )
+
+                            image = Image.open( BytesIO( bstrImage ) )
                             image = image.transpose(Image.FLIP_TOP_BOTTOM)
-                            image.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
+                            r, g, b, a = image.split()
+                            imageRGB = Image.merge("RGB", (r, g, b))
+
+                            if (config.ARGS.invert):
+                                imageRGB = ImageOps.invert(imageRGB)
+                            imageRGB.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
+
+                            if (config.ARGS.verbose > 0):
+                                print("     File Info: ---------------------------------------")
+                                print("          Type: 1 (JPEG Fragment)")
+                                print("          Name: %s" % strFileName)
+                                print("        Size 1: %d Bytes" % iFileSize1)
+                                print("        Size 2: %d Bytes" % iFileSize2)
+                                print("          Diff: %d Bytes == 16? %s" % (iFileDiff, (iFileDiff == 16)))
+                                print("   Frame Start: Byte %d" % iFrameIndex)
+                                print("   Frame  Size: %d" % iFrameSize)
+                                print("    Scan Start: Byte %d" % iScanIndex)
+
                         else:  # Cannot extract (PIL not found) or not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER
                     else:

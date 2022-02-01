@@ -5,7 +5,7 @@ module utils.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "0"
+file_micro = "2"
 
 
 from sys import version_info as py_version_info
@@ -43,7 +43,6 @@ try:
 except ImportError:
     import config
     import error as verror
-
 
 def convertWinToPyTime(iFileTime_Win32):
     # Convert Win32 timestamp to Python timestamp...
@@ -70,14 +69,8 @@ def getFormattedWinToPyTimeUTC(iFileTime_Win32):
 def cleanFileName(strFileName):
     strInChars = "\\/:*?\"<>|"
     strOutChars = "_________"
-    try:
-        # Python >= 3
-        dictTransTab = str.maketrans(strInChars, strOutChars)
-        return strFileName.translate(dictTransTab)
-    except:
-        # Python < 3
-        dictTransTab = {ord(c): ord(t) for c, t in zip(unicode(strInChars), unicode(strOutChars))}
-        return strFileName.translate(dictTransTab)
+    dictTransTab = str.maketrans(strInChars, strOutChars)
+    return strFileName.translate(dictTransTab)
 
 
 def getEncoding():
@@ -90,18 +83,12 @@ def getEncoding():
 
 #def reencodeBytes(bytesString):
 #    # Convert bytes encoded as utf-16-le to the global encoding...
-#    if (py_version_info[0] < 3):
-#        return unicode(bytesString, "utf-16-le").encode(getEncoding(), "replace")
-#    else:
-#        return str(bytesString, "utf-16-le").encode(getEncoding(), "replace")
+#    return str(bytesString, "utf-16-le").encode(getEncoding(), "replace")
 
 
 def decodeBytes(byteString):
     # Convert bytes encoded as utf-16-le to standard unicode...
-    if (py_version_info[0] < 3):
-        return unicode(str(byteString), "utf-16-le")
-    else:
-        return str(byteString, "utf-16-le")
+    return str(byteString, "utf-16-le")
 
 
 def prepareSymLink():
@@ -127,5 +114,3 @@ def setSymlink(strTarget, strLink):
         else:
             raise verror.LinkError(" Error (Symlink): Cannot create symlink " + strLink + " to file " + strTarget)
     return
-
-

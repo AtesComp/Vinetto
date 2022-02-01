@@ -1,6 +1,19 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are documented in this file.
+
+## [0.9.9] - 2022-01-31 (RELEASED)
+
+### Changed
+
+- Updated all copyright notices and file versions
+- Stanardized on Python 3--removed all Python 2 compatability code
+- Minor function and class callout fixups
+- ESEDB library
+  - Looks for a system ESEDB Python library before importing the Vinetto supplied version
+  - Stanardized the supplied ESEDB Python library on Python 3
+  - Latest Python ESEDB library based on [libesedb](https://github.com/libyal/libesedb) commit 3326953
+- Added invert option (-i, --invert) to invert colors (negatives) for Type 1 images
 
 ## [0.9.8] - 2020-06-25 (DEVELOPEMENT)
 

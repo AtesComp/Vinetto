@@ -5,7 +5,7 @@ module thumbCMMM.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,7 +25,6 @@ This file is part of Vinetto.
 
 -----------------------------------------------------------------------------
 """
-from __future__ import print_function
 
 
 file_major = "0"
@@ -37,18 +36,11 @@ import sys
 from io import StringIO
 from struct import unpack
 
-try:
-    import vinetto.config as config
-    import vinetto.esedb as esedb
-    import vinetto.tdb_catalog as tdb_catalog
-    import vinetto.tdb_streams as tdb_streams
-    import vinetto.utils as utils
-except ImportError:
-    import config
-    import esedb
-    import tdb_catalog
-    import tdb_streams
-    import utils
+import vinetto.config as config
+import vinetto.esedb as esedb
+import vinetto.tdb_catalog as tdb_catalog
+import vinetto.tdb_streams as tdb_streams
+import vinetto.utils as utils
 
 
 def printHead(dictCMMMMeta):
@@ -238,7 +230,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                 # Setup symbolic link to filename...
                 if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                     strTarget = config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
-                    setSymlink(strTarget, config.ARGS.outdir + strFileName)
+                    utils.setSymlink(strTarget, config.ARGS.outdir + strFileName)
 
                     fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_SYMS, "a+")
                     fileURL.write(strTarget + " => " + strFileName + "\n")

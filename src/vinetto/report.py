@@ -5,7 +5,7 @@ module report.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -29,23 +29,17 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "4"
-file_micro = "9"
+file_micro = "10"
 
 
 from time import time
 from os.path import dirname, basename, abspath, getmtime
 from pkg_resources import resource_filename
 
-try:
-    import vinetto.version as version
-    import vinetto.config as config
-    import vinetto.error as verror
-    import vinetto.utils as utils
-except ImportError:
-    import version
-    import config
-    import error as verror
-    import utils
+import vinetto.version as version
+import vinetto.config as config
+import vinetto.error as verror
+import vinetto.utils as utils
 
 
 HTTP_HEADER  = []

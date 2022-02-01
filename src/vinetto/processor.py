@@ -5,7 +5,7 @@ module processor.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,34 +25,24 @@ This file is part of Vinetto.
 
 -----------------------------------------------------------------------------
 """
-from __future__ import print_function
 
 
 file_major = "0"
 file_minor = "1"
-file_micro = "9"
+file_micro = "10"
 
 
 import sys
 import os
 import fnmatch
 
-try:
-    import vinetto.config as config
-    import vinetto.report as report
-    import vinetto.thumbOLE as thumbOLE
-    import vinetto.thumbCMMM as thumbCMMM
-    import vinetto.thumbIMMM as thumbIMMM
-    import vinetto.utils as utils
-    import vinetto.error as verror
-except ImportError:
-    import config
-    import report
-    import thumbOLE
-    import thumbCMMM
-    import thumbIMMM
-    import utils
-    import error as verror
+import vinetto.config as config
+import vinetto.report as report
+import vinetto.thumbOLE as thumbOLE
+import vinetto.thumbCMMM as thumbCMMM
+import vinetto.thumbIMMM as thumbIMMM
+import vinetto.utils as utils
+import vinetto.error as verror
 
 
 ###############################################################################
@@ -95,14 +85,8 @@ class Processor():
 
         # Get MD5 of file...
         if (config.ARGS.md5force) or ((not config.ARGS.md5never) and (dictHead["FileSize"] < (1024 ** 2) * 512)):
-            try:
-                # Python >= 2.5
-                from hashlib import md5
-                dictHead["MD5"] = md5(fileThumbsDB.read()).hexdigest()
-            except:
-                # Python < 2.5
-                import md5
-                dictHead["MD5"] = md5.new(fileThumbsDB.read()).hexdigest()
+            from hashlib import md5
+            dictHead["MD5"] = md5( fileThumbsDB.read() ).hexdigest()
             del md5
 
         # -----------------------------------------------------------------------------
@@ -189,7 +173,7 @@ class Processor():
         # TODO: to check existing image file names against stored thumbnail IDs
 
         for thumbFile in tc_files:
-            processThumbFile(thumbFile, filenames)
+            self.processThumbFile(thumbFile, filenames)
 
         return
 
@@ -197,7 +181,7 @@ class Processor():
     def processRecursiveDirectory(self):
         # Walk the directories from given directory recursively down...
         for dirpath, dirnames, filenames in os.walk(config.ARGS.infile):
-            processDirectory(dirpath, filenames)
+            self.processDirectory(dirpath, filenames)
 
         return
 
@@ -225,7 +209,7 @@ class Processor():
                         if (config.ARGS.verbose >= 0):
                             sys.stderr.write(" Warning: Skipping %s - does not contain %s\n" % (entryUserDir.path, config.OS_WIN_THUMBCACHE_DIR))
                     else:
-                        processDirectory(userThumbsDir)
+                        self.processDirectory(userThumbsDir)
 
         # XP
         # ============================================================
@@ -237,13 +221,13 @@ class Processor():
                 for entryUserDir in iterDirs:
                     if not entryUserDir.is_dir():
                         continue
-                    processDirectory(entryUserDir)
+                    self.processDirectory(entryUserDir)
 
         # Other / Unidentified
         # ============================================================
         else:
             if (config.ARGS.verbose > 0):
                 sys.stderr.write(" Info: FS - Generic partition, processing all subdirectories (recursive operating mode)\n")
-            processDirectory(config.ARGS.infile)
+            self.processDirectory(config.ARGS.infile)
 
         return

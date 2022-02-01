@@ -6,7 +6,7 @@ module vinetto.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "10"
+file_micro = "12"
 
 
 import sys
@@ -39,20 +39,12 @@ import fnmatch
 import argparse
 import signal
 
-try:
-    import vinetto.version as version
-    import vinetto.config as config
-    import vinetto.error as verror
-    import vinetto.processor as processor
-    import vinetto.esedb as esedb
-    import vinetto.utils as utils
-except ImportError:
-    import version
-    import config
-    import error as verror
-    import processor
-    import esedb
-    import utils
+import vinetto.version as version
+import vinetto.config as config
+import vinetto.error as verror
+import vinetto.processor as processor
+import vinetto.esedb as esedb
+import vinetto.utils as utils
 
 def getArgs():
     # Return arguments passed to vinetto on the command line...
@@ -121,6 +113,10 @@ def getArgs():
                               "NOTE: Automatic mode will attempt to use ESEDB without -e"))
     parser.add_argument("-H", "--htmlrep", action="store_true", dest="htmlrep",
                         help=("write html report to DIR (requires option -o)"))
+    parser.add_argument("-i", "--invert", action="store_true", dest="invert",
+                        help=("Color invert Type 1 images.  Some test Thumbs.db files showed\n" +
+                              "color negative images.  If your Type 1 files need color inverting,\n" +
+                              "use this option.\n"))
     parser.add_argument("-m", "--mode", nargs="?", dest="mode", choices=["f", "d", "r", "a"],
                         default="f", const="f",
                         help=("operating mode: \"f\", \"d\", \"r\", or \"a\"\n" +
@@ -315,6 +311,11 @@ def main():
 #    signal.signal(signal.SIGINT,  signal_handler)
 #    signal.signal(signal.SIGTERM, signal_handler)
 #    signal.signal(signal.SIGQUIT, signal_handler)
+
+    sys.stdout.write( "Vinetto: Version {}\n".format(version.STR_VERSION) )
+    if ( sys.version_info < (3, 0) ):
+        sys.stdout.write( "Vinetto (version {}) requires Python 3!\n".format(version.STR_VERSION) )
+        sys.exit(1)
 
     config.ARGS = getArgs()
 

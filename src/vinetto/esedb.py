@@ -5,7 +5,7 @@ module esedb.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,28 +25,20 @@ This file is part of Vinetto.
 
 -----------------------------------------------------------------------------
 """
-from __future__ import print_function
 
 
 file_major = "0"
 file_minor = "1"
-file_micro = "7"
+file_micro = "8"
 
 
 import sys
 from struct import unpack
 from binascii import hexlify, unhexlify
 
-try:
-    import vinetto.config as config
-    import vinetto.utils as utils
-    import vinetto.error as verror
-    bLib3 = True
-except ImportError:
-    import config
-    import utils
-    import error as verror
-    bLib3 = False
+import vinetto.config as config
+import vinetto.utils as utils
+import vinetto.error as verror
 
 
 ###############################################################################
@@ -140,16 +132,23 @@ class ESEDB():
             self.iCol[key] = None
 
     def prepare(self):
+        bEDBFileGood = False
         try:
-            if (bLib3):
-                from vinetto.lib import pyesedb
-            else:
-                from lib import pyesedb
+            import pyesedb
+            sys.stdout.write(" Info: Imported system pyesedb library.")
             bEDBFileGood = True
         except:
-            # Hard Error!  The "pyesedb" library is installed locally with Vinetto,
-            #   so missing "pyesedb" library is bad!
-            raise verror.InstallError(" Error (Install): Cannot import local library pyesedb")
+            sys.stdout.write(" Warning: Cannot import system pyesedb library!")
+            # Error!  The "pyesedb" library is supposed to be installed locally with Vinetto,
+            try:
+                from vinetto.lib import pyesedb
+                sys.stdout.write(" Info: Imported Vinetto's pyesedb library.")
+                bEDBFileGood = True
+            except:
+                # Error!  The "pyesedb" library is not found anywhere.
+                sys.stdout.write(" Warning: Cannot import Vinetto's pyesedb library!")
+                # A missing "pyesedb" library is bad!
+                raise verror.InstallError(" Error (Install): Cannot import a pyesedb library!")
 
         pyesedb_ver = pyesedb.get_version()
         if (config.ARGS.verbose > 0):
@@ -269,7 +268,7 @@ class ESEDB():
     def load(self):
         if (self.iCol["TCID"] == None):
             if (config.ARGS.verbose >= 0):
-                sys.stderr.write(" Warning: No ESEDB Image column %s available\n" % ESEDB_ICOL_NAMES["TCID"][0])
+                sys.stderr.write(" Warning: No ESEDB Image column %s available\n" % utils.ESEDB_ICOL_NAMES["TCID"][0])
             self.table = None
             self.edbFile.close()
             self.edbFile = False
@@ -277,9 +276,9 @@ class ESEDB():
         if (self.iCol["MIME"] == None and self.iCol["CTYPE"] == None and self.iCol["ITT"] == None):
             if (config.ARGS.verbose >= 0):
                 sys.stderr.write(" Warning: No ESEDB Image columns %s available\n" %
-                                (ESEDB_ICOL_NAMES["MIME"][0] + ", " +
-                                ESEDB_ICOL_NAMES["CTYPE"][0] + ", or " +
-                                ESEDB_ICOL_NAMES["ITT"][0]))
+                                (utils.ESEDB_ICOL_NAMES["MIME"][0] + ", " +
+                                utils.ESEDB_ICOL_NAMES["CTYPE"][0] + ", or " +
+                                utils.ESEDB_ICOL_NAMES["ITT"][0]))
             self.table = None
             self.edbFile.close()
             self.edbFile = False
@@ -476,10 +475,7 @@ class ESEDB():
         import re
         import readline
 
-        try:
-            funcInput = raw_input
-        except NameError:
-            funcInput = input
+        funcInput = input
 
         def prompt(strMessage, strErrorMessage, isValid):
             # Prompt for input given a message and return that value after verifying the input.

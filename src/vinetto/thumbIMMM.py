@@ -5,7 +5,7 @@ module thumbIMMM.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2020 by Keven L. Ates
+ Copyright (C) 2019-2022 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -25,27 +25,20 @@ This file is part of Vinetto.
 
 -----------------------------------------------------------------------------
 """
-from __future__ import print_function
 
 
 file_major = "0"
 file_minor = "1"
-file_micro = "8"
+file_micro = "9"
 
 
 import sys
 from struct import unpack
 
-try:
-    import vinetto.config as config
-#    import vinetto.tdb_catalog as tdb_catalog
-    import vinetto.tdb_streams as tdb_streams
-    import vinetto.utils as utils
-except ImportError:
-    import config
-#    import tdb_catalog
-    import tdb_streams
-    import utils
+import vinetto.config as config
+#import vinetto.tdb_catalog as tdb_catalog
+import vinetto.tdb_streams as tdb_streams
+import vinetto.utils as utils
 
 
 def printHead(dictIMMMMeta, iFileSize):
@@ -325,5 +318,3 @@ def process(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 0):
         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
           strSubDir = config.THUMBS_SUBDIR
         config.HTTP_REPORT.flush(astrStats, strSubDir)
-
-

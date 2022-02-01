@@ -6,4 +6,6 @@
 *~
 __pycache__/
 *.DS_Store
-
+vinetto.egg-info
+.vscode
+build
