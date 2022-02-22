@@ -58,7 +58,7 @@ def preparePILOutput():
         # Initializing PIL library for Type 1 image extraction...
         config.THUMBS_TYPE_OLE_PIL = False  # ...attempting to load PIL..
         try:
-            from PIL import Image, ImageOps
+            from PIL import Image, ImageChops
             config.THUMBS_TYPE_OLE_PIL = True  # ...loaded PIL
             if (config.ARGS.verbose > 0):
                 sys.stderr.write(" Info: Imported PIL for possible Type 1 exports\n")
@@ -140,7 +140,7 @@ def printCache(strName, dictOLECache):
 
 def process(infile, fileThumbsDB, iThumbsDBSize):
     preparePILOutput()
-    from PIL import Image, ImageOps
+    from PIL import Image, ImageChops
 
     if (config.ARGS.verbose >= 0):
         if (iThumbsDBSize % 512 ) != 0:
@@ -452,7 +452,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                         else:  # Not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER
 
-                    # --- Header 2: Type 1 Thumbnail Image? (Partial JPEG)...
+                    # --- Header 2: Type 1 Thumbnail Image? (JPEG Frame)...
                     elif (unpack(tDB_endian+"L", bstrStreamData[headOffset: headOffset + 4])[0] == 1):
                         # Is second header OK?
                         if (unpack(tDB_endian+"H", bstrStreamData[headOffset + 4: headOffset + 6])[0] != (iStreamDataLen - headOffset - 16)):
@@ -461,12 +461,12 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                         if (config.ARGS.outdir != None and config.THUMBS_TYPE_OLE_PIL):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
                             # DEBUG
-                            #imageRaw = open(config.ARGS.outdir + strFileName + ".bin", "wb")
-                            #imageRaw.write(bstrStreamData)
-                            #imageRaw.close()
+                            imageRaw = open(config.ARGS.outdir + strFileName + ".bin", "wb")
+                            imageRaw.write(bstrStreamData)
+                            imageRaw.close()
 
                             # --------------------------------------------------------------------------------
-                            # Construct thumbnail image from standard blocks and stored image data...
+                            # Construct thumbnail image from standard JPEG blocks...
                             # --------------------------------------------------------------------------------
                             #
                             # [ 0: 8] Marker [0C 00 00 00 : 01 00 00 00]
@@ -475,41 +475,79 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                             # [16:20] Size of File 2 (SF2) from [28] to End Of File (little-endian)
                             # [20:24] Frame Samples per Line (little-endian)
                             # [24:28] Frame Line Count (little-endian)
-                            # [28:30] SOI [FF D8]
-                            # [30:32] SOF [FF C0] (8 + 3*FCC Bytes)
-                            #   [32:34] Frame Length (FL)
-                            #   [34]    Frame Precision
-                            #   [35:37] Frame Line Count
-                            #   [37:39] Frame Samples per Line
-                            #   [39]    Frame Component Count (FCC: 3 Bytes Each)
-                            #     [40]    FC1: Component ID
-                            #     [41H]   FC1: Horiz Sample Factor: (bstrStreamData[41] >> 4) & 15
-                            #     [41L]   FC1: Vert  Sample Factor: bstrStreamData[41] & 15
-                            #     [42]    FC1: Quantization Table Selector
-                            #     ...     FC2-FCN
-                            # [32+FL:34+FL] SOS [FF DA]
-                            # [32+FL:34+FL] SOS [FF DA]
-                            # [12+SF1-2:12+SF1-1] EOI [FF D9]
+                            # [28:30] Start Of Image (SOI) [FF D8]
+                            # [30:32] Start Of Frame (SOF) [FF C0] (8 + 3*FCC Bytes)
+                            #   [32:34] Frame Length (FL) [20]
+                            #   [34]    Frame Precision [8]
+                            #   [35:37] Frame Line Count [96]
+                            #   [37:39] Frame Samples per Line [96]
+                            #   [39]    Frame Component Count (FCC: 3 Bytes Each) [4]
+                            #     [40]    FC1: Component ID [R]
+                            #     [41H]   FC1: Horiz Sample Factor: (bstrStreamData[41] >> 4) & 15 [1]
+                            #     [41L]   FC1: Vert  Sample Factor:  bstrStreamData[41]       & 15 [1]
+                            #     [42]    FC1: Quantization Table Selector [0]
+                            #     [43]    FC2: Component ID [G]
+                            #     [44H]   FC2: Horiz Sample Factor: (bstrStreamData[44] >> 4) & 15 [1]
+                            #     [44L]   FC2: Vert  Sample Factor:  bstrStreamData[44]       & 15 [1]
+                            #     [45]    FC2: Quantization Table Selector [0]
+                            #     [46]    FC3: Component ID [B]
+                            #     [47H]   FC3: Horiz Sample Factor: (bstrStreamData[47] >> 4) & 15 [1]
+                            #     [47L]   FC3: Vert  Sample Factor:  bstrStreamData[47]       & 15 [1]
+                            #     [48]    FC3: Quantization Table Selector [0]
+                            #     [49]    FC4: Component ID [A]
+                            #     [50H]   FC4: Horiz Sample Factor: (bstrStreamData[50] >> 4) & 15 [1]
+                            #     [50L]   FC4: Vert  Sample Factor:  bstrStreamData[50]       & 15 [1]
+                            #     [51]    FC4: Quantization Table Selector [0]
+                            # [52:54] Start Of Scan (SOS) [FF DA]
+                            # [54:12+SF1-2] ...Image Data...
+                            # [12+SF1-2:12+SF1-1] End Of Image (EOI) [FF D9]
+                            #
+                            # As seem above, the JPEG data is a partial JPEG representation.  A full JPEG
+                            # should have the following:
+                            #   [FF D8]: Start of Image
+                            #   [FF E0]: Application Default Header (MISSING)
+                            #   [FF DB]: Quantization Table         (MISSING)
+                            #   [FF C0]: Start Of Frame
+                            #   [FF C4]: Define Huffman Table       (MISSING)
+                            #   [FF DA]: Start Of Scan
+                            #   [FF D9]: End Of Image
+                            # Also, all the image elements are inverted:
+                            #   1. Image is flipped from top to bottom
+                            #   2. The YUV values are inverted (255 - value)
+                            #   3. The U (Blue) is swapped with the V (Red)
+                            #
 
                             iFileSize1 = int.from_bytes(bstrStreamData[ 8:12], 'little')
                             iFileSize2 = int.from_bytes(bstrStreamData[16:20], 'little')
                             iFileDiff = iFileSize1 - iFileSize2
-                            iFrameIndex = 30
+                            iFrameIndex = 30 # Start Of Frame
                             iFrameSize = int.from_bytes(bstrStreamData[32:34], 'big')
-                            iScanIndex = iFrameIndex + 2 + iFrameSize
+                            iScanIndex = iFrameIndex + 2 + iFrameSize # Start Of Scan
 
-                            bstrImage = ( config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER[:20] +
-                                          config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE + bstrStreamData[iFrameIndex:iScanIndex] +
-                                          config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  + bstrStreamData[iScanIndex:] )
+                            bstrImage = (
+                                config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER[:20] + # Generic JPEG Header
+                                config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE +    # Generic JPEG Quantization Table
+                                bstrStreamData[iFrameIndex:iScanIndex] +       # Frame Info
+                                config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  +    # Generic JPEG Huffman Tables
+                                bstrStreamData[iScanIndex:] )                  # Image Info
 
-                            image = Image.open( BytesIO( bstrImage ) )
-                            image = image.transpose(Image.FLIP_TOP_BOTTOM)
-                            r, g, b, a = image.split()
-                            imageRGB = Image.merge("RGB", (r, g, b))
-
-                            if (config.ARGS.invert):
-                                imageRGB = ImageOps.invert(imageRGB)
-                            imageRGB.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
+                            imageIn = Image.open( BytesIO( bstrImage ), 'r', ["JPEG"] )
+                            bandTuple = imageIn.getbands()
+                            #image = ImageOps.invert(image)
+                            oldC, oldM, oldY, oldK = imageIn.split()
+                            #newC = ImageChops.invert(oldC)
+                            #newM = ImageChops.invert(oldM)
+                            #newY = ImageChops.invert(oldY)
+                            newK = ImageChops.invert(oldK)
+                            #                                  C     M     Y     K
+                            imageOut = Image.merge("CMYK", (oldY, oldM, oldC, newK))
+                            #imageOut2 = Image.merge("CMYK", (oldY, oldM, oldC, oldK))
+                            imageOut = imageOut.transpose(Image.FLIP_TOP_BOTTOM)
+                            #imageOut2 = imageOut2.transpose(Image.FLIP_TOP_BOTTOM)
+                            #if (config.ARGS.invert):
+                            #    imageRGB = ImageOps.invert(imageRGB)
+                            imageOut.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
+                            #imageOut2.save(config.ARGS.outdir + strFileName + "_2", "JPEG", quality=100)
 
                             if (config.ARGS.verbose > 0):
                                 print("     File Info: ---------------------------------------")
@@ -521,6 +559,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                                 print("   Frame Start: Byte %d" % iFrameIndex)
                                 print("   Frame  Size: %d" % iFrameSize)
                                 print("    Scan Start: Byte %d" % iScanIndex)
+                                print("   Color Bands: %s" % (bandTuple,))
 
                         else:  # Cannot extract (PIL not found) or not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER
