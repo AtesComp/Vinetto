@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "9"
+file_micro = "10"
 
 
 OS_WIN_ESEDB_VISTA  = "ProgramData/"
@@ -94,6 +94,42 @@ OLE_NONE_BLOCK = 0xFFFFFFFF  # unsigned -1  Marks Unused Sector
 #   0x05 = root storage
 OLE_BLOCK_TYPES = ["Empty", "Storage", "Stream", "LockBytes", "Property", "Root"]
 
+# Endian Byte Order
+LIL_ENDIAN = b"\xfe\xff"
+BIG_ENDIAN = b"\xff\xfe"
+
+# JPEG JFIF Block Markers
+# --------------------
+# The JPEG JFIF Markers denote JPEG data blocks that define the image.
+#Marker Code Name
+#------ ---- --------------------
+#FF D8  SOI  Start Of Image
+#FF E0  APP0 JFIF File
+#FF DB  DQT  Define Quantization Table
+#FF C0  SOF  Start Of Frame
+#FF C4  DHT  Define Huffman Table
+#FF DA  SOS  Start Of Scan
+#FF D9  EOI  End Of Image
+#
+#JFIF Header [20 bytes]
+#------------------------------------------------------------
+#BYTE SOI[2]         FF D8
+#BYTE APP[2]         FF E0
+#BYTE Length[2]      APP Length after marker
+#BYTE Identifier[5]  "JFIF\0"
+#BYTE Version[2]     Major, Minor
+#BYTE Units          0 (none), 1 (pix/inch), 2 (pix/cm)
+#BYTE X_Density[2]   Horiz Pixel Density
+#BYTE Y_Density[2]   Vert  Pixel Density
+#BYTE Width          Thumbnail width, if any
+#BYTE Height         Thumbnail height, if any
+JPEG_SOI  = b"\xff\xd8"
+JPEG_APP0 = b"\xff\xe0"
+JPEG_DQT  = b"\xff\xdb"
+JPEG_SOF  = b"\xff\xc0"
+JPEG_DHT  = b"\xff\xc4"
+JPEG_SOS  = b"\xff\xda"
+JPEG_EOI  = b"\xff\xd9"
 
 TC_FORMAT_TYPE = { "Windows Vista" : 0x14,
                    "Windows 7"     : 0x15,

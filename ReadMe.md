@@ -1,9 +1,8 @@
 # Vinetto
 
-Vinetto is a thumbnail file (i.e., thumbs.db) parser that can read a variety of
-these files.  Based on the original Vinetto by Michel Roukine.
-
-This is a much needed update to the last original Vinetto (version 0.7).
+Vinetto is a thumbnail file parser that can process a variety of thumbnail file
+types (Thumbs.db, Thumbcache_\*.db).  This work is based on the original Vinetto
+by Michel Roukine.
 
 This version should be compatible with Python 3.  It should work on
 Linux, Mac, and Windows.  Testing has currently been limited to Linux.
@@ -30,13 +29,13 @@ thumb cache system for each user.
    files.
 
    4. Whether deleted or not, the data contained in the thumb cache files
-   are an helpful source of information to the forensics investigator.  It
+   are a helpful source of information to the forensics investigator.  It
    may provide important resources related to activity associated with the
    images.
 
 2. **Intention** : Vinetto extracts thumbnails and associated metadata from
 thumb cache files.  Additionally, a thumbnail's Thumb Cache ID is cross checked
-to extract file metadata, including possible original file name, from a
+to extract file metadata, including a possible original file name, from a
 default or specified ESEDB (Windows.edb) file.  This process uses the python
 libraries from "libesedb" to find and extract the relevant file metadata.
 Vinetto will function according to four modes:
@@ -58,7 +57,7 @@ Vinetto will function according to four modes:
 
    3. *recursive* : Vinetto processes any found "\*.db" files from the specified
    BASE directory recursively down its directory tree.
-      - [TODO] As per *directory*, it check for consistency between a subdirectory's
+      - [TODO] As per *directory*, it checks for consistency between a subdirectory's
       content and its related Thumbs.db file (i.e., it reports thumbnails that
       have a missing associated file in the directory).
       - It processes any Thumbcache_\*.db files.
@@ -87,24 +86,36 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 
 1. Python 3.7 or later including standard libraries.
 
-2. Pillow 9.0.0 or later.  Based on PIL (Python Imaging Library).  Used to attempt
-correct reconstitution of Type 1 thumbnails (see Limitations below).
+2. Pillow 9.0.0 or later.  Based on PIL (Python Imaging Library).  It i used to
+attempt correct reconstitution of Type 1 thumbnails (see Limitations below).
 
-3. PyESEDB.  The author suppiles a late model version, but the program checks for a
+3. PyESEDB.  The author supplies a late model version, but the program checks for a
 system installed version first.  If not found, it uses the supplied version.
 
 ## Limitations
 
 1. For ***Thumbs.db*** files, Windows(R)(TM) uses at least two format types to
 store these thumbnails:
-   1. An older format that seems to consist of jpeg-like images with special
-   header, huffman, and quantization data.  As such,
+   1. An **older** format that seems to consist of jpeg-like images that have been
+   reduce to a frame composition and image data.  The standard JPEG header,
+   Define Quantization Table (DQT), and Define Huffman Table (DHT) are missing
+   (presumably, they are constant structures abstracted from the image).  The
+   header, DQT, and DHT are supplies as constants during extraction.  As such,
    ***Vinetto may not reconstitute some Type 1 thumbnails correctly.***
    The PIL Image library is used to attempt proper reconstitution, but may fail
    in certain circumstances.
+   NOTE: Recent work has shown that the stored JPEG portions describe RGBA frames.
+   RGBA images are not a recognized format for JPEG.  However, the image data
+   identifies as CMYK channel images.  The color channels are stored "out of order"
+   and the Key (K) channel has been set to "full black" for all image generated
+   thumbnails and "selective" (presumably used as Alpha channel transparency parts
+   for desktop display over backgrounds) for all Windows OS constructed thumbnails
+   generated (i.e., image folder images). The extraction process reorders the CMY
+   channels (C is Y and Y is C) and sets the K Channel to "no black" for all
+   extracted images.
 
-   2. A newer format fully compliant with the JPEG format.  Vinetto writes this
-   type to file directly.
+   2. A **newer** format that is fully compliant with the JPEG format.  Vinetto
+   writes this type to file directly.
 
 2. For ***Thumbcache_\*.db*** files, thumbnail images are embed as fully compliant
 JPEG, PNG, and BMP formats which Vinetto writes directly.  Vinetto recognizes the
@@ -127,7 +138,7 @@ your OS.  YMMV.
 ## Usage Overview:
 
 ```
-    Vinetto: Version 0.9.9
+    Vinetto: Version 0.9.11
     usage: vinetto [-h] [-e EDBFILE] [-H] [-i] [-m [{f,d,r,a}]] [--md5] [--nomd5]
                   [-o DIR] [-q] [-s] [-U] [-v] [--version]
                   [infile]
@@ -146,9 +157,6 @@ your OS.  YMMV.
                             NOTE: -e without an INFILE explores EDBFILE extracted data
                             NOTE: Automatic mode will attempt to use ESEDB without -e
       -H, --htmlrep         write html report to DIR (requires option -o)
-      -i, --invert          Color invert Type 1 images.  Some test Thumbs.db files showed
-                            color negative images.  If your Type 1 files need color inverting,
-                            use this option.
       -m [{f,d,r,a}], --mode [{f,d,r,a}]
                             operating mode: "f", "d", "r", or "a"
                               where "f" indicates single file processing (default)
@@ -216,7 +224,7 @@ your OS.  YMMV.
               Warnings are warning messages indicating processing issues
               Info are information messages indicating processing states
 
-    --- Vinetto.py 0.9.9 ---
+    --- Vinetto.py 0.9.11 ---
     Based on the original Vinetto by Michel Roukine
     Author: Keven L. Ates
     Vinetto.py is open source software

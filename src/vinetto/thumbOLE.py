@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "11"
+file_micro = "12"
 
 
 import sys
@@ -38,6 +38,7 @@ import errno
 from io import BytesIO
 from struct import unpack
 from binascii import hexlify
+from numpy import character, intc
 from pkg_resources import resource_filename
 
 import vinetto.config as config
@@ -174,10 +175,10 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
     tDB_versionNo         = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Version
 
     tDB_endianOrder       = fileThumbsDB.read(2)  # 0xFFFE OR 0xFEFF         # Byte Order, 0xFFFE (Intel)
-    if (tDB_endianOrder == bytearray(b"\xff\xfe")):
+    if (tDB_endianOrder == bytearray(config.BIG_ENDIAN)):
         tDB_endian = ">"  # Big Endian
     # Otherwise, it's Little Endian:
-    #     (tDB_endianOrder == bytearray(b"\xfe\xff"))
+    #     (tDB_endianOrder == bytearray(config.LIL_ENDIAN))
     # which was initialized above.
 
     tDB_SectorSize         = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]  # Sector Shift
@@ -399,7 +400,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                 # -------------------------------------------------------------
                 else:
                     # Is End Of Image (EOI) at end of stream?
-                    if (bstrStreamData[iStreamDataLen - 2: iStreamDataLen] != bytearray(b"\xff\xd9")):  # ...Not End Of Image (EOI)
+                    if (bstrStreamData[iStreamDataLen - 2: iStreamDataLen] != bytearray(config.JPEG_EOI)):  # ...Not End Of Image (EOI)
                         raise verror.EntryError(" Error (Entry): Missing End of Image (EOI) marker in stream entry " + str(iStreamCounter))
 
                     # --- Header 1: Get file offset...
@@ -437,7 +438,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                                 print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
 
                     # --- Header 2: Type 2 Thumbnail Image? (Full JPEG)...
-                    if (bstrStreamData[headOffset: headOffset + 4] == bytearray(b"\xff\xd8\xff\xe0")):
+                    if (bstrStreamData[headOffset: headOffset + 4] == bytearray(config.JPEG_SOI + config.JPEG_APP0)):
                         if (config.ARGS.outdir != None):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
                             fileImg = open(config.ARGS.outdir + strFileName, "wb")
@@ -461,9 +462,9 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                         if (config.ARGS.outdir != None and config.THUMBS_TYPE_OLE_PIL):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
                             # DEBUG
-                            imageRaw = open(config.ARGS.outdir + strFileName + ".bin", "wb")
-                            imageRaw.write(bstrStreamData)
-                            imageRaw.close()
+                            #imageRaw = open(config.ARGS.outdir + strFileName + ".bin", "wb")
+                            #imageRaw.write(bstrStreamData)
+                            #imageRaw.close()
 
                             # --------------------------------------------------------------------------------
                             # Construct thumbnail image from standard JPEG blocks...
@@ -500,28 +501,52 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                             #     [51]    FC4: Quantization Table Selector [0]
                             # [52:54] Start Of Scan (SOS) [FF DA]
                             # [54:12+SF1-2] ...Image Data...
-                            # [12+SF1-2:12+SF1-1] End Of Image (EOI) [FF D9]
+                            # [12+SF1-2:12+SF1] End Of Image (EOI) [FF D9]
                             #
                             # As seem above, the JPEG data is a partial JPEG representation.  A full JPEG
-                            # should have the following:
-                            #   [FF D8]: Start of Image
-                            #   [FF E0]: Application Default Header (MISSING)
-                            #   [FF DB]: Quantization Table         (MISSING)
-                            #   [FF C0]: Start Of Frame
-                            #   [FF C4]: Define Huffman Table       (MISSING)
-                            #   [FF DA]: Start Of Scan
-                            #   [FF D9]: End Of Image
-                            # Also, all the image elements are inverted:
+                            # should have the following data blocks:
+                            #   [FF D8]: Start of Image                      Bytes [28:30]
+                            #   [FF E0]: Application Header        (MISSING)
+                            #   [FF DB]: Define Quantization Table (MISSING)
+                            #   [FF C0]: Start Of Frame                      Bytes [30:52]
+                            #   [FF C4]: Define Huffman Table      (MISSING)
+                            #   [FF DA]: Start Of Scan                       Bytes [52:...]
+                            #   [FF D9]: End Of Image                        Bytes [Last-1:Last+1]
+                            # Also, image elements are not as expected:
                             #   1. Image is flipped from top to bottom
-                            #   2. The YUV values are inverted (255 - value)
-                            #   3. The U (Blue) is swapped with the V (Red)
+                            #   2. For the color arrays:
+                            #      a. the data is reported by the frames as RGBA but JPEG doesn't natively support RGBA.
+                            #      b. the data reports (PIL assumes) the four color array is CMYK
+                            #      c. the data is actually stored as YCCK (Y,Cb,Cr,K)
+                            #   3. The K aray is inverted (255 - value) MOSTLY
                             #
 
                             iFileSize1 = int.from_bytes(bstrStreamData[ 8:12], 'little')
                             iFileSize2 = int.from_bytes(bstrStreamData[16:20], 'little')
                             iFileDiff = iFileSize1 - iFileSize2
-                            iFrameIndex = 30 # Start Of Frame
+                            iSIIndex = 0
+                            while True:
+                                if (bstrStreamData[iSIIndex : iSIIndex + 2] == bytearray(config.JPEG_SOI)):
+                                    break
+                                iSIIndex = iSIIndex + 1
+                            iImageIndex = iSIIndex # Start of Image
+                            iFrameIndex = iImageIndex + 2 # Start of Frame
                             iFrameSize = int.from_bytes(bstrStreamData[32:34], 'big')
+                            iFramePrec = int(bstrStreamData[34])
+                            iFrameLCnt = int.from_bytes(bstrStreamData[35:37], 'big')
+                            iFrameSPL  = int.from_bytes(bstrStreamData[37:39], 'big')
+                            iFrameCCnt = int(bstrStreamData[39])
+                            iFrameCompID = [0 for i in range(iFrameCCnt)]
+                            iFrameCompHF = [0 for i in range(iFrameCCnt)]
+                            iFrameCompVF = [0 for i in range(iFrameCCnt)]
+                            iFrameCompQT = [0 for i in range(iFrameCCnt)]
+                            for i in range(iFrameCCnt):
+                                iIndex = 40 + i * 3
+                                iFrameCompID[i] = bstrStreamData[iIndex]
+                                iFrameCompHF[i] = int((bstrStreamData[iIndex + 1] >> 4) & 0x0F)
+                                iFrameCompVF[i] = int((bstrStreamData[iIndex + 1]) & 0x0F)
+                                iFrameCompQT[i] = int(bstrStreamData[iIndex + 2])
+
                             iScanIndex = iFrameIndex + 2 + iFrameSize # Start Of Scan
 
                             bstrImage = (
@@ -532,34 +557,47 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
                                 bstrStreamData[iScanIndex:] )                  # Image Info
 
                             imageIn = Image.open( BytesIO( bstrImage ), 'r', ["JPEG"] )
-                            bandTuple = imageIn.getbands()
-                            #image = ImageOps.invert(image)
-                            oldC, oldM, oldY, oldK = imageIn.split()
-                            #newC = ImageChops.invert(oldC)
-                            #newM = ImageChops.invert(oldM)
-                            #newY = ImageChops.invert(oldY)
-                            newK = ImageChops.invert(oldK)
-                            #                                  C     M     Y     K
-                            imageOut = Image.merge("CMYK", (oldY, oldM, oldC, newK))
-                            #imageOut2 = Image.merge("CMYK", (oldY, oldM, oldC, oldK))
+
+                            # Get assumed CMYK channels from image...
+                            inChannelC, inChannelM, inChannelY, inChannelK = imageIn.split()
+                            # Convert to actual CMYK channels...
+                            outChannelC = inChannelY
+                            outChannelM = inChannelM
+                            outChannelY = inChannelC
+                            w, h = inChannelK.size
+                            outChannelK = Image.new('L', (w, h), 0)
+                            #                               Y--------  Cb-------  Cr------
+                            imageOut = Image.merge("CMYK", (outChannelC, outChannelM, outChannelY, outChannelK))
                             imageOut = imageOut.transpose(Image.FLIP_TOP_BOTTOM)
-                            #imageOut2 = imageOut2.transpose(Image.FLIP_TOP_BOTTOM)
-                            #if (config.ARGS.invert):
-                            #    imageRGB = ImageOps.invert(imageRGB)
                             imageOut.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
+                            #imageOut2 = Image.merge("YCbCr", (channelY, channelCb, channelCr))
+                            #imageOut2 = imageOut2.transpose(Image.FLIP_TOP_BOTTOM)
                             #imageOut2.save(config.ARGS.outdir + strFileName + "_2", "JPEG", quality=100)
 
                             if (config.ARGS.verbose > 0):
                                 print("     File Info: ---------------------------------------")
                                 print("          Type: 1 (JPEG Fragment)")
                                 print("          Name: %s" % strFileName)
-                                print("        Size 1: %d Bytes" % iFileSize1)
-                                print("        Size 2: %d Bytes" % iFileSize2)
-                                print("          Diff: %d Bytes == 16? %s" % (iFileDiff, (iFileDiff == 16)))
-                                print("   Frame Start: Byte %d" % iFrameIndex)
-                                print("   Frame  Size: %d" % iFrameSize)
-                                print("    Scan Start: Byte %d" % iScanIndex)
-                                print("   Color Bands: %s" % (bandTuple,))
+                                if (config.ARGS.verbose > 1):
+                                    print("        Size 1: %d Bytes" % iFileSize1)
+                                    print("        Size 2: %d Bytes" % iFileSize2)
+                                    print(" 16 Byte Diff?: %d Bytes, %s" % (iFileDiff, (iFileDiff == 16)))
+                                    print("Start of Image: Byte# %d" % iImageIndex)
+                                    print("Start of Frame: Byte# %d" % iFrameIndex)
+                                    if (config.ARGS.verbose > 2):
+                                        print("         Frame: --------------------")
+                                        print("              :        Size: %d" % iFrameSize)
+                                        print("              :   Precision: %d" % iFramePrec)
+                                        print("              :  Line Count: %d" % iFrameLCnt)
+                                        print("              : Sample/Line: %d" % iFrameSPL)
+                                        print("              :  Components: %d" % iFrameCCnt)
+                                        for i in range(iFrameCCnt):
+                                            print("              : Entry -----: %d" % (i + 1))
+                                            print("              :          ID: %c" % iFrameCompID[i])
+                                            print("              :    H Factor: %d" % iFrameCompHF[i])
+                                            print("              :    V Factor: %d" % iFrameCompVF[i])
+                                            print("              : Quant Table: %d" % iFrameCompQT[i])
+                                    print(" Start of Scan: Byte# %d (...Image Data...)" % iScanIndex)
 
                         else:  # Cannot extract (PIL not found) or not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER

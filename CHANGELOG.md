@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.11] - 2022-02-21 (RELEASED)
+
+### Changed
+
+- Restructured the processing of Type 1 images:
+  - While the data suggested an RGB channel format, tests indicated otherwise
+  - The image data was found to be strutured as "out-of-order" CMYK channels
+  - The C and Y channels are swapped (or the CMY channels are stored as YMC)
+  - The K (Key "Black") channel is presumably used as an Alpha channel for RGBA emulation
+  - Therefore, the K channel is set to "no black" (or clear) so as not to overwrite the CMY channels
+  - Additional (verbose: -v, -vv, -vvv) data is generated for these images to validate processing
+  - Added comment documentation on the JPEG emulation for Type 1 thumbnails
+- Added and implemented hexidecimal constants to represent the JPEG markers
+
+## [0.9.10] - 2022-02-21 (DEVELOPEMENT)
+
+### Changed
+
+- Removed invert option (-i, --invert) to invert colors (negatives) for Type 1 images
+  - Tests indicated that the option was not needed
+  - The image data needed restructruring to be JPEG compliant
+  - Additional (verbose: -v) data is generated to describe the file structure data
+
 ## [0.9.9] - 2022-01-31 (RELEASED)
 
 ### Changed

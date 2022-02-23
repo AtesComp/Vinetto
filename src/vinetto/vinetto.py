@@ -30,7 +30,7 @@ This file is part of Vinetto.
 
 file_major = "0"
 file_minor = "1"
-file_micro = "12"
+file_micro = "13"
 
 
 import sys
@@ -113,10 +113,6 @@ def getArgs():
                               "NOTE: Automatic mode will attempt to use ESEDB without -e"))
     parser.add_argument("-H", "--htmlrep", action="store_true", dest="htmlrep",
                         help=("write html report to DIR (requires option -o)"))
-    parser.add_argument("-i", "--invert", action="store_true", dest="invert",
-                        help=("Color invert Type 1 images.  Some test Thumbs.db files showed\n" +
-                              "color negative images.  If your Type 1 files need color inverting,\n" +
-                              "use this option.\n"))
     parser.add_argument("-m", "--mode", nargs="?", dest="mode", choices=["f", "d", "r", "a"],
                         default="f", const="f",
                         help=("operating mode: \"f\", \"d\", \"r\", or \"a\"\n" +
