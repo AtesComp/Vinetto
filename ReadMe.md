@@ -104,15 +104,14 @@ store these thumbnails:
    ***Vinetto may not reconstitute some Type 1 thumbnails correctly.***
    The PIL Image library is used to attempt proper reconstitution, but may fail
    in certain circumstances.
-   NOTE: Recent work has shown that the stored JPEG portions describe RGBA frames.
-   RGBA images are not a recognized format for JPEG.  However, the image data
-   identifies as CMYK channel images.  The color channels are stored "out of order"
-   and the Key (K) channel has been set to "full black" for all image generated
-   thumbnails and "selective" (presumably used as Alpha channel transparency parts
-   for desktop display over backgrounds) for all Windows OS constructed thumbnails
-   generated (i.e., image folder images). The extraction process reorders the CMY
-   channels (C is Y and Y is C) and sets the K Channel to "no black" for all
-   extracted images.
+      - NOTE: Recent work has shown that the stored JPEG portions describe RGBA frames.
+      RGBA images are not a recognized format for JPEG.  However, the image data identifies
+      as CMYK channel images.  The color channels are stored "out of order" and the Key (K)
+      channel has been set to "full black" for all image generated thumbnails and
+      "selective" (presumably used as Alpha channel transparency parts for desktop display
+      over backgrounds) for all Windows OS constructed thumbnails generated (i.e., image
+      folder images). The extraction process reorders the CMY channels (C is Y and Y is C)
+      and sets the K Channel to "no black" for all extracted images.
 
    2. A **newer** format that is fully compliant with the JPEG format.  Vinetto
    writes this type to file directly.
