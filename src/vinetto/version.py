@@ -29,7 +29,7 @@ This file is part of Vinetto.
 
 major = "0"
 minor = "9"
-micro = "11"
+micro = "12"
 
 maintainer = (("Keven L. Ates", "atescomp@gmail.com"), )
 author     = ("Keven L. Ates", "atescomp@gmail.com")
