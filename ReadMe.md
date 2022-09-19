@@ -96,22 +96,20 @@ system installed version first.  If not found, it uses the supplied version.
 
 1. For ***Thumbs.db*** files, Windows(R)(TM) uses at least two format types to
 store these thumbnails:
-   1. An **older** format that seems to consist of jpeg-like images that have been
-   reduce to a frame composition and image data.  The standard JPEG header,
-   Define Quantization Table (DQT), and Define Huffman Table (DHT) are missing
-   (presumably, they are constant structures abstracted from the image).  The
-   header, DQT, and DHT are supplies as constants during extraction.  As such,
-   ***Vinetto may not reconstitute some Type 1 thumbnails correctly.***
-   The PIL Image library is used to attempt proper reconstitution, but may fail
-   in certain circumstances.
-      - NOTE: Recent work has shown that the stored JPEG portions describe RGBA frames.
-      RGBA images are not a recognized format for JPEG.  However, the image data identifies
-      as CMYK channel images.  The color channels are stored "out of order" and the Key (K)
-      channel has been set to "full black" for all image generated thumbnails and
-      "selective" (presumably used as Alpha channel transparency parts for desktop display
-      over backgrounds) for all Windows OS constructed thumbnails generated (i.e., image
-      folder images). The extraction process reorders the CMY channels (C is Y and Y is C)
-      and sets the K Channel to "no black" for all extracted images.
+   1. An **older** format that seems to consist of JPEG-like images that have been
+   reduce to a frame composition and image data.
+      - The standard JPEG header, Define Quantization Table (DQT), and Define
+      Huffman Table (DHT) are missing as, presumably, they are constants in
+      Windows(R)(TM) and were removed to reduce size. Substitute header, DQT, and
+      DHT are supplied as reasonable constants during extraction. As such,
+      ***Vinetto may differ slightly from the original display of Type 1 thumbnails***.
+      The PIL Image library is used to attempt proper reconstruction.<br /><br />
+      Recent work has shown that the stored JPEG portions describe CMY color
+      channels (no K channel) and an Alpha channel for transparency. The color
+      channels are stored "out of order" (C is Y and Y is C). Then, the images
+      prescribe to a "YMCA" image format (presumably as a joke). The extraction
+      process converts the image to a CMYK image (the K channel is "no black") with
+      no Alpha channel for all extracted images.
 
    2. A **newer** format that is fully compliant with the JPEG format.  Vinetto
    writes this type to file directly.
