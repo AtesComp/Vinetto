@@ -86,11 +86,18 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 
 1. Python 3.7 or later including standard libraries.
 
-2. Pillow 9.0.0 or later.  Based on PIL (Python Imaging Library).  It i used to
+2. Pillow 9.0.0 or later.  Based on PIL (Python Imaging Library).  It is used to
 attempt correct reconstitution of Type 1 thumbnails (see Limitations below).
 
 3. PyESEDB.  Part of the [libesedb](https://github.com/libyal/libesedb) project. The author supplies a late model version, but the program checks for a
-system installed version first.  If not found, it uses the supplied version.
+system installed version first.  If not found, it uses the supplied version. To update to a new version of PyESEDB:
+   * Download the latest release the above libesedb project
+   * Unzip the project file
+   * Make the project directory current
+   * ./configure --enable-wide-character-type --enable-python
+   * make
+   * Copy the ./pyesedb/.libs/pyesedb.so file to the Vinetto src/vinetto/lib directory
+   * Uninstall and Install Vinetto as per below
 
 ## Limitations
 
