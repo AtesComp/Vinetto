@@ -89,7 +89,7 @@ liveCD like FCCU GNU/Linux Forensic Boot CD.
 2. Pillow 9.0.0 or later.  Based on PIL (Python Imaging Library).  It i used to
 attempt correct reconstitution of Type 1 thumbnails (see Limitations below).
 
-3. PyESEDB.  The author supplies a late model version, but the program checks for a
+3. PyESEDB.  Part of the [libesedb](https://github.com/libyal/libesedb) project. The author supplies a late model version, but the program checks for a
 system installed version first.  If not found, it uses the supplied version.
 
 ## Limitations
