@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.13] - 2025-06-03 (RELEASED)
+
+### Changed
+
+- Updated all copyright notices and file versions
+- ESEDB library
+  - Latest Python ESEDB library based on [libesedb](https://github.com/libyal/libesedb) commit d959e1e
+
+## [0.9.12] - 2025-06-03 (RELEASED)
+
+### Changed
+
+- Updated ReadMe documentation on Type 1 image processing
+  - Type 1 image processing as per v0.9.11 has a "out-of-order" CMY structure. The CMY channels were found to be reversed (YMC). The K channel is actually an Alpha transparency channel. Then, the structure is "YMCA" (apparently a joke).
+- ESEDB library:
+  - Latest Python ESEDB library based on libesedb commit 800a5f0
+
+
 ## [0.9.11] - 2022-02-21 (RELEASED)
 
 ### Changed

@@ -6,7 +6,7 @@ module error.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2022 by Keven L. Ates
+ Copyright (C) 2019-2025 by Keven L. Ates
 
 This file is part of Vinetto.
 
