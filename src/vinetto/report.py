@@ -5,7 +5,7 @@ module report.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2025 by Keven L. Ates
+ Copyright (C) 2019-2026 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -33,8 +33,8 @@ file_micro = "10"
 
 
 from time import time
-from os.path import dirname, basename, abspath, getmtime
-from pkg_resources import resource_filename
+from os.path import basename, abspath, getmtime
+from importlib.resources import files, as_file
 
 import vinetto.version as version
 import vinetto.config as config
@@ -85,25 +85,27 @@ class HtmlReport(Report):
 
         # Load HTTP sections...
         iSeparatorID = 0
-        for strLine in open(resource_filename('vinetto', 'data/HtmlReportTemplate.html'), "r").readlines():
-            if strLine.find("__ITS__") >= 0:
-                iSeparatorID += 1
-                continue
+        ref = files('vinetto') / 'data/HtmlReportTemplate.html'
+        with as_file(ref) as pathHTMLTemplate:
+            for strLine in open( pathHTMLTemplate, "r" ).readlines():
+                if strLine.find("__ITS__") >= 0:
+                    iSeparatorID += 1
+                    continue
 
-            if (iSeparatorID == 0):
-                HTTP_HEADER.append(strLine)
-            elif (iSeparatorID == 1 and self.dictHead["FileType"] == config.THUMBS_TYPE_OLE):
-                HTTP_TYPE.append(strLine)
-            elif (iSeparatorID == 2 and self.dictHead["FileType"] == config.THUMBS_TYPE_CMMM):
-                HTTP_TYPE.append(strLine)
-            elif (iSeparatorID == 3 and self.dictHead["FileType"] == config.THUMBS_TYPE_IMMM):
-                HTTP_TYPE.append(strLine)
-            elif (iSeparatorID == 4):
-                HTTP_PIC_ROW.append(strLine)
-            elif (iSeparatorID == 5):
-                HTTP_ORPHANS.append(strLine)
-            elif (iSeparatorID == 6):
-                HTTP_FOOTER.append(strLine)
+                if (iSeparatorID == 0):
+                    HTTP_HEADER.append(strLine)
+                elif (iSeparatorID == 1 and self.dictHead["FileType"] == config.THUMBS_TYPE_OLE):
+                    HTTP_TYPE.append(strLine)
+                elif (iSeparatorID == 2 and self.dictHead["FileType"] == config.THUMBS_TYPE_CMMM):
+                    HTTP_TYPE.append(strLine)
+                elif (iSeparatorID == 3 and self.dictHead["FileType"] == config.THUMBS_TYPE_IMMM):
+                    HTTP_TYPE.append(strLine)
+                elif (iSeparatorID == 4):
+                    HTTP_PIC_ROW.append(strLine)
+                elif (iSeparatorID == 5):
+                    HTTP_ORPHANS.append(strLine)
+                elif (iSeparatorID == 6):
+                    HTTP_FOOTER.append(strLine)
 
         self.listIDs        = []
         self.listFileNames  = []

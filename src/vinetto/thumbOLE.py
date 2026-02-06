@@ -5,7 +5,7 @@ module thumbOLE.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2025 by Keven L. Ates
+ Copyright (C) 2019-2026 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -33,53 +33,61 @@ file_micro = "12"
 
 
 import sys
-import os
-import errno
 from io import BytesIO
 from struct import unpack
 from binascii import hexlify
-from numpy import character, intc
-from pkg_resources import resource_filename
+from importlib.resources import files, as_file
 
 import vinetto.config as config
-import vinetto.esedb as esedb
 import vinetto.tdb_catalog as tdb_catalog
 import vinetto.tdb_streams as tdb_streams
 import vinetto.utils as utils
 import vinetto.error as verror
 
 
-def preparePILOutput():
+def preparePILOutput() :
+    if (config.ARGS.outdir == None) :
+        if (config.ARGS.verbose > 0) :
+            sys.stderr.write(" Info: No output directory for PIL exports...unused.\n")
+        return
+
+    #
     # Initialize processing for output...
-    if (config.ARGS.outdir != None):
-        # If already attempted to load PIL...
-        if (config.THUMBS_TYPE_OLE_PIL == False):
-            return
+    #
 
-        # Initializing PIL library for Type 1 image extraction...
-        config.THUMBS_TYPE_OLE_PIL = False  # ...attempting to load PIL..
-        try:
-            from PIL import Image, ImageChops
-            config.THUMBS_TYPE_OLE_PIL = True  # ...loaded PIL
-            if (config.ARGS.verbose > 0):
-                sys.stderr.write(" Info: Imported PIL for possible Type 1 exports\n")
-        except ImportError:
-            if (config.ARGS.verbose >= 0):
-                sys.stderr.write(" Warning: Cannot find PIL Package Image module.\n" +
-                                    "          Vinetto will only extract Type 2 thumbnails.\n")
-        if (config.THUMBS_TYPE_OLE_PIL == True):
-            try:
-                config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER   = open(resource_filename("vinetto", "data/header"), "rb").read()
-                config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE = open(resource_filename("vinetto", "data/quantization"), "rb").read()
-                config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  = open(resource_filename("vinetto", "data/huffman"), "rb").read()
-            except:
-                # Hard Error!  The header, quantization, and huffman data files are installed
-                #    locally with Vinetto, so missing missing files are bad!
-                raise verror.InstallError(" Error: Cannot load PIL support data files!")
-    return
+    # If already attempted to load PIL...
+    if (config.THUMBS_TYPE_OLE_PIL == False) :
+        return
+
+    # Initializing PIL library for Type 1 image extraction...
+    config.THUMBS_TYPE_OLE_PIL = False  # ...attempting to load PIL
+    try :
+        from PIL import Image
+        config.THUMBS_TYPE_OLE_PIL = True  # ...loaded PIL
+        if (config.ARGS.verbose > 0):
+            sys.stderr.write(" Info: Imported PIL for possible Type 1 exports.\n")
+    except ImportError :
+        if (config.ARGS.verbose >= 0):
+            sys.stderr.write(" Warning: Cannot find PIL Package Image module.\n" +
+                                "          Vinetto will only extract Type 2 thumbnails.\n")
+    if (config.THUMBS_TYPE_OLE_PIL == True) :
+        try :
+            ref = files('vinetto') / 'data/header'
+            with as_file(ref) as pathHeader :
+                config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER   = open(pathHeader, "rb").read()
+            ref = files('vinetto') / 'data/quantization'
+            with as_file(ref) as pathQuant :
+                config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE = open(pathQuant, "rb").read()
+            ref = files('vinetto') / 'data/huffman'
+            with as_file(ref) as pathHuffman :
+                config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  = open(pathHuffman, "rb").read()
+        except :
+            # Hard Error!  The header, quantization, and huffman data files are installed
+            #    locally with Vinetto, so missing missing files are bad!
+            raise verror.InstallError(" Error: Cannot load PIL support data files!")
 
 
-def nextBlock(fileTDB, listSAT, iCurrentSector, cEndian):
+def nextBlock(fileTDB, listSAT, iCurrentSector, cEndian) :
     # Return next block
     iSATIndex = iCurrentSector // 128  # ...SAT index for search sector
     iSATOffset = iCurrentSector % 128  # ...Sector offset within search sector
@@ -117,13 +125,12 @@ def printHead(strCLSID, iRevisionNo, iVersionNo, cEndian,
         print("   MSAT Total Sec: %s" % str(iMSAT_TotalSec))
         print(" DirSAT  1st  Sec: %s" % str(iDISAT_1stSec))
         print(" DirSAT Total Sec: %s" % str(iDISAT_TotalSec))
-    return
 
 
-def printCache(strName, dictOLECache):
+def printCache(strName, dictOLECache) :
     print("          Name: %s" % strName)
     print("          Type: %d (%s)" % (dictOLECache["type"], config.OLE_BLOCK_TYPES[dictOLECache["type"]]))
-    if (config.ARGS.verbose > 0):
+    if (config.ARGS.verbose > 0) :
         print("         Color: %d (%s)" % (dictOLECache["color"], "Black" if dictOLECache["color"] else "Red"))
         print("   Prev Dir ID: %s" % ("None" if (dictOLECache["PDID"] == config.OLE_NONE_BLOCK) else str(dictOLECache["PDID"])))
         print("   Next Dir ID: %s" % ("None" if (dictOLECache["NDID"] == config.OLE_NONE_BLOCK) else str(dictOLECache["NDID"])))
@@ -134,17 +141,17 @@ def printCache(strName, dictOLECache):
         print("        Modify: " + utils.getFormattedWinToPyTimeUTC(dictOLECache["modify"]))
         print("       1st Sec: %d" % dictOLECache["SID_firstSecDir"])
         print("          Size: %d" % dictOLECache["SID_sizeDir"])
-        if (config.ARGS.edbfile != None):
+        if (config.ARGS.edbfile != None) :
             config.ESEDB.printInfo()
-    return
 
 
-def process(infile, fileThumbsDB, iThumbsDBSize):
+def process(infile, fileThumbsDB, iThumbsDBSize) :
     preparePILOutput()
-    from PIL import Image, ImageChops
+    if (config.THUMBS_TYPE_OLE_PIL == True) :
+        from PIL import Image
 
-    if (config.ARGS.verbose >= 0):
-        if (iThumbsDBSize % 512 ) != 0:
+    if (config.ARGS.verbose >= 0) :
+        if (iThumbsDBSize % 512 ) != 0 :
             sys.stderr.write(" Warning: Length of %s == %d not multiple 512\n" % (infile, iThumbsDBSize))
 
     # Structure:

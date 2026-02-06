@@ -5,7 +5,7 @@ module utils.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2025 by Keven L. Ates
+ Copyright (C) 2019-2026 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -32,7 +32,6 @@ file_minor = "4"
 file_micro = "2"
 
 
-from sys import version_info as py_version_info
 import os
 import errno
 from time import strftime, gmtime

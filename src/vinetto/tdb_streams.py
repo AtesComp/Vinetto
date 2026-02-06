@@ -5,7 +5,7 @@ module tdb_streams.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2025 by Keven L. Ates
+ Copyright (C) 2019-2026 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -42,7 +42,7 @@ unicode = str
 
 
 ###############################################################################
-# Vinetto Thumb Database Catalog Class
+# Vinetto Thumb Database Streams Class
 # Input: iKey/strKey, [strIndexExt, strIndexFileName]
 # Store: {iKey/strKey, [strIndexExt], bStreamID, [strIndexFileName] ] }
 ###############################################################################

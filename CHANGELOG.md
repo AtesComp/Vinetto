@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.14] - 2026-02-05 (RELEASED)
+
+### Changed
+
+- Updated all copyright notices and file versions
+- ESEDB library
+  - Latest Python ESEDB library based on [libesedb](https://github.com/libyal/libesedb) commit 6620ab0
+- Replace deprecated pkg_resources with importlib.resources
+- Remove unused imports
+- Update PIL processing
+- Update ReadMe documentation
+  - Update Python version tp 3.12
+  - Update Pillow to version 11.3.0
+  - Add Version control
+  - Update Pillow
+  - Update ESEDB
+  - Update Usage Overview
+  - Update Installation
+
 ## [0.9.13] - 2025-06-03 (RELEASED)
 
 ### Changed

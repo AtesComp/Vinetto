@@ -6,7 +6,7 @@ module vinetto.py
 
  Vinetto : a forensics tool to examine Thumb Database files
  Copyright (C) 2005, 2006 by Michel Roukine
- Copyright (C) 2019-2025 by Keven L. Ates
+ Copyright (C) 2019-2026 by Keven L. Ates
 
 This file is part of Vinetto.
 
@@ -35,9 +35,8 @@ file_micro = "13"
 
 import sys
 import os
-import fnmatch
 import argparse
-import signal
+#import signal
 
 import vinetto.version as version
 import vinetto.config as config
