@@ -31,12 +31,12 @@ file_major = "0"
 file_minor = "1"
 file_micro = "10"
 
-
+# Built-in...
 import sys
 from struct import unpack
 
+# Local...
 import vinetto.config as config
-import vinetto.esedb as esedb
 import vinetto.tdb_catalog as tdb_catalog
 import vinetto.tdb_streams as tdb_streams
 import vinetto.utils as utils
@@ -75,7 +75,7 @@ def printCache(strSig, iSize, strHash, strExt, iIdSize, iPadSize, iDataSize, iWi
 
 
 def process(infile, fileThumbsDB, iThumbsDBSize):
-    # tDB_endian = "<" ALWAYS Little???
+    # tDB_endian = "<" # Little Endian
 
     if (iThumbsDBSize < 24):
         if (config.ARGS.verbose >= 0):

@@ -31,11 +31,12 @@ file_major = "0"
 file_minor = "4"
 file_micro = "10"
 
-
+# Built-in...
 from time import time
 from os.path import basename, abspath, getmtime
 from importlib.resources import files, as_file
 
+# Local...
 import vinetto.version as version
 import vinetto.config as config
 import vinetto.error as verror
@@ -242,9 +243,12 @@ class HtmlReport(Report):
 
             # Adjust Type 3 (IMMM, Thumbcache_*)...
             elif (self.dictHead["FileType"] == config.THUMBS_TYPE_IMMM):
+                strLine = strLine.replace("__TDBREPREMAGIC__", str(self.dictMeta["PreMagic"]))
                 strLine = strLine.replace("__TDBREFORMATTYPE__", self.dictMeta["FormatTypeStr"])
+                strLine = strLine.replace("__TDBRECACHETYPE__",  self.dictMeta["CacheTypeStr"])
+                strLine = strLine.replace("__TDBREHEADERSIZE__", str(self.dictMeta["HeaderSize"]))
                 strLine = strLine.replace("__TDBREENTRYUSED__",  str(self.dictMeta["EntryUsed"]))
-                strLine = strLine.replace("__TDBREENTRYCOUNT__", str(self.dictMeta["EntryCount"]))
+                strLine = strLine.replace("__TDBRETABLESIZE__", str(self.dictMeta["TableSize"]))
 
             self.repfile.write(strLine)
 

@@ -1,5 +1,10 @@
+# Built-in...
 import os
+
+# Third-party...
 from setuptools import setup
+
+# Local...
 from src.vinetto import version
 
 # Utility function to read the ReadMe.md file...
@@ -36,4 +41,8 @@ setup(
   packages = ['vinetto'],
   package_dir = {'vinetto': 'src/vinetto'},
   package_data = {'vinetto': ['data/*', 'lib/*']},
+  install_requires = [
+      'pillow>=11.3.0',
+#      'libesedb-python>=20240420', # Optional, local lib provided in src/vinetto/lib/
+  ],
 )

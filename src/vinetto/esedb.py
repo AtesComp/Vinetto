@@ -31,11 +31,12 @@ file_major = "0"
 file_minor = "1"
 file_micro = "8"
 
-
+# Built-in...
 import sys
 from struct import unpack
 from binascii import hexlify, unhexlify
 
+# Local...
 import vinetto.config as config
 import vinetto.utils as utils
 import vinetto.error as verror
@@ -134,14 +135,14 @@ class ESEDB():
     def prepare(self):
         bEDBFileGood = False
         try:
-            import pyesedb
+            import pyesedb # ...third-party, optional, local lib provided in src/vinetto/lib/ if not installed system-wide
             sys.stdout.write(" Info: Imported system pyesedb library.")
             bEDBFileGood = True
         except:
             sys.stdout.write(" Warning: Cannot import system pyesedb library!")
             # Error!  The "pyesedb" library is supposed to be installed locally with Vinetto,
             try:
-                from vinetto.lib import pyesedb
+                from vinetto.lib import pyesedb # ...local
                 sys.stdout.write(" Info: Imported Vinetto's pyesedb library.")
                 bEDBFileGood = True
             except:
@@ -472,8 +473,7 @@ class ESEDB():
 
 
     def examine(self):
-        import re
-        import readline
+        import re   # ...built-in
 
         funcInput = input
 
@@ -615,7 +615,6 @@ class ESEDB():
             else:
                 print(strErrorMessage)
 
-        del readline
         del re
         return
 

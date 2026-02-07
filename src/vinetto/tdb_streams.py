@@ -31,14 +31,15 @@ file_major = "0"
 file_minor = "1"
 file_micro = "5"
 
-
+# Built-in...
 import sys
-
 from collections.abc import MutableMapping
+
+# Local...
 import vinetto.config as config
 
-unicode = str
 
+unicode = str
 
 
 ###############################################################################

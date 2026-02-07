@@ -32,12 +32,13 @@ file_major = "0"
 file_minor = "1"
 file_micro = "13"
 
-
+# Built-in...
 import sys
 import os
 import argparse
 #import signal
 
+# Local...
 import vinetto.version as version
 import vinetto.config as config
 import vinetto.error as verror

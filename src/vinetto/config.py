@@ -101,28 +101,28 @@ BIG_ENDIAN = b"\xff\xfe"
 # JPEG JFIF Block Markers
 # --------------------
 # The JPEG JFIF Markers denote JPEG data blocks that define the image.
-#Marker Code Name
-#------ ---- --------------------
-#FF D8  SOI  Start Of Image
-#FF E0  APP0 JFIF File
-#FF DB  DQT  Define Quantization Table
-#FF C0  SOF  Start Of Frame
-#FF C4  DHT  Define Huffman Table
-#FF DA  SOS  Start Of Scan
-#FF D9  EOI  End Of Image
+#   Marker Code Name
+#   ------ ---- --------------------
+#   FF D8  SOI  Start Of Image
+#   FF E0  APP0 JFIF File
+#   FF DB  DQT  Define Quantization Table
+#   FF C0  SOF  Start Of Frame
+#   FF C4  DHT  Define Huffman Table
+#   FF DA  SOS  Start Of Scan
+#   FF D9  EOI  End Of Image
 #
-#JFIF Header [20 bytes]
-#------------------------------------------------------------
-#BYTE SOI[2]         FF D8
-#BYTE APP[2]         FF E0
-#BYTE Length[2]      APP Length after marker
-#BYTE Identifier[5]  "JFIF\0"
-#BYTE Version[2]     Major, Minor
-#BYTE Units          0 (none), 1 (pix/inch), 2 (pix/cm)
-#BYTE X_Density[2]   Horiz Pixel Density
-#BYTE Y_Density[2]   Vert  Pixel Density
-#BYTE Width          Thumbnail width, if any
-#BYTE Height         Thumbnail height, if any
+# JFIF Header [20 bytes]
+# ------------------------------------------------------------
+# BYTE SOI[2]         FF D8
+# BYTE APP[2]         FF E0
+# BYTE Length[2]      APP Length after marker
+# BYTE Identifier[5]  "JFIF\0"
+# BYTE Version[2]     Major, Minor
+# BYTE Units          0 (none), 1 (pix/inch), 2 (pix/cm)
+# BYTE X_Density[2]   Horiz Pixel Density
+# BYTE Y_Density[2]   Vert  Pixel Density
+# BYTE Width          Thumbnail width, if any
+# BYTE Height         Thumbnail height, if any
 JPEG_SOI  = b"\xff\xd8"
 JPEG_APP0 = b"\xff\xe0"
 JPEG_DQT  = b"\xff\xdb"
@@ -131,13 +131,17 @@ JPEG_DHT  = b"\xff\xc4"
 JPEG_SOS  = b"\xff\xda"
 JPEG_EOI  = b"\xff\xd9"
 
-TC_FORMAT_TYPE = { "Windows Vista" : 0x14,
-                   "Windows 7"     : 0x15,
-                   "Windows 8"     : 0x1A,
-                   "Windows 8 v2"  : 0x1C,
-                   "Windows 8 v3"  : 0x1E,
-                   "Windows 8.1"   : 0x1F,
-                   "Windows 10"    : 0x20,
+# For Thumbcache_idx IMMM header values, see https://dspace.lib.cranfield.ac.uk/server/api/core/bitstreams/a64297c5-dc5a-4f41-8aa9-41ab69b5ad00/content Appendix A
+#     ...also https://github.com/libyal/libwtcdb/blob/main/documentation/Windows%20Explorer%20Thumbnail%20Cache%20database%20format.asciidoc#format_versions
+# For Thumbcache* CMMM header values, see https://github.com/thumbcacheviewer/thumbcacheviewer/blob/master/thumbcache_viewer/read_thumbcache.h
+
+TC_FORMAT_TYPE = { "Windows Vista" : 0x14, # 20
+                   "Windows 7"     : 0x15, # 21
+                   "Windows 8"     : 0x1A, # 26
+                   "Windows 8 v2"  : 0x1C, # 28
+                   "Windows 8 v3"  : 0x1E, # 30
+                   "Windows 8.1"   : 0x1F, # 31
+                   "Windows 10/11" : 0x20, # 32
                  }
 TC_FORMAT_TO_CACHE = { 0x14 : 0,  # Keys relate to TC_FORMAT_TYPE
                        0x15 : 0,  # Values relate to index of TC_CACHE_TYPE
@@ -157,11 +161,11 @@ TC_CACHE_TYPE = (
                   (   "16",   "32",   "48",   "96",  "256", "1024",   "sr", "wide", "exif" ),
                   # 2 -- Windows 8.1 ------------------------
                   (   "16",   "32",   "48",   "96"   "256", "1024", "1600",   "sr", "wide", "exif", "wide_alternate" ),
-                  # 3 -- Windows 10 -------------------------
+                  # 3 -- Windows 10, 11 ---------------------
                   (   "16",   "32",   "48",   "96",  "256",  "768", "1280", "1920", "2560",   "sr", "wide", "exif", "wide_alternate", "custom_stream" ),
                 )
-TC_CACHE_ALL = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1600", "1920", "2560",   "sr",  "idx", "wide", "exif", "wide_alternate", "custom_stream" )
-TC_CACHE_ALL_DISPLAY = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1600", "1920", "2560",   "sr",  "idx", "wide", "exif", "walt", "cust" )
+TC_CACHE_ALL =         ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1600", "1920", "2560",   "sr",  "idx", "wide", "exif", "wide_alternate", "custom_stream" )
+TC_CACHE_ALL_DISPLAY = ( "16",   "32",   "48",   "96",  "256", "768", "1024", "1280", "1600", "1920", "2560",   "sr",  "idx", "wide", "exif", "walt",           "cust" )
 
 #
 #  Windows Thumbcache location:

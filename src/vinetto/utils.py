@@ -31,17 +31,14 @@ file_major = "0"
 file_minor = "4"
 file_micro = "2"
 
-
+# Built-in...
 import os
 import errno
 from time import strftime, gmtime
 
-try:
-    import vinetto.config as config
-    import vinetto.error as verror
-except ImportError:
-    import config
-    import error as verror
+# Local...
+import vinetto.config as config
+import vinetto.error as verror
 
 def convertWinToPyTime(iFileTime_Win32):
     # Convert Win32 timestamp to Python timestamp...

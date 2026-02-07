@@ -31,11 +31,12 @@ file_major = "0"
 file_minor = "1"
 file_micro = "10"
 
-
+# Build-in...
 import sys
 import os
 import fnmatch
 
+# Local...
 import vinetto.config as config
 import vinetto.report as report
 import vinetto.thumbOLE as thumbOLE
@@ -85,7 +86,7 @@ class Processor():
 
         # Get MD5 of file...
         if (config.ARGS.md5force) or ((not config.ARGS.md5never) and (dictHead["FileSize"] < (1024 ** 2) * 512)):
-            from hashlib import md5
+            from hashlib import md5 # ...built-in
             dictHead["MD5"] = md5( fileThumbsDB.read() ).hexdigest()
             del md5
 
@@ -113,7 +114,8 @@ class Processor():
             dictHead["FileType"] = config.THUMBS_TYPE_CMMM
         elif (bstrSig[0:4] == config.THUMBS_SIG_IMMM):
             dictHead["FileType"] = config.THUMBS_TYPE_IMMM
-        elif (bstrSig[0:8] == bytearray(b"\x0c\x000 ") + config.THUMBS_SIG_IMMM):
+        #elif (bstrSig[0:8] == bytearray(b"\x0c\x000 ") + config.THUMBS_SIG_IMMM):
+        elif (bstrSig[4:8] == config.THUMBS_SIG_IMMM):
             dictHead["FileType"] = config.THUMBS_TYPE_IMMM
             iInitialOffset = 4
         else:  # ...Header Signature not found...

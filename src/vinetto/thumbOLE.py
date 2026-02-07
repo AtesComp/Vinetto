@@ -31,13 +31,14 @@ file_major = "0"
 file_minor = "1"
 file_micro = "12"
 
-
+# Built-in...
 import sys
 from io import BytesIO
 from struct import unpack
 from binascii import hexlify
 from importlib.resources import files, as_file
 
+# Local...
 import vinetto.config as config
 import vinetto.tdb_catalog as tdb_catalog
 import vinetto.tdb_streams as tdb_streams
@@ -62,7 +63,7 @@ def preparePILOutput() :
     # Initializing PIL library for Type 1 image extraction...
     config.THUMBS_TYPE_OLE_PIL = False  # ...attempting to load PIL
     try :
-        from PIL import Image
+        from PIL import Image # ...third-party Pillow
         config.THUMBS_TYPE_OLE_PIL = True  # ...loaded PIL
         if (config.ARGS.verbose > 0):
             sys.stderr.write(" Info: Imported PIL for possible Type 1 exports.\n")
@@ -148,7 +149,7 @@ def printCache(strName, dictOLECache) :
 def process(infile, fileThumbsDB, iThumbsDBSize) :
     preparePILOutput()
     if (config.THUMBS_TYPE_OLE_PIL == True) :
-        from PIL import Image
+        from PIL import Image # ...third-party Pillow
 
     if (config.ARGS.verbose >= 0) :
         if (iThumbsDBSize % 512 ) != 0 :
@@ -174,7 +175,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
     # * Stream Sector – contains arbitrary file data
     # * Range Lock Sector – contains the byte-range locking area of a large file
 
-    tDB_endian = "<"  # Little Endian
+    tDB_endian = "<" # Little Endian
 
     fileThumbsDB.seek(8)  # ...skip magic bytes                              # File Signature: 0xD0CF11E0A1B11AE1 for current version
     tDB_CLSID             = str(hexlify( fileThumbsDB.read(16) ))[2:-1]      # CLSID
