@@ -238,7 +238,6 @@ To install:
 ```bash
 python3 -m venv .venv     # ...only once or use your favorite venv
 source .venv/bin/activate # ...or your favorite venv
-pip install pillow
 pip install .
 ```
 
@@ -257,7 +256,6 @@ To install:
 
 ```bash
 pipx install .
-pipx inject vinetto pillow
 ```
 
 To uninstall:
