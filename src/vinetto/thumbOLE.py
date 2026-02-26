@@ -28,8 +28,8 @@ This file is part of Vinetto.
 
 
 file_major = "0"
-file_minor = "1"
-file_micro = "12"
+file_minor = "2"
+file_micro = "0"
 
 # Built-in...
 import sys
@@ -385,7 +385,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                         bstrCatEntryName   =                        bstrStreamData[iCatOffset + 16: iCatOffset + iCatEntryLen - 4]
 
                         strCatEntryID        = "%d" % (iCatEntryID)
-                        strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(iCatEntryTimestamp)
+                        strCatEntryTimeStamp = utils.getFormattedWinToPyTimeUTC(iCatEntryTimestamp)
                         strCatEntryName      = utils.decodeBytes(bstrCatEntryName)
                         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                             strTarget = config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
@@ -396,10 +396,10 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             fileURL.close()
 
                         # Add a "catalog" entry...
-                        tdbCatalog[iCatEntryID] = (strCatEntryTimestamp, strCatEntryName)
+                        tdbCatalog[iCatEntryID] = (strCatEntryTimeStamp, strCatEntryName)
 
                         if (config.ARGS.verbose >= 0):
-                            print("          " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strCatEntryName)
+                            print("          " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strCatEntryName)
 
                         # Next catalog entry...
                         iCatOffset = iCatOffset + iCatEntryLen
@@ -426,7 +426,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             # ESEDB Search...
                             isESEDBRecFound = config.ESEDB.search(strRawName[strRawName.find("_") + 1: ])  # Raw Name is structured SIZE_THUMBCACHEID
                             if (isESEDBRecFound):
-                                strCatEntryTimestamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
+                                strCatEntryTimeStamp = utils.getFormattedWinToPyTimeUTC(config.ESEDB.dictRecord["DATEM"])
                                 if (config.ESEDB.dictRecord["IURL"] != None):
                                     strFileName = config.ESEDB.dictRecord["IURL"].split("/")[-1].split("?")[0]
 
@@ -440,10 +440,10 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                                 fileURL.close()
 
                             # Add a "catalog" entry...
-                            tdbCatalog[strRawName] = (strCatEntryTimestamp, strFileName)
+                            tdbCatalog[strRawName] = (strCatEntryTimeStamp, strFileName)
 
                             if (config.ARGS.verbose >= 0):
-                                print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimestamp) + "  " + strFileName)
+                                print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strFileName)
 
                     # --- Header 2: Type 2 Thumbnail Image? (Full JPEG)...
                     if (bstrStreamData[headOffset: headOffset + 4] == bytearray(config.JPEG_SOI + config.JPEG_APP0)):
@@ -522,13 +522,14 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             #   [FF D9]: End Of Image                        Bytes [Last-1:Last+1]
                             # Also, image elements are not as expected:
                             #   1. Image is flipped from top to bottom
-                            #   2. For the color arrays:
-                            #      a. the data is reported by the frames as RGBA but JPEG doesn't natively support RGBA.
-                            #      b. the data reports (PIL assumes) the four color array is CMYK
-                            #      c. the data is actually stored as YCCK (Y,Cb,Cr,K)
-                            #   3. The K aray is inverted (255 - value) MOSTLY
-                            #
+                            #   2. For the 4 Frame Component channels (or bands):
+                            #      a. the channels Component IDs are marked as RGBA (Red, Green, Blue, Alpha) channels
+                            #      b. the channels are actually stored as YMCA (Yellow, Magenta, Cyan, Alpha) channels
+                            #      c. The A channel must be converted to a K (Key) channel for output
 
+                            #
+                            # Extract the JPEG data from the stream...
+                            #
                             iFileSize1 = int.from_bytes(bstrStreamData[ 8:12], 'little')
                             iFileSize2 = int.from_bytes(bstrStreamData[16:20], 'little')
                             iFileDiff = iFileSize1 - iFileSize2
@@ -557,31 +558,43 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
 
                             iScanIndex = iFrameIndex + 2 + iFrameSize # Start Of Scan
 
+                            #
+                            # Construct a proper JPEG file from the extracted stream data...
+                            #
                             bstrImage = (
                                 config.THUMBS_TYPE_OLE_PIL_TYPE1_HEADER[:20] + # Generic JPEG Header
                                 config.THUMBS_TYPE_OLE_PIL_TYPE1_QUANTIZE +    # Generic JPEG Quantization Table
                                 bstrStreamData[iFrameIndex:iScanIndex] +       # Frame Info
                                 config.THUMBS_TYPE_OLE_PIL_TYPE1_HUFFMAN  +    # Generic JPEG Huffman Tables
                                 bstrStreamData[iScanIndex:] )                  # Image Info
-
                             imageIn = Image.open( BytesIO( bstrImage ), 'r', ["JPEG"] )
 
-                            # Get assumed CMYK channels from image...
-                            inChannelC, inChannelM, inChannelY, inChannelK = imageIn.split()
-                            # Convert to actual CMYK channels...
-                            outChannelC = inChannelY
-                            outChannelM = inChannelM
-                            outChannelY = inChannelC
-                            w, h = inChannelK.size
-                            outChannelK = Image.new('L', (w, h), 0)
-                            #                               Y--------  Cb-------  Cr------
-                            imageOut = Image.merge("CMYK", (outChannelC, outChannelM, outChannelY, outChannelK))
+                            #
+                            # Get the channels (bands) from the input image...
+                            #
+                            # NOTE: The image data is stored as YMCA (Yellow, Magenta, Cyan, Alpha) but PIL retrieves
+                            #   the JPEG as RGBA (Red, Green, Blue, Alpha) based on the Component IDs. The channels are
+                            #   named here as per the stored data, YMCA.
+                            channelY, channelM, channelC, channelA = imageIn.split()
+                            # NOTE: The CMY channels are proper but the output image requires a K (Key) channel
+                            #   calculated from the A (Alpha) channel size.
+                            #       Image.new(mode, size, color)
+                            #           mode  = L (8-bit pixels, grayscale)
+                            #           size  = channelA.size
+                            #           color = 0 (black)
+                            #       See https://pillow.readthedocs.io/en/stable/handbook/concepts.html
+                            channelK = Image.new('L', channelA.size, 0)
+
+                            #
+                            # Process the output image as a proper CMYK JPEG...
+                            #
+                            imageOut = Image.merge("CMYK", (channelC, channelM, channelY, channelK))
                             imageOut = imageOut.transpose(Image.FLIP_TOP_BOTTOM)
                             imageOut.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
-                            #imageOut2 = Image.merge("YCbCr", (channelY, channelCb, channelCr))
-                            #imageOut2 = imageOut2.transpose(Image.FLIP_TOP_BOTTOM)
-                            #imageOut2.save(config.ARGS.outdir + strFileName + "_2", "JPEG", quality=100)
 
+                            #
+                            # Report image info for the extracted thumbnail image...
+                            #
                             if (config.ARGS.verbose > 0):
                                 print("     File Info: ---------------------------------------")
                                 print("          Type: 1 (JPEG Fragment)")
@@ -609,8 +622,10 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
 
                         else:  # Cannot extract (PIL not found) or not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER
+
+                    # --- Header 2: Something else...
                     else:
-                        raise verror.EntryError(" Error (Entry): Header 2 not found in stream entry " + str(iStreamCounter))
+                        raise verror.EntryError(" Error (Entry): Header 2 not recognized in stream entry " + str(iStreamCounter))
 
                 if (config.ARGS.verbose >= 0):
                     print(config.STR_SEP)
@@ -673,7 +688,9 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
           strSubDir = config.THUMBS_SUBDIR
         config.HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
 
+    # If output is allowed...
     if (config.ARGS.verbose >= 0):
+        # If catalog entries exist...
         if (len(tdbCatalog) > 0):
             if (tdbCatalog.getCount() != tdbStreams.getCount()):
                 sys.stderr.write(" Warning: %s - Counts (Catalog != Extracted)\n" % infile)
@@ -683,3 +700,16 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
         else:
             if (config.ARGS.verbose > 0):
                 sys.stderr.write(" Info: %s - No Catalog\n" % infile)
+
+    # Otherwise (output is quiet), if no HTML report exists and catalog entries exist...
+    #   NOTE: No output has catured the related catalog entries for extracted image files!
+    elif (not config.ARGS.htmlrep and len(tdbCatalog) > 0):
+        # At a minimum, output the catalog entries...
+        print("Catalog Entries for %s" % infile)
+        for key in tdbCatalog:
+            strKey = ("% 4d" % key) if isinstance(key, int) else key
+            listCat = tdbCatalog[key]
+            for (strTimeStamp, strEntryName) in listCat:
+                print("  " + ("% 4s" % strKey) + ":  " + ("%19s" % strTimeStamp) + "  " + strEntryName)
+
+    # Otherwise, some other output has reported or will report the catalog entries or no catalog entries exist.

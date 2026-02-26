@@ -42,7 +42,7 @@ setup(
   package_dir = {'vinetto': 'src/vinetto'},
   package_data = {'vinetto': ['data/*', 'lib/*']},
   install_requires = [
-      'pillow>=11.3.0',
+      'pillow>=12.1.1',
 #      'libesedb-python>=20240420', # Optional, local lib provided in src/vinetto/lib/
   ],
 )

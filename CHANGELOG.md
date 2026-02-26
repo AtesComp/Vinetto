@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.15] - 2026-02-26 (RELEASED)
+
+### Changed
+
+- Update ReadMe documentation
+  - Update Pillow to version 12.1.1 or greater
+- Update setup.py
+  - Update Pillow to version 12.1.1 or greater
+- Update Thumbnail OLE image processing
+  - Clean and update JPEG image data channel processing
+  - Document image reconstruction process
+  - Force catalog output when quiet
+
 ## [0.9.14] - 2026-02-05 (RELEASED)
 
 ### Changed
@@ -13,11 +26,11 @@ All notable changes to this project are documented in this file.
 - Remove unused imports
 - Update PIL processing
 - Update ReadMe documentation
-  - Update Python version tp 3.12
+  - Update Python version to 3.12
   - Update Pillow to version 11.3.0
   - Add Version control
-  - Update Pillow
-  - Update ESEDB
+  - Update Pillow requirements
+  - Update ESEDB requirements
   - Update Usage Overview
   - Update Installation
 

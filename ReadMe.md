@@ -90,27 +90,28 @@ The Vinetto version is maintained in the `src/vinetto/version.py` file.
 
 1. Python 3.12 or later including standard libraries.
 
-2. Pillow 11.3.0 or later. Pillow is a friendly PIL (Python Imaging Library). It is used to
+2. Pillow 12.1.1 or later. Pillow is a friendly PIL (Python Imaging Library). It is used to
 attempt correct reconstitution of Type 1 thumbnails (see Limitations below).
    * `apt install python3-pil` OR
    * `pip install pillow`
 
 3. PyESEDB. Part of the [libesedb](https://github.com/libyal/libesedb) project. The author
 supplies a late model version, but the program checks for a system installed version first.
-If not found, it uses the supplied version. To update to a new version of PyESEDB:
-   * Get the latest release for the libesedb project stored in your favorite dev directory
-     * `gh repo clone libyal/libesedb`
-   * Make the `libesedb` project directory current
-     * `cd libesedb`
-   * See [Building libesedb](https://github.com/libyal/libesedb/wiki/Building)
-     * For the initial build:
-       * `sudo apt install git autoconf automake autopoint libtool pkg-config` (as needed)
-       * `./synclibs.sh`
-       * `./autogen.sh`
-     * `./configure --enable-wide-character-type --enable-python`
-     * `make`
-   * Copy the `./pyesedb/.libs/pyesedb.so` file to the Vinetto `src/vinetto/lib` directory
-   * Uninstall and Install Vinetto as per below
+If not found, it uses the supplied version.
+   * To update to a new version of PyESEDB:
+     * Get the latest release for the libesedb project stored in your favorite dev directory
+       * `gh repo clone libyal/libesedb`
+     * Make the `libesedb` project directory current
+       * `cd libesedb`
+     * See [Building libesedb](https://github.com/libyal/libesedb/wiki/Building)
+       * For the initial build:
+         * `sudo apt install git autoconf automake autopoint libtool pkg-config` (as needed)
+         * `./synclibs.sh`
+         * `./autogen.sh`
+       * `./configure --enable-wide-character-type --enable-python`
+       * `make`
+     * Copy the `./pyesedb/.libs/pyesedb.so` file to the Vinetto `src/vinetto/lib` directory
+     * Uninstall and Install Vinetto as per below
 
 ## Limitations
 
@@ -155,7 +156,7 @@ your OS. YMMV.
 ## Usage Overview:
 
 ```txt
-Vinetto: Version 0.9.14
+Vinetto: Version 0.9.15
 usage: vinetto [-h] [-e EDBFILE] [-H] [-m [{f,d,r,a}]] [--md5] [--nomd5] [-o DIR] [-q] [-s] [-U] [-v] [--version] [infile]
 
 Vinetto.py - The Thumbnail File Parser
@@ -198,7 +199,7 @@ options:
                         1 (Verbose), 2 (Enhanced), 3 (Full)
   --version             show program's version number and exit
 
---- Vinetto.py 0.9.14 ---
+--- Vinetto.py 0.9.15 ---
 Based on the original Vinetto by Michel Roukine
 Author: Keven L. Ates
 Vinetto.py is open source software
