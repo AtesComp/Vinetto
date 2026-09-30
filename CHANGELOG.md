@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.16] - 2026-09-30 (RELEASED)
+
+### Changed
+
+- Update Thumbnail OLE image processing
+  - Guard against bad or crafted Thumbnail OLE Directory Entries and Catalog Names
+
 ## [0.9.15] - 2026-02-26 (RELEASED)
 
 ### Changed

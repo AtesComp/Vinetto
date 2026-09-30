@@ -295,7 +295,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
 
                 # Set default Stream Name key to add to Thumb DB Streams (tdbStreams) dict...
                 #   Key may be str or int
-                keyStreamName = strRawName
+                keyStreamName = utils.cleanFileName(strRawName)
 
                 # Check Stream Name for older Thumbs DB name convention...
                 strStreamID = strRawName[::-1]  # ...reverse the raw name
@@ -359,34 +359,89 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                 # Catalog Stream processing...
                 # -------------------------------------------------------------
                 #  Catalogs are related to the older Thumbs DB index name convention
-                if (strRawName == "Catalog"):
-                    if (config.ARGS.verbose >= 0):
+                if (strRawName == "Catalog") :
+                    bGood = True
+                    iCatOffset      = 0
+                    iCatVersion     = 0
+                    iCatThumbCount  = 0
+                    iCatThumbWidth  = 0
+                    iCatThumbHeight = 0
+
+                    if (config.ARGS.verbose >= 0) :
                         print("       Entries: ---------------------------------------")
 
-                    # Get catalog header...
-                    iCatOffset      = unpack(tDB_endian+"H", bstrStreamData[ 0: 2])[0]
-                    iCatVersion     = unpack(tDB_endian+"H", bstrStreamData[ 2: 4])[0]
-                    iCatThumbCount  = unpack(tDB_endian+"L", bstrStreamData[ 4: 8])[0]
-                    iCatThumbWidth  = unpack(tDB_endian+"L", bstrStreamData[ 8:12])[0]
-                    iCatThumbHeight = unpack(tDB_endian+"L", bstrStreamData[12:16])[0]
+                    # Process catalog header...
+                    #  The catalog header MUST be at least 16 bytes long.
+                    if (iStreamDataLen < 16) :
+                        sys.stderr.write(" Error: Invalid catalog header--too short (%d < 16)!\n" % (iStreamDataLen))
+                        bGood = False
+                    if (iStreamDataLen >= 2) :
+                        iCatOffset      = unpack(tDB_endian+"H", bstrStreamData[ 0: 2])[0]
+                        if (iCatOffset < 16) :
+                            sys.stderr.write(" Error: Invalid catalog offset--too short (%d < 16)!\n" % (iCatOffset))
+                            bGood = False
+                    if (iStreamDataLen >= 4) :
+                        iCatVersion     = unpack(tDB_endian+"H", bstrStreamData[ 2: 4])[0]
+                    if (iStreamDataLen >= 8) :
+                        iCatThumbCount  = unpack(tDB_endian+"L", bstrStreamData[ 4: 8])[0]
+                    if (iStreamDataLen >= 12) :
+                        iCatThumbWidth  = unpack(tDB_endian+"L", bstrStreamData[ 8:12])[0]
+                    if (iStreamDataLen >= 16) :
+                        iCatThumbHeight = unpack(tDB_endian+"L", bstrStreamData[12:16])[0]
 
                     # Process catalog entries...
-                    #  Each catalog entry has an index name, timestamp, and original file name
-                    while (iCatOffset < iStreamDataLen):
+                    #  Each catalog entry has a Length (4), Index ID (4), Timestamp (8), original file name (0+), and
+                    #  4 null bytes
+                    #  Then, each entry MUST be at least 20 bytes long (4+4+8+0+4).
+                    strLogError = " Error: Invalid catalog entry "
+                    while (bGood and iCatOffset < iStreamDataLen):
+                        #
                         # Preamble...
-                        iCatEntryLen       = unpack(tDB_endian+"L", bstrStreamData[iCatOffset      :iCatOffset +  4])[0]
-                        iCatEntryID        = unpack(tDB_endian+"L", bstrStreamData[iCatOffset +  4 :iCatOffset +  8])[0]
-                        iCatEntryTimestamp = unpack(tDB_endian+"Q", bstrStreamData[iCatOffset +  8 :iCatOffset + 16])[0]
+                        #
+                        iCatEntryLen       = 0
+                        iCatEntryID        = 0
+                        iCatEntryTimestamp = 0
+                        strCatEntryID        = "NONE"
+                        strCatEntryTimeStamp = "NONE"
+                        strCatEntryName      = "NONE"
+
+                        if (iCatOffset + 20 > iStreamDataLen) :
+                            bGood = False
+                            sys.stderr.write(strLogError + "- stream too short (Offset %d > Stream %d)!\n" % (iCatOffset + 20, iStreamDataLen))
+                        if (iCatOffset + 4 <= iStreamDataLen) :
+                            iCatEntryLen = unpack(tDB_endian+"L", bstrStreamData[iCatOffset      :iCatOffset +  4])[0]
+                            if (iCatEntryLen < 20): # ...allow for 0 length filename
+                                bGood = False
+                                sys.stderr.write(strLogError + "length (%d < 20)\n" % (iCatEntryLen))
+                        if (iCatOffset + 8 <= iStreamDataLen) :
+                            iCatEntryID = unpack(tDB_endian+"L", bstrStreamData[iCatOffset +  4 :iCatOffset +  8])[0]
+                            strCatEntryID = "%d" % (iCatEntryID)
+                        if (iCatOffset + 16 <= iStreamDataLen) :
+                            iCatEntryTimestamp = unpack(tDB_endian+"Q", bstrStreamData[iCatOffset +  8 :iCatOffset + 16])[0]
+                            strCatEntryTimeStamp = utils.getFormattedWinToPyTimeUTC(iCatEntryTimestamp)
+                        if ( not bGood ) :
+                            sys.stderr.write("        " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strCatEntryName)
+                            break
+
                         # The Catalog Entry Name:
                         # 1. starts after the preamable (16)
                         # 2. end with 4 null bytes (4)
-                        # Therefore, the start of the name string is at the end of the preamble
-                        #   and the end of the name string is at the end of the entry minus 4
-                        bstrCatEntryName   =                        bstrStreamData[iCatOffset + 16: iCatOffset + iCatEntryLen - 4]
+                        # Therefore, the start of the name string is at the end of the preamble and the end of the name
+                        #  string is at the end of the entry minus 4.
+                        # Then, a valid, non-empty string means a catalog entry length MUST be > 20 (16+4).
+                        bstrCatEntryName = b''
+                        iCatEntryEnd = iCatOffset + iCatEntryLen
+                        if (iCatEntryEnd > iStreamDataLen) :
+                            bGood = False
+                            sys.stderr.write(strLogError + "filename length (End %d > Stream %d)\n" % (iCatEntryEnd, iStreamDataLen))
+                            sys.stderr.write("        " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strCatEntryName)
+                            break
+                        if (iCatEntryLen > 20) :
+                            bstrCatEntryName = bstrStreamData[iCatOffset + 16: iCatEntryEnd - 4]
 
-                        strCatEntryID        = "%d" % (iCatEntryID)
-                        strCatEntryTimeStamp = utils.getFormattedWinToPyTimeUTC(iCatEntryTimestamp)
-                        strCatEntryName      = utils.decodeBytes(bstrCatEntryName)
+                        strCatEntryName = "__Empty_Filename__"
+                        if ( len(bstrCatEntryName) ) :
+                            strCatEntryName      = utils.cleanFileName( utils.decodeBytes(bstrCatEntryName) )
                         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                             strTarget = config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
                             utils.setSymlink(strTarget, config.ARGS.outdir + strCatEntryName)
@@ -395,14 +450,18 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             fileURL.write(strTarget + " => " + strCatEntryName + "\n")
                             fileURL.close()
 
-                        # Add a "catalog" entry...
-                        tdbCatalog[iCatEntryID] = (strCatEntryTimeStamp, strCatEntryName)
-
                         if (config.ARGS.verbose >= 0):
                             print("          " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strCatEntryName)
 
+                        # Add a "catalog" entry...
+                        tdbCatalog[iCatEntryID] = (strCatEntryTimeStamp, strCatEntryName)
+
                         # Next catalog entry...
                         iCatOffset = iCatOffset + iCatEntryLen
+
+                    if ( not bGood ) :
+                        sys.stderr.write("        Cannot continue at Offset %d of %d (%d bytes remain)\n" % (iCatOffset, iStreamDataLen, iStreamDataLen - iCatOffset))
+                        break
 
                 # Image Stream processing...
                 # -------------------------------------------------------------
