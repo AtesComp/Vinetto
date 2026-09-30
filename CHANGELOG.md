@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Update Thumbnail OLE image processing
-  - Guard against bad or crafted Thumbnail OLE Directory Entries and Catalog Names
+  - Guard against bad or crafted Directory Entries and Catalog Names
 
 ## [0.9.15] - 2026-02-26 (RELEASED)
 
