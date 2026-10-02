@@ -4,8 +4,8 @@ Vinetto is a thumbnail file parser that can process a variety of thumbnail file
 types (Thumbs.db, Thumbcache_\*.db). This work is based on the original Vinetto
 by Michel Roukine.
 
-This version is be compatible with Python 3. It should work on
-Linux, Mac, and Windows. Testing has currently been limited to Linux.
+This version is compatible with Python 3. It should work on Linux, Mac, and
+Windows. Testing has currently been limited to Linux.
 
 NOTE: Python 2 compatible code has been removed since version 0.9.9.
 
