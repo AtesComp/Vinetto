@@ -32,6 +32,7 @@ file_minor = "1"
 file_micro = "9"
 
 # Built-in...
+import os
 import sys
 from struct import unpack
 
@@ -357,8 +358,8 @@ def process(infile, fileThumbsDB, iThumbsDBSize, iInitialOffset = 0):
     #        print("   No Stats!")
 
     if (config.ARGS.htmlrep) : # ...implies config.ARGS.outdir
-        strSubDir = "."
+        strSubDir = os.path.join( os.path.relpath( os.getcwd() ), config.ARGS.outdir )
         if (config.ARGS.symlinks) : # ...implies config.ARGS.outdir
-          strSubDir = config.THUMBS_SUBDIR
+          strSubDir = os.path.join( strSubDir, config.THUMBS_SUBDIR )
         #config.HTTP_REPORT.flush(astrStats, strSubDir)
         config.HTTP_REPORT.flush(None, strSubDir)

@@ -32,11 +32,13 @@ file_minor = "1"
 file_micro = "5"
 
 # Built-in...
+import os
 import sys
 from collections.abc import MutableMapping
 
 # Local...
 import vinetto.config as config
+import vinetto.utils as utils
 
 
 unicode = str
@@ -149,7 +151,7 @@ class TDB_Streams(MutableMapping):
         if (bStreamID and config.ARGS.symlinks):  # ...implies config.ARGS.outdir
                 # Put real file in the thumbnail subdirectory...
                 #  Symlinks in the top dir will point to the real file here
-                strPrefix = config.THUMBS_SUBDIR + "/"
+                strPrefix = config.THUMBS_SUBDIR
 
         # Default filename from the given filename for a thumbnail...
         #  NOTE: Filename same as key
@@ -185,7 +187,7 @@ class TDB_Streams(MutableMapping):
         # Add or append to self -- see __setitem__()...
         self[key] = [strExt, strComputedFileName]
         # Return filename...
-        return strPrefix + strComputedFileName + "." + strExt
+        return os.path.join(strPrefix, strComputedFileName + os.extsep + strExt)
 
 
     def extractStats(self):

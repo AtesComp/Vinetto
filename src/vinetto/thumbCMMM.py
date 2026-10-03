@@ -32,6 +32,7 @@ file_minor = "1"
 file_micro = "10"
 
 # Built-in...
+import os
 import sys
 from struct import unpack
 
@@ -228,10 +229,12 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
             if (strFileName != None):
                 # Setup symbolic link to filename...
                 if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                    strTarget = config.THUMBS_SUBDIR + "/" + strCleanFileName + "." + strExt
-                    utils.setSymlink(strTarget, config.ARGS.outdir + strFileName)
+                    strTarget = utils.getTargetPath(config.THUMBS_SUBDIR, strCleanFileName + os.extsep + strExt)
+                    strLink = utils.getOutputPath(strFileName)
+                    utils.setSymlink(strTarget, strLink)
 
-                    fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_SYMS, "a+")
+                    strSymLinkPath = utils.getOutputPath(config.THUMBS_FILE_SYMS)
+                    fileURL = open(strSymLinkPath, "a+")
                     fileURL.write(strTarget + " => " + strFileName + "\n")
                     fileURL.close()
 
@@ -244,7 +247,8 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
             # Write data to filename...
             if (config.ARGS.outdir != None):
                 strFileName = tdbStreams.getFileName(strCleanFileName, strExt)
-                fileImg = open(config.ARGS.outdir + strFileName, "wb")
+                strFilePath = utils.getOutputPath(strFileName)
+                fileImg = open(strFilePath, "wb")
                 fileImg.write(tDB_data)
                 fileImg.close()
             else:  # Not extracting...
@@ -271,7 +275,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize):
             print("   No Stats!")
 
     if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
-        strSubDir = "."
+        strSubDir = os.path.join( os.path.relpath( os.getcwd() ), config.ARGS.outdir )
         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-          strSubDir = config.THUMBS_SUBDIR
+          strSubDir = os.path.join( strSubDir, config.THUMBS_SUBDIR )
         config.HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)

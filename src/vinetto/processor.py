@@ -128,7 +128,7 @@ class Processor():
 
         # Initialize optional HTML report...
         if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
-            config.HTTP_REPORT = report.HtmlReport(utils.getEncoding(), config.ARGS.outdir, dictHead)
+            config.HTTP_REPORT = report.HtmlReport(utils.getEncoding(), dictHead)
 
         if (dictHead["FileType"] == config.THUMBS_TYPE_OLE):
             thumbOLE.process(dictHead["FilePath"], fileThumbsDB, dictHead["FileSize"])

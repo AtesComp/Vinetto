@@ -32,6 +32,8 @@ file_minor = "4"
 file_micro = "10"
 
 # Built-in...
+import html
+import os
 from time import time
 from os.path import basename, abspath, getmtime
 from importlib.resources import files, as_file
@@ -58,11 +60,9 @@ IMGCOLS = 7
 # Vinetto Report SuperClass
 ###############################################################################
 class Report:
-    def __init__(self, strCharSet, strOutputDir, dictHead):
+    def __init__(self, strCharSet, dictHead):
         """ Initialize a new Report instance.  """
         self.strCharSet = strCharSet
-
-        self.strOutputDir = strOutputDir
 
         self.dictHead = dictHead
         self.dictHead["Filename"] = basename(dictHead["FilePath"])
@@ -79,9 +79,9 @@ class Report:
 # Vinetto HTML Report (elementary mode) Class
 ###############################################################################
 class HtmlReport(Report):
-    def __init__(self, strCharSet, strOutputDir, dictHead):
+    def __init__(self, strCharSet, dictHead):
         # Initialize a new HtmlReport instance...
-        Report.__init__(self, strCharSet, strOutputDir, dictHead)
+        Report.__init__(self, strCharSet, dictHead)
         self.iRow = 0
 
         # Load HTTP sections...
@@ -140,6 +140,14 @@ class HtmlReport(Report):
 
 
     def flush(self, astrStats, strSubDir, tdbStreams = None, tdbCatalog = None):
+        '''
+        Flush the report to disk.
+
+        astrStats: list of strings containing report statistics
+        strSubDir: subdirectory for thumbnails (if any)
+        tdbStreams: TDB_Streams object containing thumbnail streams
+        tdbCatalog: TDB_Catalog object containing catalog entries
+        '''
         self.__writeHead()  # ...opens HTML file for write
 
         self.__writeMeta()
@@ -157,11 +165,10 @@ class HtmlReport(Report):
                 bStreamID = tdbStreams[key][1]
                 for strFileName in tdbStreams[key][2]:
                     self.iFileCount += 1
+                    strFilePath = os.path.join( os.path.relpath( os.getcwd() ), config.ARGS.outdir )
                     if (bStreamID):
                         strFilePath = strSubDir
-                    else:
-                        strFilePath = "."
-                    strFilePath += "/" + strFileName + "." + tdbStreams[key][0][0]
+                    strFilePath = utils.getTargetPath( strFilePath, strFileName + os.extsep + tdbStreams[key][0][0] )
 
                     if (tdbCatalog == None or len(tdbCatalog) == 0 or not key in tdbCatalog):
                         self.__populateCell(key, strFilePath)
@@ -199,11 +206,11 @@ class HtmlReport(Report):
 
     def __writeHead(self):
         # Write report header...
-        strFileName = self.strOutputDir + self.dictHead["Filename"] + ".html"
+        strFilePath = utils.getOutputPath(self.dictHead["Filename"] + ".html")
         try:
-            self.repfile = open(strFileName, "w")
+            self.repfile = open(strFilePath, "w")
         except:
-            raise verror.ReportError(" Error (Report): Cannot create " + strFileName)
+            raise verror.ReportError(" Error (Report): Cannot create " + strFilePath)
         for strLine in HTTP_HEADER:
             strLine = strLine.replace("__CHARSET__",    self.strCharSet)
             strLine = strLine.replace("__DATEREPORT__", "Report Date: " + utils.getFormattedTimeUTC( time() ))
@@ -261,12 +268,12 @@ class HtmlReport(Report):
             strCatalogTable = ("<tr><td class=\"title\">Catalog:</td>\n"
                                "<td colspan=\"" + str(IMGCOLS - 1) + "\" style=\"border-top: 6px solid; border-color: transparent;\">\n")
             strEntryNotFound = "** %s entry not found **" % ("Catalog" if self.dictHead["FileType"] == config.THUMBS_TYPE_OLE else "Cache ID")
-            for i in range(len(self.listIDs)):
+            for iIndex in range(len(self.listIDs)):
                 strCatalogTable += ("<p class=\"tt\">" +
-                                    self.listIDs[i].replace(" ", "&nbsp;") + ":&nbsp;")
-                if (self.listEntryNames[i] != ""):
-                    strCatalogTable += (self.listTimestamps[i].replace(" ", "&nbsp;") + " &nbsp;" +
-                                        self.listEntryNames[i].replace(" ", "&nbsp;"))
+                                    html.escape(self.listIDs[iIndex]).replace(" ", "&nbsp;") + ":&nbsp;")
+                if (self.listEntryNames[iIndex] != ""):
+                    strCatalogTable += (html.escape(self.listTimestamps[iIndex]).replace(" ", "&nbsp;") + " &nbsp;" +
+                                        html.escape(self.listEntryNames[iIndex]).replace(" ", "&nbsp;"))
                 else:
                     strCatalogTable += strEntryNotFound
                 strCatalogTable += "</p>\n"
@@ -278,20 +285,24 @@ class HtmlReport(Report):
             # Row Number...
             strLine = strLine.replace("__ROWNUMBER__", str(self.iRow) + ":")
             # Fill cells in row...
-            for i in range(len(self.listIDs)):
+            for iIndex in range( len(self.listIDs) ):
                 # Cell Image Info...
-                strImage = IMGTAG.replace("__TNIMAGE__", self.listFileNames[i]).replace(
-                                          "__TNALT__", (self.listEntryNames[i] if (self.listEntryNames[i] != "") else self.listIDs[i]))
-                strLine = strLine.replace("__IMGTAG__"  + str(i), strImage)
+                strImage = (
+                    IMGTAG.replace( "__TNIMAGE__", html.escape(self.listFileNames[iIndex]) )
+                          .replace( "__TNALT__", (
+                              html.escape(self.listEntryNames[iIndex]) if (self.listEntryNames[iIndex] != "") else html.escape(self.listIDs[iIndex])
+                            ) )
+                )
+                strLine = strLine.replace( "__IMGTAG__"  + str(iIndex), strImage )
                 # ...related to Catalog Entries...
-                strLine = strLine.replace("__TNID__"    + str(i), self.listIDs[i])
+                strLine = strLine.replace( "__TNID__"    + str(iIndex), html.escape( self.listIDs[iIndex] ) )
                 # ...related to File Entries...
-                strLine = strLine.replace("__TNFNAME__" + str(i), basename(self.listFileNames[i]))
+                strLine = strLine.replace( "__TNFNAME__" + str(iIndex), html.escape( basename(self.listFileNames[iIndex]) ) )
             # Any empty cells in row...
-            for i in range(len(self.listIDs), IMGCOLS):
-                strLine = strLine.replace("__IMGTAG__"  + str(i), "")
-                strLine = strLine.replace( "__TNID__"   + str(i), "")
-                strLine = strLine.replace("__TNFNAME__" + str(i), "")
+            for iIndex in range(len(self.listIDs), IMGCOLS):
+                strLine = strLine.replace("__IMGTAG__"  + str(iIndex), "")
+                strLine = strLine.replace( "__TNID__"   + str(iIndex), "")
+                strLine = strLine.replace("__TNFNAME__" + str(iIndex), "")
 
             # Add Catalog Table...
             strLine = strLine.replace("__CATALOGTABLE__", strCatalogTable)
@@ -333,9 +344,13 @@ class HtmlReport(Report):
             listCat = tdbCatalog[key]
             for (strTimeStamp, strEntryName) in listCat:
                 strKey = ("% 4d" % key) if isinstance(key, int) else key
-                listOrphans.append(strKey.replace(" ", "&nbsp;") + ": " +
-                                   strTimeStamp.replace(" ", "&nbsp;") + " &nbsp;" +
-                                   strEntryName.replace(" ", "&nbsp;") + "\n")
+                listOrphans.append(
+                    html.escape(
+                        strKey.replace(" ", "&nbsp;") + ": " +
+                        strTimeStamp.replace(" ", "&nbsp;") + " &nbsp;" +
+                        strEntryName.replace(" ", "&nbsp;") + "\n"
+                    )
+                )
         if (len(listOrphans) == 0):
             return
 

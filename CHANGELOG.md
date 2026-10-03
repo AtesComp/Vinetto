@@ -2,12 +2,25 @@
 
 All notable changes to this project are documented in this file.
 
-## [0.9.16] - 2026-09-30 (RELEASED)
+## [0.9.16] - 2026-10-02 (RELEASED)
 
 ### Changed
 
 - Update Thumbnail OLE image processing
   - Guard against bad or crafted Directory Entries and Catalog Names
+- Update SymLink processing
+  - Disallow removing existing
+- Add utils methods
+  - getTargetPath() path manager
+  - getOutputPath() path manager
+  - Consolidate use of config.ARGS.outdir
+- Use standardized os.path tools throughout
+- Modify Report and HtmlReport classes
+  - Remove passed output directory
+- Add html.escape() to HtmlReport methods
+- Update ThumbOLE Type 1 JPEG extraction
+  - Guard against image channel corruption
+- Fix HTML output links to given output directory
 
 ## [0.9.15] - 2026-02-26 (RELEASED)
 

@@ -32,6 +32,7 @@ file_minor = "2"
 file_micro = "0"
 
 # Built-in...
+import os
 import sys
 from io import BytesIO
 from struct import unpack
@@ -245,8 +246,8 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
     iStreamCounter = 1
     while (iCurrentSector != config.OLE_LAST_BLOCK):
         iOffset = 512 + iCurrentSector * 512
-        for i in range(iOffset, iOffset + 512, 128):  # 4 Entries per Block: 128 * 4 = 512
-            fileThumbsDB.seek(i)
+        for iSeekOffset in range(iOffset, iOffset + 512, 128):  # 4 Entries per Block: 128 * 4 = 512
+            fileThumbsDB.seek(iSeekOffset)
             dictOLECache = {}
             dictOLECache["nameDir"]         = fileThumbsDB.read(64)
             dictOLECache["nameDirSize"]     = unpack(tDB_endian+"H", fileThumbsDB.read(2))[0]
@@ -389,6 +390,9 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                     if (iStreamDataLen >= 16) :
                         iCatThumbHeight = unpack(tDB_endian+"L", bstrStreamData[12:16])[0]
 
+                    if ( not bGood ) :
+                        raise verror.EntryError(" Error (Catalog): Malformed Header in stream entry " + str(iStreamCounter))
+
                     # Process catalog entries...
                     #  Each catalog entry has a Length (4), Index ID (4), Timestamp (8), original file name (0+), and
                     #  4 null bytes
@@ -439,28 +443,29 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                         if (iCatEntryLen > 20) :
                             bstrCatEntryName = bstrStreamData[iCatOffset + 16: iCatEntryEnd - 4]
 
+                        strRawCatEntryName = ""
                         strCatEntryName = "__Empty_Filename__"
                         if ( len(bstrCatEntryName) ) :
-                            strCatEntryName      = utils.cleanFileName( utils.decodeBytes(bstrCatEntryName) )
+                            strRawCatEntryName = utils.decodeBytes(bstrCatEntryName)
+                            strCatEntryName      = utils.cleanFileName(strRawCatEntryName)
                         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                            strTarget = config.THUMBS_SUBDIR + "/" + strCatEntryID + ".jpg"
-                            utils.setSymlink(strTarget, config.ARGS.outdir + strCatEntryName)
-
-                            fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_SYMS, "a+")
-                            fileURL.write(strTarget + " => " + strCatEntryName + "\n")
-                            fileURL.close()
+                            strTarget = utils.getTargetPath(config.THUMBS_SUBDIR, strCatEntryID + os.extsep + "jpg")
+                            strLink = utils.getOutputPath(strCatEntryName)
+                            utils.setSymlink(strTarget, strLink)
+                            utils.appendSymLog(strTarget, strRawCatEntryName)
 
                         if (config.ARGS.verbose >= 0):
-                            print("          " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strCatEntryName)
+                            print("          " + ("% 4s" % strCatEntryID) + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strRawCatEntryName)
 
                         # Add a "catalog" entry...
-                        tdbCatalog[iCatEntryID] = (strCatEntryTimeStamp, strCatEntryName)
+                        tdbCatalog[iCatEntryID] = (strCatEntryTimeStamp, strRawCatEntryName)
 
                         # Next catalog entry...
                         iCatOffset = iCatOffset + iCatEntryLen
 
                     if ( not bGood ) :
                         sys.stderr.write("        Cannot continue at Offset %d of %d (%d bytes remain)\n" % (iCatOffset, iStreamDataLen, iStreamDataLen - iCatOffset))
+                        raise verror.EntryError(" Error (Catalog): Malformed Entryin stream entry " + str(iStreamCounter))
                         break
 
                 # Image Stream processing...
@@ -491,12 +496,10 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
 
                         if (strFileName != None):
                             if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-                                strTarget = config.ARGS.outdir + config.THUMBS_SUBDIR + "/" + strRawName + "." + strExt
-                                utils.setSymlink(strTarget, config.ARGS.outdir + strFileName)
-
-                                fileURL = open(config.ARGS.outdir + config.THUMBS_FILE_SYMS, "a+")
-                                fileURL.write(strTarget + " => " + strFileName + "\n")
-                                fileURL.close()
+                                strTarget = utils.getOutputPath( os.path.join(config.THUMBS_SUBDIR, strRawName + os.extsep + strExt) )
+                                strLink = utils.getOutputPath(strFileName)
+                                utils.setSymlink(strTarget, strLink)
+                                utils.appendSymLog(strTarget, strFileName)
 
                             # Add a "catalog" entry...
                             tdbCatalog[strRawName] = (strCatEntryTimeStamp, strFileName)
@@ -504,11 +507,12 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             if (config.ARGS.verbose >= 0):
                                 print("  CATALOG " + strRawName + ":  " + ("%19s" % strCatEntryTimeStamp) + "  " + strFileName)
 
-                    # --- Header 2: Type 2 Thumbnail Image? (Full JPEG)...
+                    # --- Header 2: Type 2 Thumbnail Image (Full JPEG)...
                     if (bstrStreamData[headOffset: headOffset + 4] == bytearray(config.JPEG_SOI + config.JPEG_APP0)):
                         if (config.ARGS.outdir != None):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
-                            fileImg = open(config.ARGS.outdir + strFileName, "wb")
+                            strFilePath = utils.getOutputPath(strFileName)
+                            fileImg = open(strFilePath, "wb")
                             fileImg.write(bstrStreamData[headOffset:])
                             fileImg.close()
 
@@ -520,7 +524,7 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                         else:  # Not extracting...
                             tdbStreams[keyStreamName] = config.LIST_PLACEHOLDER
 
-                    # --- Header 2: Type 1 Thumbnail Image? (JPEG Frame)...
+                    # --- Header 2: Type 1 Thumbnail Image (JPEG Frame)...
                     elif (unpack(tDB_endian+"L", bstrStreamData[headOffset: headOffset + 4])[0] == 1):
                         # Is second header OK?
                         if (unpack(tDB_endian+"H", bstrStreamData[headOffset + 4: headOffset + 6])[0] != (iStreamDataLen - headOffset - 16)):
@@ -529,7 +533,9 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                         if (config.ARGS.outdir != None and config.THUMBS_TYPE_OLE_PIL):
                             strFileName = tdbStreams.getFileName(keyStreamName, strExt)
                             # DEBUG
-                            #imageRaw = open(config.ARGS.outdir + strFileName + ".bin", "wb")
+                            #strBinFileName = strFileName + os.extsep + "bin"
+                            #strFilePath = utils.getOutputPath(strBinFileName)
+                            #imageRaw = open(strFilePath, "wb")
                             #imageRaw.write(bstrStreamData)
                             #imageRaw.close()
 
@@ -608,12 +614,12 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             iFrameCompHF = [0 for i in range(iFrameCCnt)]
                             iFrameCompVF = [0 for i in range(iFrameCCnt)]
                             iFrameCompQT = [0 for i in range(iFrameCCnt)]
-                            for i in range(iFrameCCnt):
-                                iIndex = 40 + i * 3
-                                iFrameCompID[i] = bstrStreamData[iIndex]
-                                iFrameCompHF[i] = int((bstrStreamData[iIndex + 1] >> 4) & 0x0F)
-                                iFrameCompVF[i] = int((bstrStreamData[iIndex + 1]) & 0x0F)
-                                iFrameCompQT[i] = int(bstrStreamData[iIndex + 2])
+                            for iFCCIndex in range(iFrameCCnt):
+                                iIndex = 40 + iFCCIndex * 3
+                                iFrameCompID[iFCCIndex] = bstrStreamData[iIndex]
+                                iFrameCompHF[iFCCIndex] = int((bstrStreamData[iIndex + 1] >> 4) & 0x0F)
+                                iFrameCompVF[iFCCIndex] = int((bstrStreamData[iIndex + 1]) & 0x0F)
+                                iFrameCompQT[iFCCIndex] = int(bstrStreamData[iIndex + 2])
 
                             iScanIndex = iFrameIndex + 2 + iFrameSize # Start Of Scan
 
@@ -634,7 +640,31 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             # NOTE: The image data is stored as YMCA (Yellow, Magenta, Cyan, Alpha) but PIL retrieves
                             #   the JPEG as RGBA (Red, Green, Blue, Alpha) based on the Component IDs. The channels are
                             #   named here as per the stored data, YMCA.
-                            channelY, channelM, channelC, channelA = imageIn.split()
+
+                            iBands = len( imageIn.getbands() )
+                            if iBands < 1 or iBands > 4:
+                                raise verror.EntryError(
+                                    " Error (Entry): Invalid Type 1 Image band count ({iBands}) in stream entry " +
+                                    str(iStreamCounter)
+                                )
+                            channelsYMCA = imageIn.split()
+                            iChannels = len(channelsYMCA)
+                            if ( iBands != iChannels ) :
+                                raise verror.EntryError(
+                                    " Error (Entry): Invalid Type 1 Image channel mismatch (bands {iBands} != channels{iChannels}) in stream entry " +
+                                    str(iStreamCounter)
+                                )
+                            astrChannelNames = []
+                            channelY = None
+                            channelM = None
+                            channelC = None
+                            channelA = None
+                            channelK = None
+                            if   iChannels == 4: channelY, channelM, channelC, channelA = channelsYMCA
+                            elif iChannels == 3: channelY, channelM, channelC = channelsYMCA
+                            elif iChannels == 2: channelY, channelM = channelsYMCA
+                            elif iChannels == 1: channelY = channelsYMCA
+
                             # NOTE: The CMY channels are proper but the output image requires a K (Key) channel
                             #   calculated from the A (Alpha) channel size.
                             #       Image.new(mode, size, color)
@@ -642,18 +672,96 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                             #           size  = channelA.size
                             #           color = 0 (black)
                             #       See https://pillow.readthedocs.io/en/stable/handbook/concepts.html
-                            channelK = Image.new('L', channelA.size, 0)
+                            astrChannelNames.append( "Channel 0: " + ("Y (Created)" if channelY == None else imageIn.getbands()[0]) )
+                            if (channelY == None) : channelY = Image.new('L', imageIn.size, 0)
+                            astrChannelNames.append( "Channel 1: " + ("M (Created)" if channelM == None else imageIn.getbands()[1]) )
+                            if (channelM == None) : channelM = Image.new('L', imageIn.size, 0)
+                            astrChannelNames.append( "Channel 2: " + ("C (Created)" if channelC == None else imageIn.getbands()[2]) )
+                            if (channelC == None) : channelC = Image.new('L', imageIn.size, 0)
+                            astrChannelNames.append( "Channel 3: " + ("A (Created K)" if channelA == None else imageIn.getbands()[3]) )
+                            if (channelA == None) :  channelA = Image.new('L', imageIn.size, 0) # ...transparent
 
-                            #
-                            # Process the output image as a proper CMYK JPEG...
-                            #
-                            imageOut = Image.merge("CMYK", (channelC, channelM, channelY, channelK))
-                            imageOut = imageOut.transpose(Image.FLIP_TOP_BOTTOM)
-                            imageOut.save(config.ARGS.outdir + strFileName, "JPEG", quality=100)
+                            # Check all channels for type...
+                            if not isinstance(channelY, Image.Image) :
+                                astrChannelNames[0] += f" ... Invalid type {type(channelY)}, recreated"
+                                channelY = Image.new('L', imageIn.size, 0)
+                            if not isinstance(channelM, Image.Image) :
+                                astrChannelNames[1] += f" ... Invalid type {type(channelM)}, recreated"
+                                channelM = Image.new('L', imageIn.size, 0)
+                            if not isinstance(channelC, Image.Image) :
+                                astrChannelNames[2] += f" ... Invalid type {type(channelC)}, recreated"
+                                channelC = Image.new('L', imageIn.size, 0)
+                            if not isinstance(channelA, Image.Image) :
+                                astrChannelNames[3] += f" ... Invalid type {type(channelA)}, recreated"
+                                channelA = Image.new('L', imageIn.size, 0)
+
+                            # Check all channels for mode...
+                            if not hasattr(channelY, 'mode') :
+                                astrChannelNames[0] += f" ... Missing mode {type(channelY)}, recreated"
+                                channelY = Image.new('L', imageIn.size, 0)
+                            if not hasattr(channelM, 'mode') :
+                                astrChannelNames[1] += f" ... Missing mode {type(channelM)}, recreated"
+                                channelM = Image.new('L', imageIn.size, 0)
+                            if not hasattr(channelC, 'mode') :
+                                astrChannelNames[2] += f" ... Missing mode {type(channelC)}, recreated"
+                                channelC = Image.new('L', imageIn.size, 0)
+                            if not hasattr(channelA, 'mode') :
+                                astrChannelNames[3] += f" ... Missing mode {type(channelA)}, recreated"
+                                channelA = Image.new('L', imageIn.size, 0)
+
+                            # Check all channels for single color...
+                            if channelY.mode != 'L' :
+                                astrChannelNames[0] += f" ... Expected mode 'L', got '{channelY.mode}', flattened"
+                                channelY = channelY.convert("L")
+                            if channelM.mode != 'L' :
+                                astrChannelNames[1] += f" ... Expected mode 'L', got '{channelM.mode}', flattened"
+                                channelM = channelM.convert("L")
+                            if channelC.mode != 'L' :
+                                astrChannelNames[2] += f" ... Expected mode 'L', got '{channelC.mode}', flattened"
+                                channelC = channelC.convert("L")
+                            if channelA.mode != 'L' :
+                                astrChannelNames[3] += f" ... Expected mode 'L', got '{channelA.mode}', flattened"
+                                channelA = channelA.convert("L")
+
+                            channelK = Image.new('L', channelA.size, 0) # ...transparent
+
+                            # Check if dimensions match target image size...
+                            if imageIn.size :
+                                if channelY.size != imageIn.size :
+                                    astrChannelNames[0] += f" ... Size mismatch: got {channelY.size}, expected {imageIn.size}"
+                                    channelY = channelY.resize(imageIn.size)
+                                if channelM.size != imageIn.size :
+                                    astrChannelNames[1] += f" ... Size mismatch: got {channelM.size}, expected {imageIn.size}"
+                                    channelM = channelM.resize(imageIn.size)
+                                if channelC.size != imageIn.size :
+                                    astrChannelNames[2] += f" ... Size mismatch: got {channelC.size}, expected {imageIn.size}"
+                                    channelC = channelC.resize(imageIn.size)
+                                if channelA.size != imageIn.size :
+                                    astrChannelNames[3] += f" ... Size mismatch: got {channelA.size}, expected {imageIn.size}"
+                                    channelA = channelA.resize(imageIn.size)
+                                if channelK.size != imageIn.size :
+                                    channelK = Image.new('L', imageIn.size, 0)
+
+                                #
+                                # Process the output image as a proper CMYK JPEG...
+                                #
+                                imageOut = Image.merge( "CMYK", (channelC, channelM, channelY, channelK) )
+                                imageOut = imageOut.transpose(Image.FLIP_TOP_BOTTOM)
+                                strFilePath = utils.getOutputPath(strFileName)
+                                imageOut.save(strFilePath, "JPEG", quality=100)
+
+                            else :
+                                print("     * MALFORMED JPEG: Image size == 0" )
+                                if (config.ARGS.verbose < 2):
+                                    print("     *   Use -vvv for verbose information")
 
                             #
                             # Report image info for the extracted thumbnail image...
                             #
+                            if (iChannels != iFrameCCnt):
+                                print("     * MALFORMED JPEG: Channels (%d) != Components (%d)" % (iChannels, iFrameCCnt))
+                                if (config.ARGS.verbose < 2):
+                                    print("     *   Use -vvv for verbose information")
                             if (config.ARGS.verbose > 0):
                                 print("     File Info: ---------------------------------------")
                                 print("          Type: 1 (JPEG Fragment)")
@@ -671,12 +779,15 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
                                         print("              :  Line Count: %d" % iFrameLCnt)
                                         print("              : Sample/Line: %d" % iFrameSPL)
                                         print("              :  Components: %d" % iFrameCCnt)
-                                        for i in range(iFrameCCnt):
-                                            print("              : Entry -----: %d" % (i + 1))
-                                            print("              :          ID: %c" % iFrameCompID[i])
-                                            print("              :    H Factor: %d" % iFrameCompHF[i])
-                                            print("              :    V Factor: %d" % iFrameCompVF[i])
-                                            print("              : Quant Table: %d" % iFrameCompQT[i])
+                                        for iFCCIndex in range(iFrameCCnt):
+                                            print("              : Entry -----: %d" % (iFCCIndex + 1))
+                                            print("              :          ID: %c" % iFrameCompID[iFCCIndex])
+                                            print("              :    H Factor: %d" % iFrameCompHF[iFCCIndex])
+                                            print("              :    V Factor: %d" % iFrameCompVF[iFCCIndex])
+                                            print("              : Quant Table: %d" % iFrameCompQT[iFCCIndex])
+                                        print("              :  Channels: %d" % iChannels)
+                                        for strChannelName in astrChannelNames:
+                                            print("              :   " + strChannelName)
                                     print(" Start of Scan: Byte# %d (...Image Data...)" % iScanIndex)
 
                         else:  # Cannot extract (PIL not found) or not extracting...
@@ -742,9 +853,9 @@ def process(infile, fileThumbsDB, iThumbsDBSize) :
             print("   No Stats!")
 
     if (config.ARGS.htmlrep):  # ...implies config.ARGS.outdir
-        strSubDir = "."
+        strSubDir = os.path.join( os.path.relpath( os.getcwd() ), config.ARGS.outdir )
         if (config.ARGS.symlinks):  # ...implies config.ARGS.outdir
-          strSubDir = config.THUMBS_SUBDIR
+          strSubDir = os.path.join( strSubDir, config.THUMBS_SUBDIR )
         config.HTTP_REPORT.flush(astrStats, strSubDir, tdbStreams, tdbCatalog)
 
     # If output is allowed...

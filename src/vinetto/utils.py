@@ -33,7 +33,6 @@ file_micro = "2"
 
 # Built-in...
 import os
-import errno
 from time import strftime, gmtime
 
 # Local...
@@ -91,22 +90,93 @@ def prepareSymLink():
     if (not config.ARGS.symlinks):
         return
 
-    strSymOut = config.ARGS.outdir + config.THUMBS_SUBDIR
+    strSymOut = getOutputPath(config.THUMBS_SUBDIR)
     if not os.path.exists(strSymOut):
+        strError = " Error (Symlink): Cannot create directory '" + strSymOut + "' : "
         try:
             os.mkdir(strSymOut)
-        except EnvironmentError:
-            raise verror.LinkError(" Error (Symlink): Cannot create directory " + strSymOut)
+        except FileExistsError :
+            raise verror.LinkError(strError + "Directory exists, but reported missing.")
+        except FileNotFoundError:
+            raise verror.LinkError(strError + "Parent directory not found.")
+        except PermissionError:
+            raise verror.LinkError(strError + "Insufficient permission.")
+        except OSError as e:
+            raise verror.LinkError(strError + "OS Error : {e}")
     return
 
 
 def setSymlink(strTarget, strLink):
+    strError = " Error (Symlink): Cannot create symlink '" + strLink + "' to file '" + strTarget + "' : "
     try:
         os.symlink(strTarget, strLink)
+    except FileExistsError:
+        raise verror.LinkError(strError + "Link already exists.")
+    except PermissionError:
+        raise verror.LinkError(strError + "Insufficient permission.")
+    except FileNotFoundError:
+        raise verror.LinkError(strError + "Link's directory structure not found.")
     except OSError as e:
-        if e.errno == errno.EEXIST:
-            os.remove(strLink)
-            os.symlink(strTarget, strLink)
-        else:
-            raise verror.LinkError(" Error (Symlink): Cannot create symlink " + strLink + " to file " + strTarget)
+        raise verror.LinkError(strError + "OS Error : {e}")
     return
+
+
+def getTargetPath(strTargerDir, strFile):
+    strOutDir = ""
+    strPath = ""
+    try :
+        strOutDir = os.path.realpath(strTargerDir)
+    except Exception as e:
+        raise verror.InputError(" Error: Cannot get real path for '" + strTargerDir + "' : {e}")
+
+    try :
+        # Join the output path with the given file name string...
+        strPath = os.path.join(strOutDir, strFile)
+    except Exception as e:
+        raise verror.InputError(" Error: Cannot join target path with file name '" + strFile + "' : {e}")
+
+    try :
+        strPath = os.path.realpath(strPath)
+    except Exception as e:
+        raise verror.InputError(" Error: Cannot get real path for '" + strPath + "' : {e}")
+
+    bGood = strPath.startswith(strOutDir)
+    if not bGood:
+        raise verror.InputError(" Error: Target path '" + strPath + "' is not within the target directory '" + strTargerDir + "'")
+
+    return strPath
+
+
+def getOutputPath(strFile):
+    strOutDir = ""
+    strPath = ""
+    try :
+        strOutDir = os.path.realpath(config.ARGS.outdir)
+    except Exception as e:
+        raise verror.OutputError(" Error: Cannot get real path for '" + config.ARGS.outdir + "' : {e}")
+
+    try :
+        # Join the output path with the given file name string...
+        strPath = os.path.join(strOutDir, strFile)
+    except Exception as e:
+        raise verror.OutputError(" Error: Cannot join output path with file name '" + strFile + "' : {e}")
+
+    try :
+        strPath = os.path.realpath(strPath)
+    except Exception as e:
+        raise verror.OutputError(" Error: Cannot get real path for '" + strPath + "' : {e}")
+
+    bGood = strPath.startswith(strOutDir)
+    if not bGood:
+        raise verror.OutputError(" Error: Output path '" + strPath + "' is not within the output directory '" + config.ARGS.outdir + "'")
+
+    return strPath
+
+def appendSymLog(strTarget, strFileName):
+    strFilePath = getOutputPath(config.THUMBS_FILE_SYMS)
+    try:
+        with open(strFilePath, "a+") as fileURL:
+            fileURL.write(strTarget + " => " + strFileName + "\n")
+            fileURL.close()
+    except Exception as e:
+        raise verror.OutputError(" Error: Cannot append to symlink log file '" + strFilePath + "' : {e}")

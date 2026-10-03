@@ -196,9 +196,6 @@ def testInput():
         else:  # Directory, Recursive Directory, or Automatic Mode...
             if not os.path.isdir(config.ARGS.infile):  # ...NOT a directory?
                 raise verror.InputError(strError + config.ARGS.infile + " not a directory")
-            # Add ending '/' as needed...
-            if not config.ARGS.infile.endswith('/'):
-                config.ARGS.infile += "/"
 
         if not os.access(config.ARGS.infile, os.R_OK):  # ...NOT readable?
             raise verror.InputError(strError + config.ARGS.infile + " not readable")
@@ -210,25 +207,27 @@ def testOutput():
 
     # Test Output Directory parameter...
     if (config.ARGS.outdir != None):
-        if not os.path.exists(config.ARGS.outdir):  # ...NOT exists?
+        strOutPath = os.path.realpath(config.ARGS.outdir)
+        if not os.path.exists(strOutPath):  # ...NOT exists?
             try:
-                os.mkdir(config.ARGS.outdir)  # ...make it
+                os.mkdir(strOutPath)  # ...make it
                 if (config.ARGS.verbose > 0):
                     sys.stderr.write(" Info: %s was created\n" % (config.ARGS.outdir))
             except EnvironmentError as e:
                 raise verror.OutputError(strError + "Cannot create " + config.ARGS.outdir)
         else:  # ...exists...
-            if not os.path.isdir(config.ARGS.outdir):  # ...NOT a directory?
+            if not os.path.isdir(strOutPath):  # ...NOT a directory?
                 raise verror.OutputError(strError + config.ARGS.outdir + " is not a directory")
-            elif not os.access(config.ARGS.outdir, os.W_OK):  # ...NOT writable?
-                raise verror.OutputError(strError + config.ARGS.outdir + " not writable")
-        # Add ending '/' as needed...
-        if not config.ARGS.outdir.endswith('/'):
-            config.ARGS.outdir += "/"
+            elif not os.access(strOutPath, os.W_OK):  # ...NOT writable?
+                raise verror.OutputError(strError + config.ARGS.outdir + " is not writable")
 
-        # Remove existing URL file...
-        if os.path.exists(config.ARGS.outdir + config.THUMBS_FILE_SYMS):
-            os.remove(config.ARGS.outdir + config.THUMBS_FILE_SYMS)
+        # Remove existing Sym Links Log file...
+        strSymFile = utils.getOutputPath(config.THUMBS_FILE_SYMS)
+        if os.path.exists(strSymFile):
+            try:
+                os.remove(strSymFile)
+            except EnvironmentError as e:
+                raise verror.OutputError(strError + "Cannot remove " + strSymFile)
     return
 
 
