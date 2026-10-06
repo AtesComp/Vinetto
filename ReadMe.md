@@ -9,6 +9,10 @@ Windows. Testing has currently been limited to Linux.
 
 NOTE: Python 2 compatible code has been removed since version 0.9.9.
 
+## Download Latest Release
+
+Get the latest release: [v0.9.17](https://github.com/AtesComp/Vinetto/releases/download/v0.9.17/vinetto-0.9.17-py3-none-any.whl)
+
 ## Project Overview
 
 1. **Context** : Older Windows systems (98, ME, 2000, XP, and Server 2003) can
