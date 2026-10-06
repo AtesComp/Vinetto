@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vinetto"
+dynamic = [ "version", "authors", "maintainers", "urls" ]
+description = "Vinetto: The Thumbnail File Parser"
+readme = "ReadMe.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pillow>=12.1.1",
+#    "libesedb-python>=20240420", # Optional, local lib provided in src/vinetto/lib/
+]
+
+[project.scripts]
+vinetto = "vinetto.vinetto:main"
+
+[tool.hatch.version]
+source = "code"
+path = "src/vinetto/version.py"
+expression = "version"
+
+[tool.hatch.build]
+artifacts = [
+    "src/vinetto/data/*",
+    "src/vinetto/lib/*",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vinetto"]
+
+[tool.hatch.metadata.hooks.custom]

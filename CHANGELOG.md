@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.9.17] - 2026-10-06 (RELEASED)
+
+### Changed
+
+- Update vinetto build from setuptools to hatch
+  - Add pyproject.toml
+  - Add hatch_build.py
+  - Remove related setuptools files
+- Update version code and its use
+- Update ReadMe.md
+
 ## [0.9.16] - 2026-10-02 (RELEASED)
 
 ### Changed

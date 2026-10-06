@@ -370,7 +370,7 @@ class HtmlReport(Report):
         for strLine in HTTP_FOOTER:
             strLine = strLine.replace("__COUNTSTATS__", strCounts)
             strLine = strLine.replace("__TYPESTATS__", strStats)
-            strLine = strLine.replace("__VERSION__", "Vinetto " + version.STR_VERSION)
+            strLine = strLine.replace("__VERSION__", "Vinetto " + version.version)
 
             self.repfile.write(strLine)
 

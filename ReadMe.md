@@ -4,7 +4,7 @@ Vinetto is a thumbnail file parser that can process a variety of thumbnail file
 types (Thumbs.db, Thumbcache_\*.db). This work is based on the original Vinetto
 by Michel Roukine.
 
-This version is compatible with Python 3. It should work on Linux, Mac, and
+This version is compatible with Python 3.10+. It should work on Linux, Mac, and
 Windows. Testing has currently been limited to Linux.
 
 NOTE: Python 2 compatible code has been removed since version 0.9.9.
@@ -90,15 +90,15 @@ The Vinetto version is maintained in the `src/vinetto/version.py` file.
 
 1. Python 3.12 or later including standard libraries.
 
-2. Pillow 12.1.1 or later. Pillow is a friendly PIL (Python Imaging Library). It is used to
+2. Pillow 12.1.1 or later. [Pillow](https://pypi.org/project/pillow/) is a friendly PIL (Python Imaging Library). It is used to
 attempt correct reconstitution of Type 1 thumbnails (see Limitations below).
-   * `apt install python3-pil` OR
-   * `pip install pillow`
+   * `pip install pillow` OR
+   * `apt install python3-pil` for Linux global native Python support
 
-3. PyESEDB. Part of the [libesedb](https://github.com/libyal/libesedb) project. The author
-supplies a late model version, but the program checks for a system installed version first.
-If not found, it uses the supplied version.
-   * To update to a new version of PyESEDB:
+3. Python binding to ESEDB Library (libesedb-python) 20240420 or later. The [libesedb-python](https://pypi.org/project/libesedb-python/)
+binding is part of the [libesedb](https://github.com/libyal/libesedb) project. The author supplies a late model version, but the
+program checks for a system installed version first. If not found, it uses the Vinetto supplied version.
+   * To update to a new version of libesedb-python:
      * Get the latest release for the libesedb project stored in your favorite dev directory
        * `gh repo clone libyal/libesedb`
      * Make the `libesedb` project directory current
@@ -112,6 +112,9 @@ If not found, it uses the supplied version.
        * `make`
      * Copy the `./pyesedb/.libs/pyesedb.so` file to the Vinetto `src/vinetto/lib` directory
      * Uninstall and Install Vinetto as per below
+
+4. Python Hatch. For development, the Hatch tooling should be installed for packaging.
+   * `pip install hatch`
 
 ## Limitations
 
@@ -156,7 +159,7 @@ your OS. YMMV.
 ## Usage Overview:
 
 ```txt
-Vinetto: Version 0.9.15
+Vinetto: Version 0.9.17
 usage: vinetto [-h] [-e EDBFILE] [-H] [-m [{f,d,r,a}]] [--md5] [--nomd5] [-o DIR] [-q] [-s] [-U] [-v] [--version] [infile]
 
 Vinetto.py - The Thumbnail File Parser
@@ -199,12 +202,51 @@ options:
                         1 (Verbose), 2 (Enhanced), 3 (Full)
   --version             show program's version number and exit
 
---- Vinetto.py 0.9.15 ---
+Operating Mode Notes:
+  Using the mode switch (-m, --mode) causes the input to be treated differently
+  based on the mode selected
+  File      (f): DEFAULT
+    Use the input as a location to an individual thumbnail file to process
+  Directory (d):
+    Use the input as a directory containing individual thumbnail files where
+    each file is automatically iterated for processing
+  Recursive (r):
+    Use the input as a BASE directory from which it and subdirectories are
+    recursively searched for individual thumbnail files for processing
+  Automatic (a):
+    Use the input as a BASE directory of a partition to examine default
+    locations for relevant thumbnail files to process
+      Thumbcache Files:
+        BASE/Users/*/AppData/Local/Microsoft/Windows/Explorer
+          where '*' are user directories iterated automatically
+      Windows.edb File:
+        BASE/ProgramData/Microsoft/Search/Data/Applications/Windows/Windows.edb
+    When the EDBFILE (-e, -edbfile switch) is given, it overrides the automated
+    location
+
+Verbose Mode Notes:
+  Using the verbose switch (-v, --verbose) and the quiet switch cause the
+  terminal output to be treated differently based on the switch usage
+    Level:   Mode:    Switch:   Output:
+     -1      Quiet     -q       Errors
+      0      Standard  N/A      output + Errors + Warnings
+      1      Verbose   -v       Standard + Extended + Info
+      2      Enhanced  -vv      Verbose + Unused
+      3      Full      -vvv     Enhanced + Missing
+    where Quiet indicates no output other than error messages
+          Standard indicates normal informative output
+          Verbose adds Extended header, cache, and additional Info messages
+          Enhanced add any data marked Unused or zero state
+          Full expands empty data section output instead of "Empty"
+      and Errors are error messages explaining termination
+          Warnings are warning messages indicating processing issues
+          Info are information messages indicating processing states
+
+--- Vinetto.py 0.9.17 ---
 Based on the original Vinetto by Michel Roukine
-Author: Keven L. Ates
+Authors: Keven L. Ates
 Vinetto.py is open source software
   See: https://github.com/AtesComp/Vinetto
-For more detailed help notes, use -v
 ```
 
 ## Exit Codes
@@ -264,3 +306,20 @@ To uninstall:
 ```bash
 pipx uninstall vinetto
 ```
+
+### Packaging
+
+Vinetto uses Hatch to build its package. See the `pyproject.toml` configuration file and
+the `hatch_build.py` hatchling build code.
+
+To build:
+
+```bash
+hatch build
+```
+
+The Vinetto build files are placed in the `dist` directory as:
+* `vinetto-<version>-py3-none-any.whl` - Vinetto installation file
+* `vinetto-<version>.tar.gz` - source code
+
+where \<version> is the current version.

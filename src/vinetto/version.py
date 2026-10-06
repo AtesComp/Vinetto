@@ -29,11 +29,16 @@ This file is part of Vinetto.
 
 major = "0"
 minor = "9"
-micro = "16"
+micro = "17"
 
-maintainer = (("Keven L. Ates", "atescomp@gmail.com"), )
-author     = ("Keven L. Ates", "atescomp@gmail.com")
-location   = "https://github.com/AtesComp/Vinetto"
-original_author = ("Michel Roukine", "rukin@users.sf.net")
+version = f"{major}.{minor}.{micro}"
 
-STR_VERSION = major + "." + minor + "." + micro
+authors     = [ { "name": "Keven L. Ates", "email": "atescomp@gmail.com" }, ]
+maintainers = [ { "name": "Keven L. Ates", "email": "atescomp@gmail.com" }, ]
+original_author = { "name": "Michel Roukine", "email": "rukin@users.sf.net" }
+
+homepage = "https://github.com/AtesComp/Vinetto"
+repository = "https://github.com/AtesComp/Vinetto.git"
+bug_tracker = "https://github.com/AtesComp/Vinetto/issues"
+documentation = "https://github.com/AtesComp/Vinetto/blob/master/ReadMe.md"
+changelog = "https://github.com/blob/main/CHANGELOG.md"

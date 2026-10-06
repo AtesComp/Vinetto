@@ -94,11 +94,11 @@ def getArgs():
         "\n"
         )
     strEpilog = (
-        "--- " + strProg + " " + version.STR_VERSION + " ---\n" +
-        "Based on the original Vinetto by " + version.original_author[0] + "\n" +
-        "Author: " + version.author[0] + "\n" +
+        "--- " + strProg + " " + version.version + " ---\n" +
+        "Based on the original Vinetto by " + version.original_author["name"] + "\n" +
+        "Authors: " + ", ".join(author["name"] for author in version.authors) + "\n" +
         strProg + " is open source software\n" +
-        "  See: " + version.location
+        "  See: " + version.homepage
         )
     strNotVerbose = "\nFor more detailed help notes, use -v"
 
@@ -307,9 +307,9 @@ def main():
 #    signal.signal(signal.SIGTERM, signal_handler)
 #    signal.signal(signal.SIGQUIT, signal_handler)
 
-    sys.stdout.write( "Vinetto: Version {}\n".format(version.STR_VERSION) )
+    sys.stdout.write( "Vinetto: Version {}\n".format(version.version) )
     if ( sys.version_info < (3, 0) ):
-        sys.stdout.write( "Vinetto (version {}) requires Python 3!\n".format(version.STR_VERSION) )
+        sys.stdout.write( "Vinetto (version {}) requires Python 3!\n".format(version.version) )
         sys.exit(1)
 
     config.ARGS = getArgs()
